@@ -179,14 +179,14 @@ print(f"Response: {response.content}")
 ### 3. Launching Local Proxy Server
 
 ```bash
-python -m llm_circuit_breaker.proxy --port 8000
+python -m llm_circuit_breaker.proxy            # binds 127.0.0.1:4001 by default
 # or, after `pip install -e .`:
-llm-proxy --port 8000
+llm-proxy --port 4001
 ```
 
 Configure your agents:
-- **Claude Code**: `export ANTHROPIC_BASE_URL="http://127.0.0.1:8000"`
-- **Hermes / Cursor**: `export OPENAI_BASE_URL="http://127.0.0.1:8000/v1"`
+- **Claude Code**: `export ANTHROPIC_BASE_URL="http://127.0.0.1:4001"`
+- **Hermes / Cursor**: `export OPENAI_BASE_URL="http://127.0.0.1:4001/v1"`
 
 ---
 

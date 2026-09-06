@@ -23,6 +23,14 @@ class TestGatewayConfig(unittest.TestCase):
         cfg = GatewayConfig(breaker_wait_duration_in_open=2.5).to_breaker_config()
         self.assertEqual(cfg.wait_duration_open_ms, 2500.0)
 
+    def test_default_port_matches_the_proxy_default(self):
+        # README, docs, GatewayConfig and the proxy CLI used to disagree (8000 / 8080 / 4001).
+        import inspect
+        from llm_circuit_breaker.proxy import start_proxy_server
+
+        self.assertEqual(GatewayConfig().port, 4001)
+        self.assertEqual(inspect.signature(start_proxy_server).parameters["port"].default, GatewayConfig().port)
+
     def test_from_dict_ignores_unknown_keys(self):
         gw = GatewayConfig.from_dict({"port": 9999, "not_a_field": 1})
         self.assertEqual(gw.port, 9999)

@@ -16,7 +16,7 @@ from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy
 class GatewayConfig:
     """Production configuration for the LLM Circuit Breaker Gateway."""
     host: str = "127.0.0.1"
-    port: int = 8080
+    port: int = 4001
     default_pool: str = "general_agent"
     default_strategy: str = "balanced"
     deadline_ms: float = 60000.0
@@ -60,7 +60,7 @@ class GatewayConfig:
         """Load configuration from LLM_BREAKER_* and GATEWAY_* environment variables."""
         return cls(
             host=os.environ.get("LLM_BREAKER_HOST", os.environ.get("HOST", "127.0.0.1")),
-            port=int(os.environ.get("LLM_BREAKER_PORT", os.environ.get("PORT", "8080"))),
+            port=int(os.environ.get("LLM_BREAKER_PORT", os.environ.get("PORT", "4001"))),
             default_pool=os.environ.get("LLM_BREAKER_DEFAULT_POOL", "general_agent"),
             default_strategy=os.environ.get("LLM_BREAKER_STRATEGY", "balanced"),
             deadline_ms=float(os.environ.get("LLM_BREAKER_DEADLINE_MS", "60000.0")),

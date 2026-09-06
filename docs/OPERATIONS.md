@@ -9,7 +9,7 @@ This guide outlines deployment topologies, configuration management, health tele
 1. **In-Process Python SDK (Zero Daemon):**
    Integrated directly into Python agent processes (`from llm_circuit_breaker import GatewayExecutor`). Zero external dependencies, minimal latency overhead (<1ms).
 2. **Local Sidecar / Gateway Server:**
-   Runs as a lightweight HTTP microservice on `127.0.0.1:8000` mediating requests for multi-process or multi-language agents.
+   Runs as a lightweight HTTP microservice on `127.0.0.1:4001` (the default for `llm-proxy`, `GatewayConfig.port` and `LLM_BREAKER_PORT`) mediating requests for multi-process or multi-language agents.
 3. **Optional SQLite Persistence:**
    For state preservation across gateway restarts, set `storage_path="circuit_breaker.db"`. The `SQLitePersistenceStore` maintains WAL-mode persistence for breaker states and tool receipts.
 
