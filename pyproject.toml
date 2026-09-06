@@ -72,6 +72,10 @@ ignore = ["E501"]
 
 [tool.mypy]
 python_version = "3.10"
+# CI intentionally type-checks the strict circuit-breaker core below.  Its
+# dependencies remain runtime-tested, but are outside this incremental typing
+# boundary; without this MyPy recursively applies --strict to the whole proxy.
+follow_imports = "skip"
 files = ["src/llm_circuit_breaker/breaker"]
 strict = true
 warn_unused_configs = true
