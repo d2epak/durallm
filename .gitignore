@@ -36,3 +36,6 @@ htmlcov/
 model_catalog.json
 *.log
 .env
+
+# macOS
+.DS_Store
