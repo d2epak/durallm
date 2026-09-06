@@ -28,12 +28,12 @@ This document details the design, implementation, and results of the **B1 throug
 
 | Baseline / System | Completion Rate | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **1.34 ms** | **1003.65 ms** | **0.0%** |
-| **Baseline-A-Direct** | 53.3% | 0.0% | 0.00 ms | 0.01 ms | 0.0% |
-| **Baseline-B-Same-Provider-Retry** | 93.3% | 40.0% | 0.00 ms | 0.01 ms | 0.0% |
-| **Baseline-C-Static-Fallback** | 93.3% | 46.7% | 0.00 ms | 0.01 ms | 6.7% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **1.69 ms** | **310.62 ms** | **0.0%** |
+| **Baseline-A-Direct** | 40.0% | 0.0% | 0.01 ms | 0.05 ms | 13.3% |
+| **Baseline-B-Same-Provider-Retry** | 80.0% | 40.0% | 0.01 ms | 0.02 ms | 13.3% |
+| **Baseline-C-Static-Fallback** | 86.7% | 46.7% | 0.01 ms | 0.02 ms | 13.3% |
 
-*Takeaway:* Retry and static fallback catch the common HTTP 5xx cases, but **only V3 completes all 15 scenarios**; the static-fallback baseline forwards one malformed tool call (6.7% semantic error rate). All rows run in one process against the same mock providers, so latencies measure harness overhead; the V3 P95 is the `Retry-After` wait honoured in B2.
+*Takeaway:* Retry and static fallback catch the common HTTP 5xx cases, but **only V3 completes all 15 scenarios**. Every system is scored by one rule (a response counts only if every delivered tool call passes the real schema validator, attempts are counted from the mock providers' call log), so each baseline forwards the two invalid tool calls of B6 and B7 (13.3% semantic error rate). All rows run in one process against the same mock providers, so latencies measure harness overhead; the V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2.
 
 ---
 

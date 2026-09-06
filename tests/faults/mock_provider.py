@@ -111,11 +111,15 @@ class MockFaultAction:
 class ProgrammableMockAdapter:
     """Mock Provider Adapter whose behavior is programmed via a sequence of MockFaultActions."""
 
-    def __init__(self, provider_id: str):
+    def __init__(self, provider_id: str, call_log: Optional[List[str]] = None):
         self.provider_id = provider_id
         self.actions: List[MockFaultAction] = []
         self.current_index: int = 0
         self.call_history: List[PreparedRequest] = []
+        # The IR request behind each prepared request, so tests can inspect what the provider saw.
+        self.request_history: List[NormalizedRequest] = []
+        # Optional log shared between adapters: provider_id appended per call, in global order.
+        self.call_log: Optional[List[str]] = call_log
         self._default_action = MockFaultAction.success()
 
     def set_sequence(self, actions: List[MockFaultAction]) -> None:
@@ -132,6 +136,7 @@ class ProgrammableMockAdapter:
         headers = {"Content-Type": "application/json"}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
+        self.request_history.append(request)
         return PreparedRequest(
             url=f"mock://{endpoint.provider}/{endpoint.model}",
             headers=headers,
@@ -144,6 +149,8 @@ class ProgrammableMockAdapter:
         timeout_seconds: float,
     ) -> ProviderExecutionResult:
         self.call_history.append(prepared)
+        if self.call_log is not None:
+            self.call_log.append(self.provider_id)
 
         if self.current_index < len(self.actions):
             action = self.actions[self.current_index]

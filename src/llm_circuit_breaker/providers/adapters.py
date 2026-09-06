@@ -292,6 +292,10 @@ class ProviderAdapterRegistry:
             "gemini": GeminiAdapter("gemini"),
         }
 
+    def register(self, provider: str, adapter: ProviderAdapter) -> None:
+        """Install (or replace) the adapter used for `provider`."""
+        self._adapters[provider.lower()] = adapter
+
     def get_adapter(self, provider: str, protocol: Optional[str] = None) -> ProviderAdapter:
         """Adapter for a known provider, else for the endpoint's declared wire protocol.
 

@@ -94,12 +94,12 @@ Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits,
 
 | Baseline / System | Request Completion | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **1.34 ms** | **1003.65 ms** | **0.0%** |
-| **Baseline-A-Direct** | 53.3% | 0.0% | 0.00 ms | 0.01 ms | 0.0% |
-| **Baseline-B-Same-Provider-Retry** | 93.3% | 40.0% | 0.00 ms | 0.01 ms | 0.0% |
-| **Baseline-C-Static-Fallback** | 93.3% | 46.7% | 0.00 ms | 0.01 ms | 6.7% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **1.69 ms** | **310.62 ms** | **0.0%** |
+| **Baseline-A-Direct** | 40.0% | 0.0% | 0.01 ms | 0.05 ms | 13.3% |
+| **Baseline-B-Same-Provider-Retry** | 80.0% | 40.0% | 0.01 ms | 0.02 ms | 13.3% |
+| **Baseline-C-Static-Fallback** | 86.7% | 46.7% | 0.01 ms | 0.02 ms | 13.3% |
 
-> All four rows run in one process against the same mock providers, so latencies measure harness overhead, not network. The V3 P95 is the `Retry-After` wait honoured in B2; the baselines never wait.
+> All four rows run in one process against the same mock providers, so latencies measure harness overhead, not network. Every row is scored by the same rule (a turn counts only if every delivered tool call passes the schema validator), so the baselines' semantic errors are the invalid tool calls they forward in B6 and B7. The V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2; the baselines never wait.
 > Run the full reproducible benchmark suite: `python -m benchmarks.run`  
 > Complete technical analysis: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 
