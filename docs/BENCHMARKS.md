@@ -30,9 +30,9 @@ B4, B5, B8, B10 and B12–B15 are multi-turn or state-checking scenarios: each c
 
 | Baseline / System | Completion Rate | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **11.77 ms** | **312.85 ms** | **0.0%** |
-| **Baseline-A-Direct** | 0.0% | 0.0% | 0.03 ms | 0.07 ms | 20.0% |
-| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.07 ms | 0.33 ms | 20.0% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **13.23 ms** | **313.77 ms** | **0.0%** |
+| **Baseline-A-Direct** | 0.0% | 0.0% | 0.01 ms | 0.04 ms | 20.0% |
+| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.03 ms | 0.14 ms | 20.0% |
 | **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.19 ms | 20.0% |
 
 *Takeaway:* Retry and static fallback catch the common HTTP 5xx cases, but **only V3 completes all 15 scenarios**. Every system is scored by one rule (a response counts only if every delivered tool call passes the real schema validator, attempts are counted from the mock providers' call log), so each baseline forwards the invalid tool calls of B6, B7 and B14 (20.0% semantic error rate). All rows run in one process against the same mock providers, so latencies measure harness overhead; the V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2.
@@ -41,19 +41,18 @@ B4, B5, B8, B10 and B12–B15 are multi-turn or state-checking scenarios: each c
 
 ## 3. Primary Research Benchmark (Compound Semantic Failover)
 
-Tests multi-turn compound failure:
-1. Agent starts on Anthropic Primary.
-2. Primary suffers 503 outage.
-3. Fallback to OpenAI candidate with smaller 32k context and different protocol.
-4. OpenAI candidate emits invalid tool schema.
-5. Gateway detects invalid schema, fails closed, and issues `FailoverPlan` to Gemini candidate.
-6. Gemini candidate succeeds with validated tool call.
-7. Tool receipt is committed to idempotency ledger.
+Two turns against three mock providers (`benchmarks/semantic_failover/runner.py`):
+1. A ~36k-token history whose root prompt holds a continuation-critical secret is sent to the 128k primary, which answers 503.
+2. The gateway fails over to a 32k secondary. The mock rejects oversize input with HTTP 400, so the gateway must compact first; the secondary then emits a schema-invalid tool call.
+3. The validator fails closed and a second `FailoverPlan` targets the 32k tertiary, which returns a valid tool call. The harness's tool runner executes it and commits the receipt through the gateway's ledger.
+4. The tool's response is lost and the client re-sends the same logical operation. Every hop repeats, but the tertiary's identical tool call arrives marked as replayed with the committed receipt, so the tool runner does not execute it again.
 
-**Results:**
-- Task Completion Rate: **100.0%**
-- Critical Continuation State Preserved: **True**
-- Tool Correctness: **True**
-- Duplicate Tool Side-Effects: **0**
-- Observable FailoverPlans Generated: **2**
-- Total Recovery Latency: **<1.0 ms** (in-memory mock)
+**Measured results (2026-09-06):**
+- Task completed, every delivered tool call valid: **True** (semantic error rate 0.0%)
+- Critical state preserved: **True** (secret present in the root message the tertiary actually received; latest instruction last)
+- Context delivered to the tertiary: **21,661 of 36,071 tokens** (39.9% reduction, under the 32k window)
+- Tool executions across both turns: **1** (0 duplicates; the second delivery was replayed from the receipt)
+- Fallback hops / `FailoverPlan`s in turn 1: **2 / 2**
+- Recovery latency for turn 1: **~1 ms** (in-memory mocks; harness overhead only)
+
+The endpoints declare anthropic/openai/gemini protocols for routing, but the mock adapters do not translate wire formats, so protocol conversion is not exercised by this benchmark.

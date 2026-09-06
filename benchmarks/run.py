@@ -52,6 +52,7 @@ def main():
     print(f"  ✔ Research Benchmark Task Completed: {research_metrics.task_completed}")
     print(f"  ✔ Critical State Preserved: {research_metrics.critical_state_preserved}")
     print(f"  ✔ Duplicate Tool Side-Effects: {research_metrics.duplicate_tool_execution}")
+    print(f"  ✔ Tool Executions Across Both Turns: {research_metrics.tool_executions} (second delivery replayed: {research_metrics.receipt_replayed})")
     print(f"  ✔ Recovery Latency: {research_metrics.recovery_latency_ms:.2f}ms")
     print(f"  ✔ Failover Plans Generated: {research_metrics.failover_plans_generated}")
     print(f"  ✔ Tool Execution Receipt Cached: {research_metrics.receipt_cached}")
@@ -100,15 +101,17 @@ def main():
         "",
         "## 2. Primary Research Benchmark: Semantic Failover",
         "",
-        "Compound multi-turn migration: Anthropic Primary (503 outage) -> OpenAI Secondary (invalid tool schema) -> Gemini Tertiary (validated tool execution with idempotency receipt).",
+        "Compound multi-turn migration: primary (503 outage) -> 32k secondary (compaction, then invalid tool schema) -> 32k tertiary (validated tool call, receipt committed). Turn 2 re-sends the same logical operation after a lost response; the tool must not run again.",
         "",
         f"- **Task Completed:** `{research_metrics.task_completed}`",
         f"- **Critical State Preserved:** `{research_metrics.critical_state_preserved}`",
         f"- **Tool Correctness:** `{research_metrics.tool_correctness}`",
         f"- **Duplicate Tool Executions:** `{research_metrics.duplicate_tool_execution}`",
+        f"- **Tool Executions Across Both Turns:** `{research_metrics.tool_executions}` (second delivery replayed: `{research_metrics.receipt_replayed}`)",
         f"- **Semantic Error Rate:** `{research_metrics.semantic_error_rate_pct:.1f}%`",
         f"- **Total Fallback Hops:** `{research_metrics.fallback_count}`",
         f"- **Recovery Latency:** `{research_metrics.recovery_latency_ms:.2f} ms`",
+        f"- **Context Delivered to Tertiary:** `{research_metrics.context_tokens_final}` of `{research_metrics.context_tokens_initial}` tokens ({research_metrics.context_reduction_pct:.1f}% reduction)",
         f"- **Observable FailoverPlans Generated:** `{research_metrics.failover_plans_generated}`",
         f"- **Idempotency Receipt Cached:** `{research_metrics.receipt_cached}`",
         "",

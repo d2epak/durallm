@@ -94,9 +94,9 @@ Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits,
 
 | Baseline / System | Request Completion | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **11.77 ms** | **312.85 ms** | **0.0%** |
-| **Baseline-A-Direct** | 0.0% | 0.0% | 0.03 ms | 0.07 ms | 20.0% |
-| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.07 ms | 0.33 ms | 20.0% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **13.23 ms** | **313.77 ms** | **0.0%** |
+| **Baseline-A-Direct** | 0.0% | 0.0% | 0.01 ms | 0.04 ms | 20.0% |
+| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.03 ms | 0.14 ms | 20.0% |
 | **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.19 ms | 20.0% |
 
 > All four rows run in one process against the same mock providers, so latencies measure harness overhead, not network. Every row is scored by the same rule (a turn counts only if every delivered tool call passes the schema validator), so the baselines' semantic errors are the invalid tool calls they forward in B6, B7 and B14. Multi-turn scenarios are judged by verify hooks on observable state (which provider served each turn, how often the tool ran, what the secondary received). The V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2; the baselines never wait.
