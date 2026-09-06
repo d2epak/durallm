@@ -16,12 +16,12 @@ from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 
-def build_executor(retry: RetryPolicy):
+def build_executor(retry: RetryPolicy, breaker_config: CircuitBreakerConfig = None):
     """Two-endpoint fixture (ep-a priority 1, ep-b priority 2) with a recording sleeper."""
     cap_reg = CapabilityRegistry()
     # High thresholds so the breaker never opens during these tests.
     breaker_reg = CircuitBreakerRegistry(
-        default_config=CircuitBreakerConfig(minimum_number_of_calls=100, failure_rate_threshold=100.0)
+        default_config=breaker_config or CircuitBreakerConfig(minimum_number_of_calls=100, failure_rate_threshold=100.0)
     )
     adapter_reg = ProviderAdapterRegistry()
     mock_a = ProgrammableMockAdapter("provider_a")
@@ -39,6 +39,7 @@ def build_executor(retry: RetryPolicy):
         capability_registry=cap_reg, breaker_registry=breaker_reg, adapter_registry=adapter_reg,
         policy=policy, sleeper=sleeps.append,
     )
+    executor._test_breaker_registry = breaker_reg
     return executor, mock_a, mock_b, sleeps
 
 
@@ -124,6 +125,38 @@ class TestExecutorHonoursClassification(unittest.TestCase):
         self.assertEqual(ctx.exception.endpoint_id, "ep-a")
         self.assertEqual(len(mock_a.call_history), 1)
         self.assertEqual(len(mock_b.call_history), 0)
+
+
+
+class TestFallbackAccounting(unittest.TestCase):
+
+    def test_breaker_driven_switch_counts_as_a_fallback_hop(self):
+        # Breaker opens after 2 failures while the same-endpoint retry budget still allows more,
+        # so the switch to ep-b is forced by admission, not by retry exhaustion.
+        ex, mock_a, mock_b, _ = build_executor(
+            RetryPolicy(max_attempts_same_endpoint=5, jitter=False),
+            breaker_config=CircuitBreakerConfig(minimum_number_of_calls=2, failure_rate_threshold=50.0),
+        )
+        mock_a.set_sequence([MockFaultAction.server_error(500)] * 5)
+        mock_b.set_sequence([MockFaultAction.success("via b")])
+
+        resp, _, ledger = ex.execute(make_request(), pool="coding", strategy="priority")
+
+        self.assertEqual(resp.content, "via b")
+        self.assertEqual([a.endpoint_id for a in ledger.attempts], ["ep-a", "ep-a", "ep-b"])
+        self.assertEqual(ledger.fallback_count, 1)
+        self.assertEqual(len(ledger.failover_plans), 1)
+        self.assertEqual(ledger.attempts[-1].fallback_index, 1)
+
+    def test_retry_exhaustion_switch_is_counted_once(self):
+        ex, mock_a, mock_b, _ = build_executor(RetryPolicy(max_attempts_same_endpoint=1, jitter=False))
+        mock_a.set_sequence([MockFaultAction.server_error(503)])
+        mock_b.set_sequence([MockFaultAction.success("via b")])
+
+        _, _, ledger = ex.execute(make_request(), pool="coding", strategy="priority")
+
+        self.assertEqual(ledger.fallback_count, 1)
+        self.assertEqual(len(ledger.failover_plans), 1)
 
 
 if __name__ == "__main__":

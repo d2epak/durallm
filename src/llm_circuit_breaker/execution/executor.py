@@ -119,6 +119,7 @@ class GatewayExecutor:
         attempt_idx = 0
         last_failure_reason: Optional[str] = None
         last_endpoint: Optional[Endpoint] = None
+        fallback_marked = False  # True once the retry loop has already counted the pending hop
 
         while not deadline.is_expired() and ledger.total_attempts < self.policy.max_total_attempts:
             attempt_idx += 1
@@ -167,6 +168,10 @@ class GatewayExecutor:
 
             # Record observable FailoverPlan if switching endpoints
             if last_endpoint and last_endpoint.id != endpoint.id:
+                if not fallback_marked:
+                    # Switch forced by breaker/admission rather than retry exhaustion; still a hop.
+                    ledger.mark_fallback()
+                fallback_marked = False
                 fplan = FailoverPlan(
                     request_id=request.request_id,
                     source_endpoint=last_endpoint.id,
@@ -306,6 +311,7 @@ class GatewayExecutor:
                 # Non-retryable, or retries on this endpoint exhausted: exclude and step fallback
                 excluded_endpoints.append(endpoint.id)
                 ledger.mark_fallback()
+                fallback_marked = True
             else:
                 # Retrying the same endpoint: back off (Retry-After takes precedence) within the deadline.
                 backoff_s = self.policy.retry.compute_backoff_seconds(
@@ -315,6 +321,7 @@ class GatewayExecutor:
                     # Waiting would blow the deadline; abandon this endpoint and fall back now.
                     excluded_endpoints.append(endpoint.id)
                     ledger.mark_fallback()
+                    fallback_marked = True
                 else:
                     self._sleep(backoff_s)
 
