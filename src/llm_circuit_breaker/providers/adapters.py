@@ -165,12 +165,14 @@ class AnthropicAdapter(BaseHTTPAdapter):
         # Anthropic message response to IR
         content = ""
         reasoning = None
+        signature = None
         tool_calls = []
         for b in raw_json.get("content", []):
             if b.get("type") == "text":
                 content = b.get("text", "")
             elif b.get("type") == "thinking":
                 reasoning = b.get("thinking", "")
+                signature = b.get("signature")
             elif b.get("type") == "tool_use":
                 from llm_circuit_breaker.protocol.ir import NormalizedToolCall
                 tool_calls.append(
@@ -190,6 +192,7 @@ class AnthropicAdapter(BaseHTTPAdapter):
             model=endpoint.model,
             content=content,
             reasoning_content=reasoning,
+            reasoning_signature=signature,
             tool_calls=tool_calls,
             finish_reason=finish_map.get(stop_reason, "stop"),
             input_tokens=usage.get("input_tokens", 0),

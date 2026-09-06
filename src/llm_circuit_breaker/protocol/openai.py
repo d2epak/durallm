@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -101,6 +102,23 @@ def openai_request_to_ir(openai_body: Dict[str, Any]) -> NormalizedRequest:
     )
 
 
+def tool_choice_to_openai(tool_choice: Any) -> Optional[Any]:
+    """Accept OpenAI- or Anthropic-style tool_choice and return the OpenAI form."""
+    if isinstance(tool_choice, str):
+        return tool_choice if tool_choice in ("auto", "required", "none") else None
+    if isinstance(tool_choice, dict):
+        kind = tool_choice.get("type")
+        if kind == "function":
+            return tool_choice
+        if kind in ("auto", "none"):
+            return kind
+        if kind == "any":
+            return "required"
+        if kind == "tool" and tool_choice.get("name"):
+            return {"type": "function", "function": {"name": tool_choice["name"]}}
+    return None
+
+
 def ir_to_openai_request(req: NormalizedRequest, target_model: str) -> Dict[str, Any]:
     """Convert NormalizedRequest IR into native OpenAI /v1/chat/completions payload."""
     payload_messages: List[Dict[str, Any]] = []
@@ -191,6 +209,9 @@ def ir_to_openai_request(req: NormalizedRequest, target_model: str) -> Dict[str,
             }
             for t in req.tools
         ]
+        choice = tool_choice_to_openai(req.tool_choice)
+        if choice is not None:
+            payload["tool_choice"] = choice
 
     return payload
 
@@ -269,7 +290,7 @@ def ir_to_openai_response(resp: NormalizedResponse, requested_model: str) -> Dic
     return {
         "id": resp.response_id if resp.response_id.startswith("chatcmpl-") else f"chatcmpl-{resp.response_id}",
         "object": "chat.completion",
-        "created": int(uuid.uuid4().time_low),
+        "created": int(time.time()),
         "model": requested_model,
         "choices": [
             {

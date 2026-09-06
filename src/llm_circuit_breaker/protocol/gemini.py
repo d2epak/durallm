@@ -20,6 +20,30 @@ from llm_circuit_breaker.protocol.ir import (
 from llm_circuit_breaker.translators import clean_gemini_schema
 
 
+def tool_choice_to_gemini(tool_choice: Any) -> Optional[Dict[str, Any]]:
+    """Map OpenAI- or Anthropic-style tool_choice onto Gemini functionCallingConfig."""
+    mode: Optional[str] = None
+    names: List[str] = []
+    if isinstance(tool_choice, str):
+        mode = {"auto": "AUTO", "required": "ANY", "none": "NONE"}.get(tool_choice)
+    elif isinstance(tool_choice, dict):
+        kind = tool_choice.get("type")
+        if kind in ("auto", "none"):
+            mode = kind.upper()
+        elif kind == "any":
+            mode = "ANY"
+        elif kind == "tool" and tool_choice.get("name"):
+            mode, names = "ANY", [tool_choice["name"]]
+        elif kind == "function" and (tool_choice.get("function") or {}).get("name"):
+            mode, names = "ANY", [tool_choice["function"]["name"]]
+    if mode is None:
+        return None
+    config: Dict[str, Any] = {"mode": mode}
+    if names:
+        config["allowedFunctionNames"] = names
+    return {"functionCallingConfig": config}
+
+
 def ir_to_gemini_request(req: NormalizedRequest, target_model: str) -> Dict[str, Any]:
     """Convert NormalizedRequest IR into Gemini generateContent payload with sanitized schema."""
     contents: List[Dict[str, Any]] = []
@@ -93,6 +117,9 @@ def ir_to_gemini_request(req: NormalizedRequest, target_model: str) -> Dict[str,
                 "parameters": cleaned_params,
             })
         gemini_req["tools"] = [{"functionDeclarations": declarations}]
+        tool_config = tool_choice_to_gemini(req.tool_choice)
+        if tool_config is not None:
+            gemini_req["toolConfig"] = tool_config
 
     # Generation Config
     gen_config: Dict[str, Any] = {}

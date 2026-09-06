@@ -111,13 +111,12 @@ class TestProtocolIR(unittest.TestCase):
         anthropic_resp = ir_to_anthropic_response(ir_resp, "claude-3-7-sonnet")
         self.assertEqual(anthropic_resp["role"], "assistant")
         self.assertEqual(anthropic_resp["stop_reason"], "tool_use")
-        self.assertEqual(anthropic_resp["content"][0]["type"], "thinking")
-        self.assertEqual(anthropic_resp["content"][0]["thinking"], "Deep reasoning here")
-        self.assertEqual(anthropic_resp["content"][1]["type"], "text")
-        self.assertEqual(anthropic_resp["content"][1]["text"], "Running task...")
-        self.assertEqual(anthropic_resp["content"][2]["type"], "tool_use")
-        self.assertEqual(anthropic_resp["content"][2]["id"], "call_abc")
-        self.assertEqual(anthropic_resp["content"][2]["input"], {"path": "main.py"})
+        # OpenAI-style reasoning carries no Anthropic signature, so it must not become a
+        # thinking block: Anthropic rejects unsigned thinking blocks when they are echoed back.
+        self.assertEqual([b["type"] for b in anthropic_resp["content"]], ["text", "tool_use"])
+        self.assertEqual(anthropic_resp["content"][0]["text"], "Running task...")
+        self.assertEqual(anthropic_resp["content"][1]["id"], "call_abc")
+        self.assertEqual(anthropic_resp["content"][1]["input"], {"path": "main.py"})
 
     def test_gemini_request_and_response_translation(self):
         ir = NormalizedRequest(

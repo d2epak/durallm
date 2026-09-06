@@ -50,6 +50,8 @@ class NormalizedMessage:
     role: str  # "system", "user", "assistant", "tool"
     content: str = ""
     reasoning_content: Optional[str] = None
+    # Anthropic thinking-block signature; thinking is only re-emitted to Anthropic when present.
+    reasoning_signature: Optional[str] = None
     tool_calls: List[NormalizedToolCall] = field(default_factory=list)
     tool_results: List[NormalizedToolResult] = field(default_factory=list)
     name: Optional[str] = None
@@ -87,6 +89,7 @@ class NormalizedResponse:
     model: str = "default"
     content: Optional[str] = None
     reasoning_content: Optional[str] = None
+    reasoning_signature: Optional[str] = None
     tool_calls: List[NormalizedToolCall] = field(default_factory=list)
     finish_reason: str = "stop"  # "stop", "tool_calls", "length", "content_filter", "error"
     input_tokens: int = 0

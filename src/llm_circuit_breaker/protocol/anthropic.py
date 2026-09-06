@@ -61,6 +61,7 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
         # Content blocks
         text_parts: List[str] = []
         reasoning_parts: List[str] = []
+        signatures: List[str] = []
         tool_calls: List[NormalizedToolCall] = []
         tool_results: List[NormalizedToolResult] = []
 
@@ -72,6 +73,8 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
                 text_parts.append(b.get("text", ""))
             elif btype == "thinking":
                 reasoning_parts.append(b.get("thinking", ""))
+                if b.get("signature"):
+                    signatures.append(b["signature"])
             elif btype == "tool_use":
                 tid = b.get("id") or f"toolu_{uuid.uuid4().hex[:8]}"
                 tname = b.get("name", "")
@@ -102,6 +105,8 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
                 role=role,
                 content="\n".join(text_parts) if text_parts else "",
                 reasoning_content="\n".join(reasoning_parts) if reasoning_parts else None,
+                # A signature covers one block's exact text, so it survives only when there is one block.
+                reasoning_signature=signatures[0] if len(reasoning_parts) == 1 and signatures else None,
                 tool_calls=tool_calls,
                 tool_results=tool_results,
             )
@@ -118,6 +123,20 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
         temperature=anthropic_body.get("temperature"),
         stream=bool(anthropic_body.get("stream", False)),
     )
+
+
+def tool_choice_to_anthropic(tool_choice: Any) -> Optional[Dict[str, Any]]:
+    """Accept OpenAI- or Anthropic-style tool_choice and return the Anthropic form."""
+    if isinstance(tool_choice, str):
+        return {"auto": {"type": "auto"}, "required": {"type": "any"}, "none": {"type": "none"}}.get(tool_choice)
+    if isinstance(tool_choice, dict):
+        kind = tool_choice.get("type")
+        if kind in ("auto", "any", "tool", "none"):
+            return tool_choice
+        if kind == "function":
+            name = (tool_choice.get("function") or {}).get("name")
+            return {"type": "tool", "name": name} if name else None
+    return None
 
 
 def ir_to_anthropic_request(req: NormalizedRequest, target_model: str) -> Dict[str, Any]:
@@ -147,6 +166,9 @@ def ir_to_anthropic_request(req: NormalizedRequest, target_model: str) -> Dict[s
             }
             for t in req.tools
         ]
+        choice = tool_choice_to_anthropic(req.tool_choice)
+        if choice is not None:
+            payload["tool_choice"] = choice
 
     # Messages
     for m in req.messages:
@@ -157,8 +179,10 @@ def ir_to_anthropic_request(req: NormalizedRequest, target_model: str) -> Dict[s
             continue
 
         content_blocks: List[Dict[str, Any]] = []
-        if m.reasoning_content:
-            content_blocks.append({"type": "thinking", "thinking": m.reasoning_content})
+        if m.reasoning_content and m.reasoning_signature:
+            # Anthropic rejects thinking blocks without their signature; unsigned reasoning
+            # (e.g. from an OpenAI-style upstream) is dropped rather than sent back.
+            content_blocks.append({"type": "thinking", "thinking": m.reasoning_content, "signature": m.reasoning_signature})
         if m.content:
             content_blocks.append({"type": "text", "text": m.content})
         for tc in m.tool_calls:
@@ -188,8 +212,8 @@ def ir_to_anthropic_response(resp: NormalizedResponse, requested_model: str) -> 
     """Convert NormalizedResponse IR into native Anthropic /v1/messages response format."""
     blocks: List[Dict[str, Any]] = []
 
-    if resp.reasoning_content:
-        blocks.append({"type": "thinking", "thinking": resp.reasoning_content})
+    if resp.reasoning_content and resp.reasoning_signature:
+        blocks.append({"type": "thinking", "thinking": resp.reasoning_content, "signature": resp.reasoning_signature})
 
     if resp.content:
         blocks.append({"type": "text", "text": resp.content})
