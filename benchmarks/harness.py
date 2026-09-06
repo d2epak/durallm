@@ -6,6 +6,7 @@ then applies one predicate to what the agent would have received:
 
 * success       - a response was delivered for every turn AND every delivered tool call
                   passes the real ToolCallValidator against the request's tool schemas
+                  AND the scenario's observable `verify` hook (if any) raises no objection
 * attempts      - total provider calls made by the system (from the mock call log),
                   identical accounting for the gateway and for the baselines
 * fallback depth- distinct providers used in the worst turn, minus one
@@ -16,10 +17,12 @@ from __future__ import annotations
 
 import statistics
 import time
-from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional, Protocol
+from dataclasses import dataclass, field, replace
+from typing import Any, Callable, Dict, List, Optional, Protocol
 
-from benchmarks.scenarios import BenchmarkScenario, get_all_scenarios
+from benchmarks.scenarios import BenchmarkScenario, ScenarioRun, ScenarioTurn, get_all_scenarios
+from benchmarks.tool_runner import ToolRunner
+from llm_circuit_breaker.agent.idempotency import ToolExecutionLedger
 from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
 from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
 from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
@@ -27,7 +30,8 @@ from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 from llm_circuit_breaker.capability.registry import CapabilityRegistry
 from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.protocol.ir import NormalizedRequest, NormalizedResponse
+from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
+from llm_circuit_breaker.protocol.ir import NormalizedRequest, NormalizedResponse, NormalizedToolCall
 from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
 from tests.faults.mock_provider import ProgrammableMockAdapter
 
@@ -93,21 +97,24 @@ class Fixture:
 
 
 def build_fixture(scenario: BenchmarkScenario) -> Fixture:
+    endpoints: Dict[str, Endpoint] = {}
+    for ep_id, prov, model, ctx, prio in ENDPOINT_TABLE:
+        profile = ModelProfile(prov, model, context_window=ctx, supports_tools=True)
+        overrides: Dict[str, Any] = scenario.profile_overrides.get(prov, {})
+        endpoints[prov] = Endpoint(
+            id=ep_id, provider=prov, model=model, base_url=f"mock://{prov}", priority=prio,
+            pool=scenario.endpoint_pools.get(prov, "coding"), profile=replace(profile, **overrides),
+        )
     call_log: List[str] = []
     registry = ProviderAdapterRegistry()
     adapters: Dict[str, ProgrammableMockAdapter] = {}
     for prov_id, actions in scenario.provider_sequences.items():
-        adapter = ProgrammableMockAdapter(prov_id, call_log=call_log)
+        # The mock rejects oversize input exactly like the provider it stands in for.
+        window = endpoints[prov_id].profile.context_window if prov_id in endpoints else None
+        adapter = ProgrammableMockAdapter(prov_id, call_log=call_log, context_window=window)
         adapter.set_sequence(list(actions))
         registry.register(prov_id, adapter)
         adapters[prov_id] = adapter
-    endpoints = {
-        prov: Endpoint(
-            id=ep_id, provider=prov, model=model, base_url=f"mock://{prov}", priority=prio, pool="coding",
-            profile=ModelProfile(prov, model, context_window=ctx, supports_tools=True),
-        )
-        for ep_id, prov, model, ctx, prio in ENDPOINT_TABLE
-    }
     return Fixture(adapters=adapters, registry=registry, call_log=call_log, endpoints=endpoints)
 
 
@@ -127,14 +134,18 @@ def call_provider(fixture: Fixture, provider: str, request: NormalizedRequest) -
 class SystemRunner(Protocol):
     name: str
 
-    def run(self, request: NormalizedRequest) -> NormalizedResponse:
+    def run(self, turn: ScenarioTurn) -> NormalizedResponse:
         """Serve one turn; raise when the system gives up."""
+
+    def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
+        """Called after the agent executed a delivered tool call (systems with a ledger record it)."""
 
 
 class V3Runner:
     name = V3_NAME
 
-    def __init__(self, fixture: Fixture):
+    def __init__(self, fixture: Fixture, strategy: str = "priority"):
+        self.strategy = strategy
         cap_reg = CapabilityRegistry()
         for endpoint in fixture.endpoints.values():
             cap_reg.register_endpoint(endpoint)
@@ -143,69 +154,86 @@ class V3Runner:
                 sliding_window_size=5, minimum_number_of_calls=2, wait_duration_open_ms=100.0, half_open_max_calls=2,
             )
         )
+        # Fresh telemetry and ledger per run: the module defaults are process-wide singletons.
         self.executor = GatewayExecutor(
             capability_registry=cap_reg,
             breaker_registry=self.breakers,
             adapter_registry=fixture.registry,
+            health_store=HealthTelemetryStore(),
+            tool_ledger=ToolExecutionLedger(),
             policy=ExecutionPolicy(
                 retry=RetryPolicy(max_attempts_same_endpoint=2, base_backoff_ms=10.0),
                 fallback=FallbackPolicy(max_fallback_hops=3),
             ),
         )
 
-    def run(self, request: NormalizedRequest) -> NormalizedResponse:
-        response, _, _ = self.executor.execute(request, pool="coding", strategy="priority")
+    def run(self, turn: ScenarioTurn) -> NormalizedResponse:
+        response, _, _ = self.executor.execute(
+            turn.request, pool=turn.pool, strategy=self.strategy, requirements=turn.requirements,
+        )
         return response
+
+    def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
+        self.executor.tool_ledger.mark_committed(tool_call.metadata["ledger_call_id"], receipt)
 
 
 class DirectRunner:
     """Baseline A: one call to the primary provider, no retry, no fallback."""
     name = "Baseline-A-Direct"
 
-    def __init__(self, fixture: Fixture):
+    def __init__(self, fixture: Fixture, strategy: str = "priority"):
         self.fixture = fixture
 
-    def run(self, request: NormalizedRequest) -> NormalizedResponse:
-        return call_provider(self.fixture, "provider_a", request)
+    def run(self, turn: ScenarioTurn) -> NormalizedResponse:
+        return call_provider(self.fixture, "provider_a", turn.request)
+
+    def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
+        pass  # no ledger
 
 
 class SameProviderRetryRunner:
     """Baseline B: up to three attempts on the primary provider, no fallback."""
     name = "Baseline-B-Same-Provider-Retry"
 
-    def __init__(self, fixture: Fixture):
+    def __init__(self, fixture: Fixture, strategy: str = "priority"):
         self.fixture = fixture
 
-    def run(self, request: NormalizedRequest) -> NormalizedResponse:
+    def run(self, turn: ScenarioTurn) -> NormalizedResponse:
         last: Optional[Exception] = None
         for _ in range(3):
             try:
-                return call_provider(self.fixture, "provider_a", request)
+                return call_provider(self.fixture, "provider_a", turn.request)
             except UpstreamError as exc:
                 last = exc
         raise last  # type: ignore[misc]
+
+    def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
+        pass  # no ledger
 
 
 class StaticFallbackRunner:
     """Baseline C: static a -> b -> c order, no breaker, no validation, no compaction."""
     name = "Baseline-C-Static-Fallback"
 
-    def __init__(self, fixture: Fixture):
+    def __init__(self, fixture: Fixture, strategy: str = "priority"):
         self.fixture = fixture
 
-    def run(self, request: NormalizedRequest) -> NormalizedResponse:
+    def run(self, turn: ScenarioTurn) -> NormalizedResponse:
         last: Optional[Exception] = None
         for provider in PROVIDER_ORDER:
             if provider not in self.fixture.adapters:
                 continue
             try:
-                return call_provider(self.fixture, provider, request)
+                return call_provider(self.fixture, provider, turn.request)
             except UpstreamError as exc:
                 last = exc
         raise last or UpstreamError("no providers configured")
 
+    def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
+        pass  # no ledger
 
-SYSTEMS: Dict[str, Callable[[Fixture], SystemRunner]] = {
+
+SYSTEMS: Dict[str, Callable[[Fixture, str], SystemRunner]] = {
     V3Runner.name: V3Runner,
     DirectRunner.name: DirectRunner,
     SameProviderRetryRunner.name: SameProviderRetryRunner,
@@ -233,33 +261,52 @@ class BenchmarkHarness:
 
     def run_scenario(self, system_name: str, scenario: BenchmarkScenario) -> ScenarioResult:
         fixture = build_fixture(scenario)
-        runner = SYSTEMS[system_name](fixture)
-        turns = [scenario.request]
+        runner = SYSTEMS[system_name](fixture, scenario.strategy)
+        tool_runner = ToolRunner()
+        turns = scenario.turns
 
         responses: List[NormalizedResponse] = []
+        turn_calls: List[List[str]] = []
         error: Optional[str] = None
+        semantic_error = False
         elapsed_ms = 0.0
         worst_depth = 0
-        for request in turns:
+        for turn in turns:
+            if turn.sleep_ms > 0:
+                time.sleep(turn.sleep_ms / 1000.0)
             calls_before = len(fixture.call_log)
             start = time.perf_counter()
             try:
-                responses.append(runner.run(request))
+                response = runner.run(turn)
             except Exception as exc:  # the system gave up on this turn
+                response = None
                 error = f"{type(exc).__name__}: {exc}"
             elapsed_ms += (time.perf_counter() - start) * 1000.0
-            turn_providers = set(fixture.call_log[calls_before:])
-            worst_depth = max(worst_depth, max(len(turn_providers) - 1, 0))
-            if error:
+            calls = fixture.call_log[calls_before:]
+            turn_calls.append(calls)
+            worst_depth = max(worst_depth, max(len(set(calls)) - 1, 0))
+            if response is None:
                 break
+            responses.append(response)
+            if not tool_calls_are_valid(turn.request, response):
+                semantic_error = True  # the agent would have been handed an unexecutable call
+                continue
+            for tc in response.tool_calls:
+                receipt, executed_now = tool_runner.handle(turn.request.request_id, tc)
+                if executed_now:
+                    runner.commit_receipt(tc, receipt)
 
-        semantic_error = any(not tool_calls_are_valid(req, resp) for req, resp in zip(turns, responses))
         attempts = len(fixture.call_log)
-        success = error is None and len(responses) == len(turns) and not semantic_error
+        verify_failure: Optional[str] = None
+        if error is None and not semantic_error and scenario.verify is not None:
+            verify_failure = scenario.verify(ScenarioRun(responses, turn_calls, fixture.adapters, tool_runner))
+        success = error is None and len(responses) == len(turns) and not semantic_error and verify_failure is None
         if error:
             final_output = error
         elif semantic_error:
             final_output = "invalid tool call delivered"
+        elif verify_failure:
+            final_output = f"verify: {verify_failure}"
         else:
             final_output = responses[-1].content or "tool_call"
         return ScenarioResult(

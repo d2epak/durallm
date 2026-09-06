@@ -10,10 +10,10 @@
 
 | Baseline / System | Completion Rate | Recovery Rate | Median Latency | P95 Latency | Avg Attempts/Req | Semantic Error Rate |
 |---|---|---|---|---|---|---|
-| **LLM-Circuit-Breaker-V3** | 100.0% | 60.0% | 1.69 ms | 310.62 ms | 1.67 | 0.0% |
-| **Baseline-A-Direct** | 40.0% | 0.0% | 0.01 ms | 0.05 ms | 1.00 | 13.3% |
-| **Baseline-B-Same-Provider-Retry** | 80.0% | 40.0% | 0.01 ms | 0.02 ms | 1.53 | 13.3% |
-| **Baseline-C-Static-Fallback** | 86.7% | 46.7% | 0.01 ms | 0.02 ms | 1.53 | 13.3% |
+| **LLM-Circuit-Breaker-V3** | 100.0% | 80.0% | 11.77 ms | 312.85 ms | 2.60 | 0.0% |
+| **Baseline-A-Direct** | 0.0% | 0.0% | 0.03 ms | 0.07 ms | 1.20 | 20.0% |
+| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.07 ms | 0.33 ms | 2.33 | 20.0% |
+| **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.19 ms | 2.20 | 20.0% |
 
 ---
 
@@ -27,7 +27,7 @@ Compound multi-turn migration: Anthropic Primary (503 outage) -> OpenAI Secondar
 - **Duplicate Tool Executions:** `0`
 - **Semantic Error Rate:** `0.0%`
 - **Total Fallback Hops:** `2`
-- **Recovery Latency:** `0.62 ms`
+- **Recovery Latency:** `1.15 ms`
 - **Observable FailoverPlans Generated:** `2`
 - **Idempotency Receipt Cached:** `False`
 
@@ -37,18 +37,18 @@ Compound multi-turn migration: Anthropic Primary (503 outage) -> OpenAI Secondar
 
 | Scenario | Description | V3 Result | Attempts | Fallback Hops | Latency |
 |---|---|---|---|---|---|
-| **[B1]** | Primary provider permanently fails with 503; secondary provider is healthy. | `PASSED` | 3 | 1 | 13.28 ms |
-| **[B2]** | Primary provider alternates 429 (Retry-After: 1s) and 200. | `PASSED` | 2 | 0 | 1003.66 ms |
-| **[B3]** | Primary provider exceeds deadline timeout; secondary succeeds under 100ms. | `PASSED` | 2 | 0 | 13.17 ms |
-| **[B4]** | Large conversation (60k tokens) fails over from 128k primary to 32k secondary, compacting safely. | `PASSED` | 2 | 0 | 12.09 ms |
-| **[B5]** | Critical continuation fact buried deep in old history survives compaction. | `PASSED` | 2 | 0 | 13.61 ms |
-| **[B6]** | Primary emits corrupt JSON; validator fails closed and recovers on Secondary. | `PASSED` | 2 | 1 | 1.69 ms |
-| **[B7]** | Primary emits valid JSON but violates schema; validator triggers safe failover. | `PASSED` | 2 | 1 | 0.61 ms |
-| **[B8]** | Tool executes, network response lost; gateway retry must not re-execute with receipt. | `PASSED` | 1 | 0 | 0.27 ms |
-| **[B9]** | Provider drops connection mid-stream; Mode B atomic buffering recovers on secondary. | `PASSED` | 2 | 0 | 13.36 ms |
-| **[B10]** | Provider trips breaker to OPEN, wait duration elapses, HALF_OPEN probe closes breaker. | `PASSED` | 1 | 0 | 0.21 ms |
-| **[B11]** | Provider A fails with 500, Provider B fails with 429, Provider C succeeds without loop. | `PASSED` | 2 | 0 | 13.42 ms |
-| **[B12]** | Coding pool exhausts provider_a; general_agent pool continues unimpeded. | `PASSED` | 1 | 0 | 0.24 ms |
-| **[B13]** | Selects cost-effective candidate within budget ceiling. | `PASSED` | 1 | 0 | 0.19 ms |
-| **[B14]** | Router selects endpoint with higher historical tool success rate. | `PASSED` | 1 | 0 | 0.40 ms |
-| **[B15]** | Candidate lacking required capability is filtered without tripping its circuit breaker. | `PASSED` | 1 | 0 | 0.18 ms |
+| **[B1]** | Primary provider permanently fails with 503; secondary provider is healthy. | `PASSED` | 3 | 1 | 13.10 ms |
+| **[B2]** | Primary provider answers 429 (Retry-After: 1s) then 200; secondary is healthy. | `PASSED` | 2 | 0 | 1004.48 ms |
+| **[B3]** | Primary provider stalls past the request timeout; secondary answers promptly. | `PASSED` | 2 | 0 | 11.77 ms |
+| **[B4]** | A ~36k-token conversation fails over from the 128k primary to a 32k secondary that rejects oversize input; the root objective and latest turn must survive compaction. | `PASSED` | 3 | 1 | 16.44 ms |
+| **[B5]** | A critical fact in the protected root prompt survives compaction onto a 32k secondary (facts inside evicted intermediate turns are not preserved by design). | `PASSED` | 3 | 1 | 15.35 ms |
+| **[B6]** | Primary emits corrupt JSON; validator fails closed and recovers on Secondary. | `PASSED` | 2 | 1 | 1.76 ms |
+| **[B7]** | Primary emits valid JSON but violates schema; validator triggers safe failover. | `PASSED` | 2 | 1 | 0.78 ms |
+| **[B8]** | The tool ran but its response was lost; the client re-sends the same logical operation. The tool must execute exactly once across both turns. | `PASSED` | 2 | 0 | 0.28 ms |
+| **[B9]** | Primary keeps dropping the connection mid-stream (502); the secondary delivers a complete response. | `PASSED` | 3 | 1 | 11.21 ms |
+| **[B10]** | Primary fails twice then recovers. Turn 2 must not touch the failed primary; after the open-wait elapses, turn 3 must be answered by the primary again via a probe. | `PASSED` | 5 | 1 | 15.50 ms |
+| **[B11]** | Provider A fails with 500, Provider B fails with 429, Provider C succeeds without loop. | `PASSED` | 2 | 0 | 13.25 ms |
+| **[B12]** | The coding pool's primary is down; a general_agent turn must be answered by that pool's own provider without touching the coding pool's providers. | `PASSED` | 4 | 1 | 13.70 ms |
+| **[B13]** | The primary is priced above the request's cost ceiling; the cheap secondary must be used instead. | `PASSED` | 1 | 0 | 0.24 ms |
+| **[B14]** | The primary keeps emitting schema-invalid tool calls. With reliability-aware routing the second turn must skip the primary based on its observed tool failure. | `PASSED` | 3 | 1 | 0.94 ms |
+| **[B15]** | A vision request must go straight to the vision-capable secondary; the next text-only turn must still use the primary, proving the mismatch did not trip its breaker. | `PASSED` | 2 | 0 | 0.35 ms |

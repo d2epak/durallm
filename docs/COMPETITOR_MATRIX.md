@@ -52,7 +52,7 @@ An authoritative, technical comparison between **LLM Circuit Breaker (V3)** and 
   Treats model switches as **stateful semantic migrations**:
   - Request is decoded into a canonical, lossless **Protocol Intermediate Representation (IR)**.
   - The Gateway creates an observable `FailoverPlan` recording the candidate migration, token differential, and compaction rules.
-  - Dynamic **Context Compaction** reduces conversation history while guaranteeing that planted facts, system directives, and structured tool diagnostic logs (exit codes, error messages) are preserved.
+  - Dynamic **Context Compaction** reduces conversation history while guaranteeing that facts planted in the root prompt, system directives, and structured tool diagnostic logs (exit codes, error messages) are preserved.
 
 ---
 

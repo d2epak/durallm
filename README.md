@@ -90,16 +90,16 @@ Standard reverse proxies (LiteLLM, Cloudflare AI Gateway, Portkey) treat LLMs as
 
 ## 📊 Benchmark Results (B1–B15 in-process suite)
 
-Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits, timeouts, context overflows, malformed tool syntax, semantic schema violations, tool execution ambiguity, mid-stream disconnects, cascades, contention, and capability mismatches) against 3 in-process baselines. Numbers are copied from `results/v3_benchmark_report.md`, regenerated on 2026-09-06:
+Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits, timeouts, context overflows, malformed tool syntax, semantic schema violations, tool execution idempotency, mid-stream disconnects, cascades, pool isolation, cost ceilings, tool-reliability routing, and capability mismatches) against 3 in-process baselines. Numbers are copied from `results/v3_benchmark_report.md`, regenerated on 2026-09-06:
 
 | Baseline / System | Request Completion | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **1.69 ms** | **310.62 ms** | **0.0%** |
-| **Baseline-A-Direct** | 40.0% | 0.0% | 0.01 ms | 0.05 ms | 13.3% |
-| **Baseline-B-Same-Provider-Retry** | 80.0% | 40.0% | 0.01 ms | 0.02 ms | 13.3% |
-| **Baseline-C-Static-Fallback** | 86.7% | 46.7% | 0.01 ms | 0.02 ms | 13.3% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **11.77 ms** | **312.85 ms** | **0.0%** |
+| **Baseline-A-Direct** | 0.0% | 0.0% | 0.03 ms | 0.07 ms | 20.0% |
+| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.07 ms | 0.33 ms | 20.0% |
+| **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.19 ms | 20.0% |
 
-> All four rows run in one process against the same mock providers, so latencies measure harness overhead, not network. Every row is scored by the same rule (a turn counts only if every delivered tool call passes the schema validator), so the baselines' semantic errors are the invalid tool calls they forward in B6 and B7. The V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2; the baselines never wait.
+> All four rows run in one process against the same mock providers, so latencies measure harness overhead, not network. Every row is scored by the same rule (a turn counts only if every delivered tool call passes the schema validator), so the baselines' semantic errors are the invalid tool calls they forward in B6, B7 and B14. Multi-turn scenarios are judged by verify hooks on observable state (which provider served each turn, how often the tool ran, what the secondary received). The V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2; the baselines never wait.
 > Run the full reproducible benchmark suite: `python -m benchmarks.run`  
 > Complete technical analysis: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 
@@ -112,7 +112,7 @@ Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits,
 | **Circuit Breaker Engine** | **6-state FSM**, count/time sliding windows, bounded probe permits | Cooldown timer (`time + 60s`), no permit bounds | Dynamic retries only | Proprietary cloud breaker (enterprise tier) | Static server-side retry |
 | **Multi-Turn Semantic Failover** | **Yes (Protocol IR + FailoverPlan)** | No (Raw payload forwarding) | No | No | No |
 | **Strict Tool Schema Validation** | **Yes (Fails closed on missing required args)** | No (Passthrough parsing) | No | No | No |
-| **Diagnostic Context Compaction** | **Yes (Extracts exit codes, preserves planted facts)** | No (Naive truncation) | No | No | No |
+| **Diagnostic Context Compaction** | **Yes (Extracts exit codes, preserves root prompt and tail turns)** | No (Naive truncation) | No | No | No |
 | **Tool Execution Idempotency** | **Yes (Replay suppression via cached receipts)** | No (Blind replay on 5xx) | No | No | No |
 | **Deployment Footprint** | **Zero mandatory dependencies**; optional SQLite persistence | Requires external Postgres & Redis | Cloudflare Edge Worker (Cloud only) | SaaS cloud or enterprise container | Cloud-only API broker |
 | **Security Hardening** | **SSRF defense, CRLF sanitization, credential redaction** | Telemetry enabled by default | Cloud control plane | Cloud control plane | Third-party proxy |

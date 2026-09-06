@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Union
 
+from llm_circuit_breaker.agent.context import estimate_tokens
 from llm_circuit_breaker.capability.profile import Endpoint
 from llm_circuit_breaker.protocol.ir import (
     NormalizedRequest,
@@ -111,8 +112,16 @@ class MockFaultAction:
 class ProgrammableMockAdapter:
     """Mock Provider Adapter whose behavior is programmed via a sequence of MockFaultActions."""
 
-    def __init__(self, provider_id: str, call_log: Optional[List[str]] = None):
+    def __init__(
+        self,
+        provider_id: str,
+        call_log: Optional[List[str]] = None,
+        context_window: Optional[int] = None,
+    ):
         self.provider_id = provider_id
+        # When set, a request whose estimated input tokens exceed the window is answered with
+        # 400 context_length_exceeded (like a real provider) without consuming a scripted action.
+        self.context_window = context_window
         self.actions: List[MockFaultAction] = []
         self.current_index: int = 0
         self.call_history: List[PreparedRequest] = []
@@ -140,7 +149,7 @@ class ProgrammableMockAdapter:
         return PreparedRequest(
             url=f"mock://{endpoint.provider}/{endpoint.model}",
             headers=headers,
-            body_bytes=b"{}",
+            body_bytes=json.dumps({"estimated_tokens": estimate_tokens(request)}).encode("utf-8"),
         )
 
     def execute(
@@ -151,6 +160,12 @@ class ProgrammableMockAdapter:
         self.call_history.append(prepared)
         if self.call_log is not None:
             self.call_log.append(self.provider_id)
+
+        if self.context_window is not None:
+            sent_tokens = json.loads(prepared.body_bytes.decode("utf-8")).get("estimated_tokens", 0)
+            if sent_tokens > self.context_window:
+                overflow = MockFaultAction.context_overflow()
+                return ProviderExecutionResult(status_code=overflow.status_code, headers={}, body=overflow.body, duration_ms=1.0)
 
         if self.current_index < len(self.actions):
             action = self.actions[self.current_index]

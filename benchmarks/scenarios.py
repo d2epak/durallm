@@ -1,16 +1,49 @@
-"""Benchmark Scenarios B1 through B15 for Agent Resilience Evaluation."""
+"""Benchmark scenarios B1 through B15.
+
+Every scenario is a list of turns sent to the system under test, scripted mock provider
+behaviour, and an optional `verify` hook. The hook sees only what an outside observer
+could see for any system (which providers were called per turn, the responses, the
+requests each provider received, the tool runner's counters), so the same hook grades
+the gateway and every baseline.
+"""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, List, Optional
 
+from benchmarks.tool_runner import ToolRunner
+from llm_circuit_breaker.agent.context import estimate_tokens
 from llm_circuit_breaker.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
+    NormalizedResponse,
     NormalizedToolDefinition,
 )
-from tests.faults.mock_provider import MockFaultAction
+from llm_circuit_breaker.routing.requirements import RequirementVector
+from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
+
+SECONDARY_CONTEXT_WINDOW = 32768
+
+
+@dataclass
+class ScenarioTurn:
+    request: NormalizedRequest
+    pool: str = "coding"
+    requirements: Optional[RequirementVector] = None
+    sleep_ms: float = 0.0  # waited by the harness before the turn, for every system alike
+
+
+@dataclass
+class ScenarioRun:
+    """Observable outcome of one system running one scenario."""
+    responses: List[NormalizedResponse]
+    turn_calls: List[List[str]]  # providers called during each turn, in call order
+    adapters: Dict[str, ProgrammableMockAdapter]
+    tool_runner: ToolRunner
+
+
+Verifier = Callable[[ScenarioRun], Optional[str]]
 
 
 @dataclass
@@ -19,22 +52,103 @@ class BenchmarkScenario:
     id: str
     name: str
     description: str
-    request: NormalizedRequest
+    turns: List[ScenarioTurn]
     provider_sequences: Dict[str, List[MockFaultAction]]
     expected_outcome: str
+    strategy: str = "priority"
+    profile_overrides: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    endpoint_pools: Dict[str, str] = field(default_factory=dict)
+    verify: Optional[Verifier] = None  # returns a failure reason, or None when the run is acceptable
+
+    @property
+    def request(self) -> NormalizedRequest:
+        return self.turns[0].request
+
+
+# ---------------------------------------------------------------------------
+# Verification helpers (observable behaviour only)
+# ---------------------------------------------------------------------------
+
+def served_by(run: ScenarioRun, turn: int, provider: str) -> Optional[str]:
+    """The provider that answered a turn is the last one called in it."""
+    calls = run.turn_calls[turn] if turn < len(run.turn_calls) else []
+    if not calls or calls[-1] != provider:
+        return f"turn {turn + 1} answered by {calls[-1] if calls else 'nobody'}, expected {provider}"
+    return None
+
+
+def not_called(run: ScenarioRun, turn: int, provider: str) -> Optional[str]:
+    calls = run.turn_calls[turn] if turn < len(run.turn_calls) else []
+    if provider in calls:
+        return f"{provider} was called in turn {turn + 1}"
+    return None
+
+
+def only_called(run: ScenarioRun, turn: int, provider: str) -> Optional[str]:
+    calls = run.turn_calls[turn] if turn < len(run.turn_calls) else []
+    if calls != [provider]:
+        return f"turn {turn + 1} calls were {calls}, expected [{provider!r}]"
+    return None
+
+
+def first_failure(*checks: Optional[str]) -> Optional[str]:
+    return next((c for c in checks if c), None)
+
+
+def delivered_request(run: ScenarioRun, provider: str) -> Optional[NormalizedRequest]:
+    history = run.adapters[provider].request_history
+    return history[-1] if history else None
+
+
+def padded_history(root: str, final: str, pads: int = 5, words_per_pad: int = 2400) -> List[NormalizedMessage]:
+    """Root objective, `pads` long intermediate turns (~7.2k tokens each), then the latest question."""
+    messages = [NormalizedMessage(role="user", content=root)]
+    for i in range(pads):
+        messages.append(NormalizedMessage(role="assistant", content=f"Acknowledged step {i}."))
+        messages.append(NormalizedMessage(role="user", content=f"LOG_CHUNK_{i} " * words_per_pad))
+    messages.append(NormalizedMessage(role="assistant", content="Ready for the next instruction."))
+    messages.append(NormalizedMessage(role="user", content=final))
+    return messages
+
+
+def compaction_verifier(root_marker: str, final: str) -> Verifier:
+    def verify(run: ScenarioRun) -> Optional[str]:
+        req = delivered_request(run, "provider_b")
+        if req is None:
+            return "provider_b never received a request"
+        tokens = estimate_tokens(req)
+        if tokens > SECONDARY_CONTEXT_WINDOW:
+            return f"provider_b received {tokens} tokens, over its {SECONDARY_CONTEXT_WINDOW} window"
+        if root_marker not in (req.messages[0].content or ""):
+            return "root objective was dropped during compaction"
+        if (req.messages[-1].content or "") != final:
+            return "latest user turn was dropped during compaction"
+        return None
+    return verify
+
+
+def user_turn(content: str, tools: Optional[List[NormalizedToolDefinition]] = None, **kwargs: Any) -> NormalizedRequest:
+    return NormalizedRequest(
+        model="default", messages=[NormalizedMessage(role="user", content=content)], tools=list(tools or []), **kwargs,
+    )
+
+
+BASH_TOOL = NormalizedToolDefinition(
+    name="bash",
+    description="Execute bash command",
+    parameters={
+        "type": "object",
+        "properties": {"command": {"type": "string"}},
+        "required": ["command"],
+    },
+)
 
 
 def get_all_scenarios() -> List[BenchmarkScenario]:
-    """Return complete authoritative benchmark scenarios B1 through B15."""
-    tool_def = NormalizedToolDefinition(
-        name="bash",
-        description="Execute bash command",
-        parameters={
-            "type": "object",
-            "properties": {"command": {"type": "string"}},
-            "required": ["command"],
-        },
-    )
+    """Return the benchmark scenarios B1 through B15."""
+    tool_def = BASH_TOOL
+    b4_final = "Status update?"
+    b5_final = "Continue execution."
 
     return [
         # B1 — Permanent Outage
@@ -42,10 +156,7 @@ def get_all_scenarios() -> List[BenchmarkScenario]:
             id="B1",
             name="Permanent Provider Outage",
             description="Primary provider permanently fails with 503; secondary provider is healthy.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Execute build")],
-            ),
+            turns=[ScenarioTurn(user_turn("Execute build"))],
             provider_sequences={
                 "provider_a": [MockFaultAction.server_error(503, "Outage")] * 10,
                 "provider_b": [MockFaultAction.success("Build successful via Provider B")],
@@ -56,11 +167,8 @@ def get_all_scenarios() -> List[BenchmarkScenario]:
         BenchmarkScenario(
             id="B2",
             name="Intermittent 429 Rate Limit",
-            description="Primary provider alternates 429 (Retry-After: 1s) and 200.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Check health")],
-            ),
+            description="Primary provider answers 429 (Retry-After: 1s) then 200; secondary is healthy.",
+            turns=[ScenarioTurn(user_turn("Check health"))],
             provider_sequences={
                 "provider_a": [MockFaultAction.rate_limit(retry_after=1), MockFaultAction.success("Primary recovered")],
                 "provider_b": [MockFaultAction.success("Secondary fallback")],
@@ -71,13 +179,10 @@ def get_all_scenarios() -> List[BenchmarkScenario]:
         BenchmarkScenario(
             id="B3",
             name="Slow Provider Timeout Stall",
-            description="Primary provider exceeds deadline timeout; secondary succeeds under 100ms.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Run analysis")],
-            ),
+            description="Primary provider stalls past the request timeout; secondary answers promptly.",
+            turns=[ScenarioTurn(user_turn("Run analysis"))],
             provider_sequences={
-                "provider_a": [MockFaultAction.timeout(10.0)],
+                "provider_a": [MockFaultAction.timeout(60_000.0)],
                 "provider_b": [MockFaultAction.success("Quick response from secondary")],
             },
             expected_outcome="deadline_fallback_success",
@@ -86,52 +191,50 @@ def get_all_scenarios() -> List[BenchmarkScenario]:
         BenchmarkScenario(
             id="B4",
             name="Context Window Mismatch Recovery",
-            description="Large conversation (60k tokens) fails over from 128k primary to 32k secondary, compacting safely.",
-            request=NormalizedRequest(
+            description=(
+                "A ~36k-token conversation fails over from the 128k primary to a 32k secondary that rejects "
+                "oversize input; the root objective and latest turn must survive compaction."
+            ),
+            turns=[ScenarioTurn(NormalizedRequest(
                 model="default",
                 system_instruction="Preserve mission objectives.",
-                messages=[
-                    NormalizedMessage(role="user", content="ROOT_GOAL: Deploy cluster securely\n" + ("DATA_TOKEN_ " * 1500)),
-                    NormalizedMessage(role="assistant", content="Acknowledged."),
-                    NormalizedMessage(role="user", content="Status update?"),
-                ],
-            ),
+                messages=padded_history("ROOT_GOAL: Deploy cluster securely", b4_final),
+            ))],
             provider_sequences={
-                "provider_a": [MockFaultAction.server_error(503, "Context Outage")],
+                "provider_a": [MockFaultAction.server_error(503, "Context Outage")] * 10,
                 "provider_b": [MockFaultAction.success("Compacted context processed successfully by Secondary")],
             },
+            profile_overrides={"provider_a": {"context_window": 131072}},
             expected_outcome="compaction_fallback_success",
+            verify=compaction_verifier("ROOT_GOAL", b4_final),
         ),
-        # B5 — Deep Critical Fact Preservation
+        # B5 — Root-Prompt Fact Preservation
         BenchmarkScenario(
             id="B5",
-            name="Deep Critical Fact Preservation",
-            description="Critical continuation fact buried deep in old history survives compaction.",
-            request=NormalizedRequest(
+            name="Root-Prompt Fact Preservation",
+            description=(
+                "A critical fact in the protected root prompt survives compaction onto a 32k secondary "
+                "(facts inside evicted intermediate turns are not preserved by design)."
+            ),
+            turns=[ScenarioTurn(NormalizedRequest(
                 model="default",
                 system_instruction="Keep critical secrets.",
-                messages=[
-                    NormalizedMessage(role="user", content="CRITICAL_SECRET: auth_token_xyz999\n" + ("PADDING_ " * 1000)),
-                    NormalizedMessage(role="assistant", content="Noted secret."),
-                    NormalizedMessage(role="user", content="Continue execution."),
-                ],
-            ),
+                messages=padded_history("CRITICAL_SECRET: auth_token_xyz999", b5_final),
+            ))],
             provider_sequences={
-                "provider_a": [MockFaultAction.server_error(503, "Unavailable")],
+                "provider_a": [MockFaultAction.server_error(503, "Unavailable")] * 10,
                 "provider_b": [MockFaultAction.success("Retrieved and processed with secret intact")],
             },
+            profile_overrides={"provider_a": {"context_window": 131072}},
             expected_outcome="critical_fact_preserved",
+            verify=compaction_verifier("auth_token_xyz999", b5_final),
         ),
         # B6 — Malformed Tool Call (Invalid JSON Syntax)
         BenchmarkScenario(
             id="B6",
             name="Malformed Tool Call Syntax",
             description="Primary emits corrupt JSON; validator fails closed and recovers on Secondary.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="List directory contents")],
-                tools=[tool_def],
-            ),
+            turns=[ScenarioTurn(user_turn("List directory contents", [tool_def]))],
             provider_sequences={
                 "provider_a": [MockFaultAction.malformed_tool_json("{command: missing_quotes")],
                 "provider_b": [MockFaultAction.valid_tool_call("bash", {"command": "ls -la"})],
@@ -143,11 +246,7 @@ def get_all_scenarios() -> List[BenchmarkScenario]:
             id="B7",
             name="Semantically Invalid Tool Call Schema",
             description="Primary emits valid JSON but violates schema; validator triggers safe failover.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Execute maintenance")],
-                tools=[tool_def],
-            ),
+            turns=[ScenarioTurn(user_turn("Execute maintenance", [tool_def]))],
             provider_sequences={
                 "provider_a": [MockFaultAction.valid_tool_call("bash", {"unknown_arg": 123})],
                 "provider_b": [MockFaultAction.valid_tool_call("bash", {"command": "echo ok"})],
@@ -158,29 +257,32 @@ def get_all_scenarios() -> List[BenchmarkScenario]:
         BenchmarkScenario(
             id="B8",
             name="Tool Execution Ambiguity & Idempotency",
-            description="Tool executes, network response lost; gateway retry must not re-execute with receipt.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Run safe tool")],
-                tools=[tool_def],
+            description=(
+                "The tool ran but its response was lost; the client re-sends the same logical operation. "
+                "The tool must execute exactly once across both turns."
             ),
+            turns=[
+                ScenarioTurn(user_turn("Run safe tool", [tool_def], request_id="B8-op-1")),
+                ScenarioTurn(user_turn("Run safe tool", [tool_def], request_id="B8-op-1")),
+            ],
             provider_sequences={
-                "provider_a": [MockFaultAction.valid_tool_call("bash", {"command": "echo unique_idempotent_test"})],
-                "provider_b": [MockFaultAction.valid_tool_call("bash", {"command": "echo unique_idempotent_test"})],
+                "provider_a": [MockFaultAction.valid_tool_call("bash", {"command": "echo unique_idempotent_test"})] * 2,
+                "provider_b": [MockFaultAction.valid_tool_call("bash", {"command": "echo unique_idempotent_test"})] * 2,
             },
             expected_outcome="idempotent_deduplication",
+            verify=lambda run: (
+                None if run.tool_runner.executions == 1 and run.tool_runner.duplicate_executions == 0
+                else f"tool executed {run.tool_runner.executions} times for one logical operation"
+            ),
         ),
         # B9 — Mid-Stream Disconnect Recovery
         BenchmarkScenario(
             id="B9",
             name="Mid-Stream Disconnect Recovery",
-            description="Provider drops connection mid-stream; Mode B atomic buffering recovers on secondary.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Generate report")],
-            ),
+            description="Primary keeps dropping the connection mid-stream (502); the secondary delivers a complete response.",
+            turns=[ScenarioTurn(user_turn("Generate report"))],
             provider_sequences={
-                "provider_a": [MockFaultAction.mid_stream_reset("Partial report header...")],
+                "provider_a": [MockFaultAction.mid_stream_reset("Partial report header...")] * 3,
                 "provider_b": [MockFaultAction.success("Complete atomic report successfully recovered")],
             },
             expected_outcome="mid_stream_recovery_success",
@@ -189,25 +291,35 @@ def get_all_scenarios() -> List[BenchmarkScenario]:
         BenchmarkScenario(
             id="B10",
             name="Provider Recovery and Breaker Probe",
-            description="Provider trips breaker to OPEN, wait duration elapses, HALF_OPEN probe closes breaker.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Probe health")],
+            description=(
+                "Primary fails twice then recovers. Turn 2 must not touch the failed primary; after the "
+                "open-wait elapses, turn 3 must be answered by the primary again via a probe."
             ),
+            turns=[
+                ScenarioTurn(user_turn("Probe health 1")),
+                ScenarioTurn(user_turn("Probe health 2")),
+                ScenarioTurn(user_turn("Probe health 3"), sleep_ms=150.0),
+            ],
             provider_sequences={
-                "provider_a": [MockFaultAction.success("Provider recovered and healthy")],
+                "provider_a": [
+                    MockFaultAction.server_error(503, "Down"),
+                    MockFaultAction.server_error(503, "Down"),
+                    MockFaultAction.success("Provider recovered and healthy"),
+                ],
+                "provider_b": [MockFaultAction.success("Secondary covering")] * 3,
             },
             expected_outcome="probe_recovery_success",
+            verify=lambda run: first_failure(
+                not_called(run, 1, "provider_a"),
+                only_called(run, 2, "provider_a"),
+            ),
         ),
         # B11 — Multi-Provider Cascade Failure
         BenchmarkScenario(
             id="B11",
             name="Multi-Provider Cascade Failure",
             description="Provider A fails with 500, Provider B fails with 429, Provider C succeeds without loop.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Cascade test")],
-            ),
+            turns=[ScenarioTurn(user_turn("Cascade test"))],
             provider_sequences={
                 "provider_a": [MockFaultAction.server_error(500, "Dead")],
                 "provider_b": [MockFaultAction.rate_limit(retry_after=30)],
@@ -215,66 +327,88 @@ def get_all_scenarios() -> List[BenchmarkScenario]:
             },
             expected_outcome="cascade_resolution_success",
         ),
-        # B12 — Concurrent Agent Contention
+        # B12 — Cross-Agent Pool Contention
         BenchmarkScenario(
             id="B12",
             name="Cross-Agent Pool Contention",
-            description="Coding pool exhausts provider_a; general_agent pool continues unimpeded.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Agent dialogue")],
+            description=(
+                "The coding pool's primary is down; a general_agent turn must be answered by that pool's own "
+                "provider without touching the coding pool's providers."
             ),
+            turns=[
+                ScenarioTurn(user_turn("Coding agent turn"), pool="coding"),
+                ScenarioTurn(user_turn("General agent turn"), pool="general_agent"),
+            ],
             provider_sequences={
-                "provider_a": [MockFaultAction.success("Agent turn succeeded")],
-                "provider_b": [MockFaultAction.success("Backup agent turn")],
+                "provider_a": [MockFaultAction.server_error(503, "Down")] * 10,
+                "provider_b": [MockFaultAction.success("Coding turn via B")] * 3,
+                "provider_c": [MockFaultAction.success("General agent turn via C")] * 3,
             },
+            endpoint_pools={"provider_c": "general_agent"},
             expected_outcome="cross_pool_isolation",
+            verify=lambda run: only_called(run, 1, "provider_c"),
         ),
         # B13 — Cost Constraint & Budget Enforcement
         BenchmarkScenario(
             id="B13",
             name="Cost Constraint & Route Selection",
-            description="Selects cost-effective candidate within budget ceiling.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Cost sensitive request")],
-            ),
+            description="The primary is priced above the request's cost ceiling; the cheap secondary must be used instead.",
+            turns=[ScenarioTurn(
+                user_turn("Cost sensitive request", max_output_tokens=1000),
+                requirements=RequirementVector(maximum_cost_usd=0.001),
+            )],
             provider_sequences={
-                "provider_a": [MockFaultAction.success("Cost-efficient candidate output")],
-                "provider_b": [MockFaultAction.success("Expensive candidate output")],
+                "provider_a": [MockFaultAction.success("Expensive candidate output")],
+                "provider_b": [MockFaultAction.success("Cost-efficient candidate output")],
+            },
+            profile_overrides={
+                "provider_a": {"input_price_per_1m": 30.0, "output_price_per_1m": 60.0},
+                "provider_b": {"input_price_per_1m": 0.1, "output_price_per_1m": 0.2},
             },
             expected_outcome="cost_effective_selection",
+            verify=lambda run: only_called(run, 0, "provider_b"),
         ),
         # B14 — Tool Reliability Differentiation
         BenchmarkScenario(
             id="B14",
             name="Tool Reliability Differentiation",
-            description="Router selects endpoint with higher historical tool success rate.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Need reliable tool execution")],
-                tools=[tool_def],
+            description=(
+                "The primary keeps emitting schema-invalid tool calls. With reliability-aware routing the "
+                "second turn must skip the primary based on its observed tool failure."
             ),
+            turns=[
+                ScenarioTurn(user_turn("Need reliable tool execution", [tool_def])),
+                ScenarioTurn(user_turn("Need reliable tool execution again", [tool_def])),
+            ],
             provider_sequences={
-                "provider_a": [MockFaultAction.valid_tool_call("bash", {"command": "pwd"})],
-                "provider_b": [MockFaultAction.valid_tool_call("bash", {"command": "pwd"})],
+                "provider_a": [MockFaultAction.valid_tool_call("bash", {"unknown_arg": "pwd"})] * 2,
+                "provider_b": [MockFaultAction.valid_tool_call("bash", {"command": "pwd"})] * 2,
             },
+            strategy="reliability_aware",
             expected_outcome="tool_reliability_selection",
+            verify=lambda run: not_called(run, 1, "provider_a"),
         ),
         # B15 — Capability Mismatch Non-Poisoning Failover
         BenchmarkScenario(
             id="B15",
             name="Capability Mismatch Non-Poisoning Failover",
-            description="Candidate lacking required capability is filtered without tripping its circuit breaker.",
-            request=NormalizedRequest(
-                model="default",
-                messages=[NormalizedMessage(role="user", content="Vision request with image data")],
-                tools=[],
+            description=(
+                "A vision request must go straight to the vision-capable secondary; the next text-only "
+                "turn must still use the primary, proving the mismatch did not trip its breaker."
             ),
+            turns=[
+                ScenarioTurn(user_turn("Vision request with image data"), requirements=RequirementVector(require_vision=True)),
+                ScenarioTurn(user_turn("Plain text follow-up")),
+            ],
             provider_sequences={
-                "provider_a": [MockFaultAction.success("Text only")],
-                "provider_b": [MockFaultAction.success("Vision capable response")],
+                "provider_a": [MockFaultAction.success("Text only")] * 2,
+                "provider_b": [MockFaultAction.success("Vision capable response")] * 2,
             },
+            profile_overrides={"provider_b": {"supports_vision": True}},
             expected_outcome="capability_matched_success",
+            verify=lambda run: first_failure(
+                only_called(run, 0, "provider_b"),
+                only_called(run, 1, "provider_a"),
+            ),
         ),
     ]

@@ -95,9 +95,11 @@ class GatewayExecutor:
         self.response_validator = response_validator or ResponseValidator(tool_validator=self.tool_validator)
         self._sleep = sleeper
         self.events = events or DEFAULT_STRUCTURED_LOGGER
+        # The router must read the same telemetry this executor writes, or scoring never sees it.
         self.router = router or CapabilityRouter(
             capability_registry=self.capability_registry,
             breaker_registry=self.breaker_registry,
+            health_store=self.health_store,
         )
 
     def execute(
@@ -280,6 +282,8 @@ class GatewayExecutor:
                             schema=tool_schema,
                             known_tools=[t.name for t in request.tools],
                         )
+                        # Feeds the scorer's tool-reliability term; without this it was never observed.
+                        self.health_store.record_tool_outcome(endpoint.id, val_report.is_executable)
                         if not val_report.is_executable:
                             logger.warning("Tool validation rejected tool call '%s': %s", tc.name, val_report.error_message)
                             self.tool_ledger.mark_failed(tc_id, val_report.error_message)

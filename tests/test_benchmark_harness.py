@@ -3,9 +3,10 @@
 import unittest
 
 from benchmarks.harness import SYSTEMS, BenchmarkHarness, V3_NAME, build_fixture, percentile
-from benchmarks.scenarios import BenchmarkScenario
+from benchmarks.scenarios import BenchmarkScenario, ScenarioTurn
+from benchmarks.tool_runner import ToolRunner
 from llm_circuit_breaker.capability.profile import Endpoint
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolDefinition
+from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolCall, NormalizedToolDefinition
 from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
@@ -16,10 +17,14 @@ BASH = NormalizedToolDefinition(
 )
 
 
-def scenario(sequences, tools=(BASH,)):
-    request = NormalizedRequest(model="default", messages=[NormalizedMessage(role="user", content="go")], tools=list(tools))
-    return BenchmarkScenario(id="T", name="t", description="t", request=request,
-                             provider_sequences=sequences, expected_outcome="")
+def request(text="go", tools=(BASH,), **kwargs):
+    return NormalizedRequest(model="default", messages=[NormalizedMessage(role="user", content=text)], tools=list(tools), **kwargs)
+
+
+def scenario(sequences, turns=None, **kwargs):
+    turns = turns or [ScenarioTurn(request())]
+    return BenchmarkScenario(id="T", name="t", description="t", turns=turns,
+                             provider_sequences=sequences, expected_outcome="", **kwargs)
 
 
 class TestPercentile(unittest.TestCase):
@@ -77,7 +82,69 @@ class TestAttemptAccountingOnExhaustion(unittest.TestCase):
         self.assertIn("Error", res.final_output)
 
 
+class TestMultiTurnScoring(unittest.TestCase):
+
+    def test_verify_hook_failure_marks_the_scenario_failed_for_any_system(self):
+        scn = scenario({"provider_a": [MockFaultAction.success("ok")]}, verify=lambda run: "not good enough")
+        res = BenchmarkHarness(scenarios=[scn]).run_scenario("Baseline-A-Direct", scn)
+        self.assertFalse(res.success)
+        self.assertEqual(res.final_output, "verify: not good enough")
+
+    def test_replayed_operation_executes_once_through_the_gateway_but_twice_directly(self):
+        call = MockFaultAction.valid_tool_call("bash", {"command": "echo once"})
+        turns = [ScenarioTurn(request(request_id="op-1")), ScenarioTurn(request(request_id="op-1"))]
+        observed = {}
+        scn = scenario({"provider_a": [call, call]}, turns=turns,
+                       verify=lambda run: observed.__setitem__("executions", run.tool_runner.executions))
+        harness = BenchmarkHarness(scenarios=[scn])
+
+        harness.run_scenario(V3_NAME, scn)
+        self.assertEqual(observed["executions"], 1)
+        harness.run_scenario("Baseline-A-Direct", scn)
+        self.assertEqual(observed["executions"], 2)
+
+    def test_turn_sleep_is_not_charged_to_latency(self):
+        scn = scenario({"provider_a": [MockFaultAction.success("ok")] * 2},
+                       turns=[ScenarioTurn(request()), ScenarioTurn(request(), sleep_ms=60.0)])
+        res = BenchmarkHarness(scenarios=[scn]).run_scenario("Baseline-A-Direct", scn)
+        self.assertTrue(res.success)
+        self.assertLess(res.total_latency_ms, 50.0)
+
+    def test_pool_and_profile_overrides_shape_the_topology(self):
+        scn = scenario({"provider_a": [], "provider_c": []},
+                       endpoint_pools={"provider_c": "general_agent"},
+                       profile_overrides={"provider_a": {"context_window": 131072}})
+        fx = build_fixture(scn)
+        self.assertEqual(fx.endpoints["provider_c"].pool, "general_agent")
+        self.assertEqual(fx.endpoints["provider_a"].profile.context_window, 131072)
+        self.assertEqual(fx.adapters["provider_a"].context_window, 131072)
+
+
+class TestToolRunner(unittest.TestCase):
+
+    def test_counts_duplicates_and_honours_replay_marker(self):
+        runner = ToolRunner()
+        tc = NormalizedToolCall(id="1", name="bash", arguments={"command": "ls"})
+        receipt, executed = runner.handle("op", tc)
+        self.assertTrue(executed)
+        self.assertEqual(runner.handle("op", NormalizedToolCall(id="2", name="bash", arguments={"command": "ls"}))[1], True)
+        self.assertEqual((runner.executions, runner.duplicate_executions), (2, 1))
+        replay = NormalizedToolCall(id="3", name="bash", arguments={"command": "ls"}, metadata={"replayed": True, "execution_receipt": receipt})
+        self.assertEqual(runner.handle("op", replay), (receipt, False))
+        self.assertEqual((runner.executions, runner.replays), (2, 1))
+
+
 class TestTestDoubles(unittest.TestCase):
+
+    def test_mock_rejects_input_over_its_context_window_without_consuming_the_script(self):
+        mock = ProgrammableMockAdapter("provider_b", context_window=100)
+        mock.set_sequence([MockFaultAction.success("kept")])
+        ep = Endpoint(id="e", provider="provider_b", model="m", base_url="mock://b")
+        big = NormalizedRequest(model="m", messages=[NormalizedMessage(role="user", content="x" * 1000)])
+        small = NormalizedRequest(model="m", messages=[NormalizedMessage(role="user", content="hi")])
+        self.assertEqual(mock.execute(mock.prepare_request(ep, big), timeout_seconds=1.0).status_code, 400)
+        self.assertEqual(mock.execute(mock.prepare_request(ep, small), timeout_seconds=1.0).status_code, 200)
+        self.assertEqual(len(mock.call_history), 2)
 
     def test_registry_register_installs_adapter(self):
         reg = ProviderAdapterRegistry()
