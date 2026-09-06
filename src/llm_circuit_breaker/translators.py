@@ -13,8 +13,13 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 
-def repair_json_string(raw: str) -> str:
-    """Repair minor JSON formatting anomalies from open-weights models."""
+def repair_json_string(raw: str) -> Optional[str]:
+    """Repair minor JSON formatting anomalies from open-weights models.
+
+    Returns a string that parses as a JSON object, or ``None`` when the input
+    cannot be repaired. It never invents arguments: an unparseable payload
+    must not be turned into a ``{"command": ...}`` invocation.
+    """
     if not raw or not raw.strip():
         return "{}"
     cleaned = raw.strip()
@@ -25,16 +30,10 @@ def repair_json_string(raw: str) -> str:
     # Remove trailing commas before closing braces/brackets
     cleaned = re.sub(r",\s*([\]}])", r"\1", cleaned)
     try:
-        json.loads(cleaned)
-        return cleaned
+        parsed = json.loads(cleaned)
     except Exception:
-        pass
-
-    # Basic fallback wrapping
-    try:
-        return json.dumps({"command": cleaned} if "command" not in cleaned else {"text": cleaned})
-    except Exception:
-        return "{}"
+        return None
+    return cleaned if isinstance(parsed, dict) else None
 
 
 def clean_gemini_schema(schema: Any) -> Any:
@@ -351,16 +350,20 @@ def openai_to_anthropic_response(openai_resp: Dict[str, Any], requested_model: s
         fn = tc.get("function", {})
         raw_args = fn.get("arguments", "{}")
         repaired_args = repair_json_string(raw_args)
-        try:
-            parsed_args = json.loads(repaired_args)
-        except Exception:
-            parsed_args = {}
+        if repaired_args is None:
+            # Fail closed: surface the malformed arguments as text instead of
+            # fabricating a tool invocation the model never made.
+            content_blocks.append({
+                "type": "text",
+                "text": f"[unparseable tool_call arguments for {fn.get('name')!r}: {raw_args}]",
+            })
+            continue
 
         content_blocks.append({
             "type": "tool_use",
             "id": tc.get("id") or f"toolu_{uuid.uuid4().hex[:8]}",
             "name": fn.get("name"),
-            "input": parsed_args
+            "input": json.loads(repaired_args)
         })
 
     finish_reason = choices[0].get("finish_reason", "stop") if choices else "stop"
@@ -370,6 +373,8 @@ def openai_to_anthropic_response(openai_resp: Dict[str, Any], requested_model: s
         "length": "max_tokens",
     }
     anthropic_stop_reason = stop_reason_map.get(finish_reason, "end_turn")
+    if anthropic_stop_reason == "tool_use" and not any(b["type"] == "tool_use" for b in content_blocks):
+        anthropic_stop_reason = "end_turn"
 
     usage = openai_resp.get("usage", {})
     return {

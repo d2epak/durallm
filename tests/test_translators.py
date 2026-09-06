@@ -49,6 +49,34 @@ class TestTranslators(unittest.TestCase):
         self.assertEqual(data["path"], "test.py")
         self.assertEqual(data["lines"], [1, 2, 3])
 
+    def test_repair_json_string_returns_none_for_unrepairable_input(self):
+        # Previously this became {"command": "rm -rf / && echo"} - a fabricated invocation.
+        self.assertIsNone(repair_json_string("rm -rf / && echo"))
+        self.assertIsNone(repair_json_string('"just a string"'))
+        self.assertEqual(repair_json_string(""), "{}")
+
+    def test_unparseable_tool_arguments_do_not_become_a_tool_use_block(self):
+        openai_resp = {
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": "{command: rm -rf /"},
+                    }],
+                },
+                "finish_reason": "tool_calls",
+            }],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 1},
+        }
+        out = openai_to_anthropic_response(openai_resp, "claude-sonnet-4-6")
+        types = [b["type"] for b in out["content"]]
+        self.assertNotIn("tool_use", types)
+        self.assertIn("unparseable tool_call arguments", out["content"][0]["text"])
+        self.assertEqual(out["stop_reason"], "end_turn")
+
     def test_anthropic_to_openai_request_translation(self):
         anthropic_req = {
             "model": "claude-sonnet-4-6",
