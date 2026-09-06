@@ -38,7 +38,7 @@ class GatewayConfig:
         return CircuitBreakerConfig(
             failure_rate_threshold=self.breaker_failure_rate_threshold,
             sliding_window_size=self.breaker_sliding_window_size,
-            wait_duration_in_open_seconds=self.breaker_wait_duration_in_open,
+            wait_duration_open_ms=self.breaker_wait_duration_in_open * 1000.0,
             half_open_max_calls=self.breaker_half_open_calls,
         )
 
