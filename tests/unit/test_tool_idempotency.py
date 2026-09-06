@@ -62,6 +62,29 @@ class TestToolExecutionIdempotency(unittest.TestCase):
         has_receipt, _ = self.ledger.check_idempotency("op_2", "run_cmd", {"cmd": "ls"})
         self.assertFalse(has_receipt)
 
+    def test_receipts_expire_after_ttl(self):
+        now = [1000.0]
+        ledger = ToolExecutionLedger(ttl_seconds=60.0, clock=lambda: now[0])
+        ledger.register_tool_call("call_1", "op_1", "run_cmd", {"cmd": "ls"})
+        ledger.mark_committed("call_1", {"output": "ok"})
+        now[0] += 59.0
+        self.assertTrue(ledger.check_idempotency("op_1", "run_cmd", {"cmd": "ls"})[0])
+        now[0] += 2.0
+        self.assertFalse(ledger.check_idempotency("op_1", "run_cmd", {"cmd": "ls"})[0])
+        # The next write sweeps expired records out of memory.
+        ledger.register_tool_call("call_2", "op_2", "run_cmd", {"cmd": "ls"})
+        self.assertIsNone(ledger.get_record("call_1"))
+
+    def test_storage_is_bounded_by_max_records(self):
+        ledger = ToolExecutionLedger(max_records=2)
+        for i in range(3):
+            ledger.register_tool_call(f"call_{i}", f"op_{i}", "run_cmd", {"i": i})
+            ledger.mark_committed(f"call_{i}", {"i": i})
+        self.assertIsNone(ledger.get_record("call_0"))
+        self.assertIsNotNone(ledger.get_record("call_2"))
+        self.assertFalse(ledger.check_idempotency("op_0", "run_cmd", {"i": 0})[0])
+        self.assertTrue(ledger.check_idempotency("op_2", "run_cmd", {"i": 2})[0])
+
 
 if __name__ == "__main__":
     unittest.main()

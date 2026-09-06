@@ -236,8 +236,12 @@ class GatewayExecutor:
                             tool_name=tc.name,
                             arguments=tc.arguments,
                         )
+                        # Clients commit receipts against this key (tool ids alone are not unique across attempts).
+                        tc.metadata["ledger_call_id"] = tc_id
                         if has_receipt:
                             logger.info("Idempotent tool call detected for '%s'; using cached execution receipt", tc.name)
+                            self.tool_ledger.mark_replayed(tc_id, cached_receipt)
+                            tc.metadata["replayed"] = True
                             tc.metadata["execution_receipt"] = cached_receipt
 
                         # Find schema

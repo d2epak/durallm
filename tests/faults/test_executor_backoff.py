@@ -3,6 +3,7 @@
 import unittest
 from unittest.mock import patch
 
+from llm_circuit_breaker.agent.idempotency import ToolExecutionLedger
 from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
 from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
 from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
@@ -37,7 +38,7 @@ def build_executor(retry: RetryPolicy, breaker_config: CircuitBreakerConfig = No
     policy = ExecutionPolicy(retry=retry, fallback=FallbackPolicy(max_fallback_hops=3), max_total_attempts=6)
     executor = GatewayExecutor(
         capability_registry=cap_reg, breaker_registry=breaker_reg, adapter_registry=adapter_reg,
-        policy=policy, sleeper=sleeps.append,
+        policy=policy, sleeper=sleeps.append, tool_ledger=ToolExecutionLedger(),
     )
     executor._test_breaker_registry = breaker_reg
     return executor, mock_a, mock_b, sleeps

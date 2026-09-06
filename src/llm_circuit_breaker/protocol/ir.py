@@ -27,6 +27,8 @@ class NormalizedToolCall:
     name: str
     arguments: Dict[str, Any]
     raw_arguments: str = ""
+    # Gateway annotations for the client: ledger_call_id, replayed, execution_receipt.
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.raw_arguments and self.arguments:
