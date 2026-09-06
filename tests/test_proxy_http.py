@@ -6,6 +6,7 @@ that made /health, /healthz, /metrics and /admin/breakers crash at v0.2.0.
 """
 
 import json
+import socket
 import threading
 import unittest
 import urllib.request
@@ -68,6 +69,17 @@ class TestProxyHttpEndpoints(unittest.TestCase):
         self.assertEqual(ctx.exception.code, 400)
         body = json.loads(ctx.exception.read().decode("utf-8"))
         self.assertIn("Content-Length", body["error"]["message"])
+
+    def test_oversized_content_length_is_rejected_with_413_before_body_is_read(self):
+        # Only headers are sent: a 413 proves the server refused without waiting for 10 MB of body.
+        with socket.create_connection(("127.0.0.1", self.port), timeout=5) as sock:
+            sock.sendall(
+                b"POST /v1/messages HTTP/1.0\r\nHost: x\r\nContent-Type: application/json\r\n"
+                b"Content-Length: 10000001\r\n\r\n"
+            )
+            sock.settimeout(5)
+            status_line = sock.recv(64).split(b"\r\n", 1)[0]
+        self.assertIn(b" 413 ", status_line)
 
 
 if __name__ == "__main__":

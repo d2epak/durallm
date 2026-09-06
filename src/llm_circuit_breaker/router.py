@@ -16,7 +16,10 @@ from llm_circuit_breaker.classifier import (
     FailoverReason,
     parse_output_cap_from_error,
 )
+from llm_circuit_breaker._env import ALLOW_LOCAL_UPSTREAM_ENV
+from llm_circuit_breaker.errors import CircuitBreakerGatewayError
 from llm_circuit_breaker.pools import AUTO_DISCOVER_ENV, POOL_MANAGER, RouteDefinition, env_flag
+from llm_circuit_breaker.security.defense import MAX_PAYLOAD_BYTES, enforce_payload_limit, validate_upstream_url
 from llm_circuit_breaker.pruner import prune_openai_request
 from llm_circuit_breaker.translators import (
     convert_openai_to_gemini_payload,
@@ -77,11 +80,19 @@ def execute_upstream_request(
         if route.headers:
             headers.update(route.headers)
 
+    try:
+        validate_upstream_url(url, allow_localhost=env_flag(ALLOW_LOCAL_UPSTREAM_ENV))
+        enforce_payload_limit(len(data))
+    except CircuitBreakerGatewayError as exc:
+        logger.error("Refusing upstream call for route %s: %s", route.id, exc)
+        return 599, {}, f"transport_error:blocked: {exc}".encode("utf-8")
+
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
 
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            resp_body = resp.read()
+            resp_body = resp.read(MAX_PAYLOAD_BYTES + 1)
+            enforce_payload_limit(len(resp_body))
             resp_headers = {k.lower(): v for k, v in resp.headers.items()}
             return resp.status, resp_headers, resp_body
     except urllib.error.HTTPError as exc:

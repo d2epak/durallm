@@ -8,11 +8,15 @@ from urllib.parse import urlparse
 
 from llm_circuit_breaker.errors import CircuitBreakerGatewayError
 
-# Forbidden internal IP / metadata hosts (SSRF defense)
+# Forbidden internal IP / metadata hosts (SSRF defense): loopback, link-local, RFC1918.
 BLOCKED_HOST_PATTERNS = re.compile(
-    r"^(169\.254\.\d+\.\d+|127\.\d+\.\d+\.\d+|localhost|0\.0\.0\.0|::1|metadata\.google\.internal)$",
+    r"^(169\.254\.\d+\.\d+|127\.\d+\.\d+\.\d+|localhost|0\.0\.0\.0|::1|metadata\.google\.internal"
+    r"|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)$",
     re.IGNORECASE,
 )
+
+# Default ceiling for any request or response body handled by the gateway.
+MAX_PAYLOAD_BYTES = 10_000_000
 
 # Header injection pattern (CRLF)
 CRLF_PATTERN = re.compile(r"[\r\n]")
@@ -21,12 +25,13 @@ CRLF_PATTERN = re.compile(r"[\r\n]")
 def validate_upstream_url(
     url: str,
     allowed_schemes: Tuple[str, ...] = ("https", "http", "mock"),
-    allow_localhost: bool = True,  # Allowed for local testing / proxies
+    allow_localhost: bool = False,
 ) -> bool:
     """
     Validates upstream endpoint URL against SSRF vulnerabilities:
     - Enforces allowed schemes.
-    - Prohibits cloud metadata addresses (e.g. 169.254.169.254).
+    - Prohibits loopback, link-local and RFC1918 hosts unless allow_localhost=True.
+    - Prohibits cloud metadata addresses (e.g. 169.254.169.254) unconditionally.
     """
     try:
         parsed = urlparse(url)
@@ -71,7 +76,7 @@ def sanitize_headers(headers: Dict[str, str]) -> Dict[str, str]:
     return clean
 
 
-def enforce_payload_limit(size_bytes: int, max_allowed_bytes: int = 25_000_000) -> None:
+def enforce_payload_limit(size_bytes: int, max_allowed_bytes: int = MAX_PAYLOAD_BYTES) -> None:
     """Enforce maximum payload byte limit to defend against memory exhaustion attacks."""
     if size_bytes > max_allowed_bytes:
         raise CircuitBreakerGatewayError(

@@ -1,7 +1,9 @@
+import os
 import unittest
 import time
 from unittest.mock import patch
-from llm_circuit_breaker.router import UniversalFailoverRouter
+from llm_circuit_breaker.router import UniversalFailoverRouter, execute_upstream_request
+from llm_circuit_breaker.pools import RouteDefinition
 from llm_circuit_breaker.classifier import FailoverReason
 
 class TestFailoverRouter(unittest.TestCase):
@@ -30,6 +32,21 @@ class TestFailoverRouter(unittest.TestCase):
         # 4. Next route wraps around (nvidia still in cooldown, cerebras deprecated -> skips to groq)
         route3 = router.get_next_available_route(reason=FailoverReason.rate_limit)
         self.assertEqual(route3["provider"], "groq")
+
+
+
+class TestUpstreamBoundary(unittest.TestCase):
+
+    def test_private_upstream_is_refused_without_a_network_call(self):
+        route = RouteDefinition(id="lan", provider="ollama", model="m", pool="coding",
+                                base_url="http://192.168.1.10:11434/v1", api_format="openai", env_key=None)
+        env = {k: v for k, v in os.environ.items() if k != "LLM_BREAKER_ALLOW_LOCAL_UPSTREAM"}
+        with patch.dict(os.environ, env, clear=True), patch("urllib.request.urlopen") as urlopen:
+            status, _, body = execute_upstream_request(route, {"messages": []})
+        urlopen.assert_not_called()
+        self.assertEqual(status, 599)
+        self.assertTrue(body.startswith(b"transport_error:blocked:"))
+
 
 if __name__ == "__main__":
     unittest.main()

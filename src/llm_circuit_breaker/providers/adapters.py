@@ -11,10 +11,10 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
 
-from llm_circuit_breaker._env import env_flag
+from llm_circuit_breaker._env import ALLOW_LOCAL_UPSTREAM_ENV, env_flag
 from llm_circuit_breaker.capability.profile import Endpoint
-from llm_circuit_breaker.errors import ConfigurationError
-from llm_circuit_breaker.security.defense import validate_upstream_url
+from llm_circuit_breaker.errors import CircuitBreakerGatewayError, ConfigurationError
+from llm_circuit_breaker.security.defense import MAX_PAYLOAD_BYTES, enforce_payload_limit, validate_upstream_url
 from llm_circuit_breaker.protocol.anthropic import (
     anthropic_request_to_ir,
     ir_to_anthropic_request,
@@ -41,8 +41,6 @@ from llm_circuit_breaker.providers.base import (
 )
 
 logger = logging.getLogger("llm_circuit_breaker.providers")
-
-ALLOW_LOCAL_UPSTREAM_ENV = "LLM_BREAKER_ALLOW_LOCAL_UPSTREAM"
 
 
 def _transport_kind(exc: BaseException) -> str:
@@ -74,6 +72,7 @@ class BaseHTTPAdapter:
     ) -> ProviderExecutionResult:
         # SSRF defense at the network boundary; loopback upstreams (Ollama, LM Studio) are opt-in.
         validate_upstream_url(prepared.url, allow_localhost=env_flag(ALLOW_LOCAL_UPSTREAM_ENV))
+        enforce_payload_limit(len(prepared.body_bytes))
         req = urllib.request.Request(
             url=prepared.url,
             data=prepared.body_bytes,
@@ -84,9 +83,10 @@ class BaseHTTPAdapter:
         start = time.monotonic()
         try:
             with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
-                body = resp.read()
+                body = resp.read(MAX_PAYLOAD_BYTES + 1)  # never buffer an unbounded response
                 duration = (time.monotonic() - start) * 1000.0
                 headers = {k.lower(): v for k, v in resp.headers.items()}
+                enforce_payload_limit(len(body))
                 return ProviderExecutionResult(
                     status_code=resp.status,
                     headers=headers,
@@ -106,6 +106,8 @@ class BaseHTTPAdapter:
                 body=body,
                 duration_ms=duration,
             )
+        except CircuitBreakerGatewayError:
+            raise  # a policy refusal (payload ceiling), not a transport failure
         except Exception as exc:
             duration = (time.monotonic() - start) * 1000.0
             kind = _transport_kind(exc)

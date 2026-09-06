@@ -73,6 +73,30 @@ class TestAdapterLookup(unittest.TestCase):
             reg.get_adapter("x", protocol="soap")
 
 
+class TestPayloadCeiling(unittest.TestCase):
+
+    def test_oversized_request_body_is_refused_before_any_network_call(self):
+        big = PreparedRequest(url=PREPARED.url, headers={}, body_bytes=b"x" * 10_000_001)
+        with patch("urllib.request.urlopen") as urlopen:
+            with self.assertRaises(CircuitBreakerGatewayError):
+                OpenAICompatibleAdapter("openai").execute(big, timeout_seconds=1.0)
+            urlopen.assert_not_called()
+
+    def test_oversized_response_body_is_refused(self):
+        class FakeResponse:
+            status = 200
+            headers = {}
+            def read(self, n=-1):
+                return b"x" * (n if n and n > 0 else 10_000_001)
+            def __enter__(self):
+                return self
+            def __exit__(self, *a):
+                return False
+        with patch("urllib.request.urlopen", return_value=FakeResponse()):
+            with self.assertRaises(CircuitBreakerGatewayError):
+                OpenAICompatibleAdapter("openai").execute(PREPARED, timeout_seconds=1.0)
+
+
 class TestUpstreamUrlBoundary(unittest.TestCase):
 
     def test_loopback_upstream_is_refused_before_any_network_call(self):

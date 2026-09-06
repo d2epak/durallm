@@ -35,6 +35,21 @@ class TestSecurityAndValidation(unittest.TestCase):
         self.assertTrue(validate_upstream_url("https://api.groq.com/openai/v1"))
         self.assertTrue(validate_upstream_url("https://api.cerebras.ai/v1"))
 
+    def test_private_and_loopback_hosts_blocked_by_default(self):
+        # A misconfigured or attacker-supplied base_url must not reach the LAN or the host itself.
+        for host in ("127.0.0.1", "localhost", "[::1]", "0.0.0.0", "10.0.0.5", "172.16.0.1", "172.31.255.9", "192.168.1.10"):
+            with self.assertRaises(CircuitBreakerGatewayError, msg=host):
+                validate_upstream_url(f"http://{host}:11434/v1")
+        # 172.32.x.x is public, not RFC1918.
+        self.assertTrue(validate_upstream_url("http://172.32.0.1/v1"))
+
+    def test_allow_localhost_opt_in_never_unblocks_metadata_endpoints(self):
+        self.assertTrue(validate_upstream_url("http://127.0.0.1:11434/v1", allow_localhost=True))
+        self.assertTrue(validate_upstream_url("http://192.168.1.10:8080/v1", allow_localhost=True))
+        for url in ("http://169.254.169.254/latest/meta-data", "http://metadata.google.internal/computeMetadata/v1"):
+            with self.assertRaises(CircuitBreakerGatewayError, msg=url):
+                validate_upstream_url(url, allow_localhost=True)
+
     def test_header_sanitization_prevents_crlf_injection(self):
         malicious_headers = {
             "Content-Type": "application/json\r\nSet-Cookie: session=hijacked",
@@ -50,6 +65,11 @@ class TestSecurityAndValidation(unittest.TestCase):
         enforce_payload_limit(1024, max_allowed_bytes=2048)
         with self.assertRaises(CircuitBreakerGatewayError):
             enforce_payload_limit(5000, max_allowed_bytes=2048)
+
+    def test_default_payload_ceiling_is_10mb(self):
+        enforce_payload_limit(10_000_000)
+        with self.assertRaises(CircuitBreakerGatewayError):
+            enforce_payload_limit(10_000_001)
 
     def test_response_validator_accepts_valid_response_and_reports_usage(self):
         validator = ResponseValidator()

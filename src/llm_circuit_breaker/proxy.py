@@ -22,9 +22,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional
 
 from llm_circuit_breaker.classifier import classify_api_error
+from llm_circuit_breaker.errors import CircuitBreakerGatewayError
 from llm_circuit_breaker.pools import POOL_MANAGER
 from llm_circuit_breaker.pruner import estimate_tokens
 from llm_circuit_breaker.router import UniversalFailoverRouter
+from llm_circuit_breaker.security.defense import enforce_payload_limit
 from llm_circuit_breaker.translators import (
     anthropic_to_openai_request,
     openai_to_anthropic_response,
@@ -120,6 +122,11 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             content_length = int(self.headers.get("Content-Length", 0))
         except (TypeError, ValueError):
             self._send_json(400, {"error": {"message": "Invalid Content-Length header"}})
+            return
+        try:
+            enforce_payload_limit(content_length)  # checked before the body is read into memory
+        except CircuitBreakerGatewayError as e:
+            self._send_json(413, {"error": {"message": str(e)}})
             return
         raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
 
