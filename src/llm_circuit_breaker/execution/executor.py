@@ -75,6 +75,7 @@ class GatewayExecutor:
         tool_validator: Optional[ToolCallValidator] = None,
         tool_ledger: Optional[ToolExecutionLedger] = None,
         router: Optional[CapabilityRouter] = None,
+        sleeper: Callable[[float], None] = time.sleep,
     ):
         self.capability_registry = capability_registry or DEFAULT_CAPABILITY_REGISTRY
         self.breaker_registry = breaker_registry or DEFAULT_BREAKER_REGISTRY
@@ -84,6 +85,7 @@ class GatewayExecutor:
         self.context_manager = context_manager or ContextManager()
         self.tool_validator = tool_validator or ToolCallValidator(strict=True)
         self.tool_ledger = tool_ledger or DEFAULT_TOOL_LEDGER
+        self._sleep = sleeper
         self.router = router or CapabilityRouter(
             capability_registry=self.capability_registry,
             breaker_registry=self.breaker_registry,
@@ -294,5 +296,16 @@ class GatewayExecutor:
                 # Retries on this endpoint exhausted; exclude and step fallback
                 excluded_endpoints.append(endpoint.id)
                 ledger.mark_fallback()
+            else:
+                # Retrying the same endpoint: back off (Retry-After takes precedence) within the deadline.
+                backoff_s = self.policy.retry.compute_backoff_seconds(
+                    ledger.attempts_on(endpoint.id), retry_after=classified.retry_after_seconds
+                )
+                if backoff_s >= deadline.remaining_ms() / 1000.0:
+                    # Waiting would blow the deadline; abandon this endpoint and fall back now.
+                    excluded_endpoints.append(endpoint.id)
+                    ledger.mark_fallback()
+                else:
+                    self._sleep(backoff_s)
 
         raise NoHealthyRouteError(f"All fallback attempts exhausted for pool '{pool}'", pool=pool)

@@ -42,6 +42,10 @@ class AttemptLedger:
         self._endpoints_attempted.append(ep)
         self._endpoint_counts[ep] = self._endpoint_counts.get(ep, 0) + 1
 
+    def attempts_on(self, endpoint_id: str) -> int:
+        """Number of attempts already made against this endpoint."""
+        return self._endpoint_counts.get(endpoint_id, 0)
+
     def can_attempt_endpoint(self, endpoint_id: str) -> bool:
         """Return True if endpoint can be attempted under current retry/fallback budget."""
         # 1. Total attempts check
