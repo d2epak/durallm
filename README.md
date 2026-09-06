@@ -21,6 +21,7 @@ An independent adversarial review on 2026-09-06 found the following. Read this b
 - `ToolCallValidator`: fails closed on malformed or unknown tool calls.
 - `ContextManager`: preserves system prompt, first user turn and last K turns; compacts tool results.
 - Zero third-party dependencies.
+- Importing the package makes no network call and reads no dotfiles. OpenRouter discovery and `~/.zshrc`/`.env` key scanning are opt-in (`LLM_BREAKER_AUTO_DISCOVER=1`, `LLM_BREAKER_SCAN_DOTFILES=1`, or `llm-proxy --discover`).
 
 **Experimental (Python API only)**
 - The V3 engine (`GatewayExecutor`, `CapabilityRouter`, protocol IR, `FailoverPlan`, tool ledger) is reachable only from Python. **The HTTP proxy started by `llm-proxy` still runs the legacy V1 router** and does not use any of it.
@@ -30,7 +31,6 @@ An independent adversarial review on 2026-09-06 found the following. Read this b
 - 402 and 429 open the breaker (documented in `docs/FAILURE_TAXONOMY.md`); other 4xx never poison health as of `0.2.0`+.
 - Streaming is synthetic (buffered response re-emitted as SSE); there is no mid-stream failover.
 - Benchmarks in `docs/BENCHMARKS.md` compare against in-process baselines inside the same harness, not against external systems; treat the numbers as smoke tests, not measurements.
-- Importing the package performs OpenRouter model discovery over the network and scans shell dotfiles for API keys by default.
 
 ---
 

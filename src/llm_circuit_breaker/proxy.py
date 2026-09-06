@@ -32,7 +32,9 @@ from llm_circuit_breaker.translators import (
 
 logger = logging.getLogger("llm_circuit_breaker.proxy")
 
-ROUTER = UniversalFailoverRouter(auto_discover_free=True)
+# Discovery (network) and dotfile key scanning are opt-in via LLM_BREAKER_AUTO_DISCOVER /
+# LLM_BREAKER_SCAN_DOTFILES, or `llm-proxy --discover`; importing this module makes no network call.
+ROUTER = UniversalFailoverRouter()
 
 
 class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
@@ -330,6 +332,8 @@ def main():
     parser = argparse.ArgumentParser(description="Run local LLM Circuit Breaker Gateway")
     parser.add_argument("--port", type=int, default=4001, help="Gateway port (default: 4001)")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
+    parser.add_argument("--discover", action="store_true",
+                        help="Fetch free OpenRouter models at startup (network call; off by default)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -341,6 +345,10 @@ def main():
     print(f"  - Hermes / OpenClaw (Agent Pool): http://{args.host}:{args.port}/v1/chat/completions")
     print(f"  - Health Diagnostics: http://{args.host}:{args.port}/health")
     print("=" * 65 + "\n")
+
+    if args.discover:
+        from llm_circuit_breaker.discovery import register_discovered_models_to_pools
+        register_discovered_models_to_pools()
 
     server = start_proxy_server(host=args.host, port=args.port)
     try:

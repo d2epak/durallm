@@ -21,8 +21,23 @@ from typing import Any, Dict, List, Optional, Set
 logger = logging.getLogger("llm_circuit_breaker.pools")
 
 
-def load_all_env_keys(target_keys: Optional[List[str]] = None) -> Dict[str, str]:
-    """Scan process environment and config files for API keys."""
+SCAN_DOTFILES_ENV = "LLM_BREAKER_SCAN_DOTFILES"
+AUTO_DISCOVER_ENV = "LLM_BREAKER_AUTO_DISCOVER"
+
+
+def env_flag(name: str) -> bool:
+    """True when an opt-in environment variable is set to 1/true/yes/on."""
+    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def load_all_env_keys(target_keys: Optional[List[str]] = None, scan_dotfiles: Optional[bool] = None) -> Dict[str, str]:
+    """Read API keys from the process environment.
+
+    Shell dotfiles (~/.zshrc, ~/.claude/.env, ~/.hermes/.env, ...) are only
+    read when ``scan_dotfiles`` is True or ``LLM_BREAKER_SCAN_DOTFILES`` is set.
+    """
+    if scan_dotfiles is None:
+        scan_dotfiles = env_flag(SCAN_DOTFILES_ENV)
     keys: Dict[str, str] = {}
     if target_keys is None:
         target_keys = [
@@ -33,6 +48,9 @@ def load_all_env_keys(target_keys: Optional[List[str]] = None) -> Dict[str, str]
     for k in target_keys:
         if os.getenv(k):
             keys[k] = os.getenv(k, "").strip()
+
+    if not scan_dotfiles:
+        return keys
 
     for candidate in [
         Path.home() / ".claude" / ".env",

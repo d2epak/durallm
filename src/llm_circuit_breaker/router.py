@@ -16,7 +16,7 @@ from llm_circuit_breaker.classifier import (
     FailoverReason,
     parse_output_cap_from_error,
 )
-from llm_circuit_breaker.pools import POOL_MANAGER, RouteDefinition
+from llm_circuit_breaker.pools import AUTO_DISCOVER_ENV, POOL_MANAGER, RouteDefinition, env_flag
 from llm_circuit_breaker.pruner import prune_openai_request
 from llm_circuit_breaker.translators import (
     convert_openai_to_gemini_payload,
@@ -101,7 +101,7 @@ class UniversalFailoverRouter:
     def __init__(
         self,
         configured_fallbacks: Optional[List[Dict[str, Any]]] = None,
-        auto_discover_free: bool = True,
+        auto_discover_free: Optional[bool] = None,
         max_discovered_free: int = 5,
         default_pool: str = "general_agent",
         allowed_providers: Optional[Set[str]] = None,
@@ -155,6 +155,9 @@ class UniversalFailoverRouter:
             else:
                 self.pool_manager.agent_routes = converted_routes + self.pool_manager.agent_routes
 
+        # Network discovery is opt-in: explicit argument, else LLM_BREAKER_AUTO_DISCOVER=1.
+        if auto_discover_free is None:
+            auto_discover_free = env_flag(AUTO_DISCOVER_ENV)
         if auto_discover_free:
             from llm_circuit_breaker.discovery import register_discovered_models_to_pools
             register_discovered_models_to_pools(limit_per_pool=max_discovered_free)
