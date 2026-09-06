@@ -144,16 +144,34 @@ pip install llm-circuit-breaker
 ### 2. Basic Python Usage
 
 ```python
-from llm_circuit_breaker import GatewayExecutor, NormalizedRequest, NormalizedMessage
+import os
+
+from llm_circuit_breaker import Endpoint, GatewayExecutor, ModelProfile, NormalizedMessage, NormalizedRequest
 
 executor = GatewayExecutor()
+
+# Nothing is registered by default: declare at least one endpoint in the pool you will call.
+executor.capability_registry.register_endpoint(Endpoint(
+    id="groq-llama",
+    provider="groq",
+    model="llama-3.3-70b-versatile",
+    base_url="https://api.groq.com/openai/v1",
+    env_key="GROQ_API_KEY",          # name of the key looked up in `api_keys` below
+    pool="coding",
+    profile=ModelProfile("groq", "llama-3.3-70b-versatile", context_window=131072, supports_tools=True),
+))
 
 request = NormalizedRequest(
     model="default",
     messages=[NormalizedMessage(role="user", content="Deploy application")],
 )
 
-response, decision, ledger = executor.execute(request, pool="coding", strategy="reliability_aware")
+response, decision, ledger = executor.execute(
+    request,
+    pool="coding",
+    strategy="reliability_aware",
+    api_keys={"GROQ_API_KEY": os.environ["GROQ_API_KEY"]},
+)
 print(f"Selected Endpoint: {decision.selected_endpoint.id}")
 print(f"Response: {response.content}")
 ```

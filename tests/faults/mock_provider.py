@@ -129,9 +129,12 @@ class ProgrammableMockAdapter:
         request: NormalizedRequest,
         api_key: Optional[str] = None,
     ) -> PreparedRequest:
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
         return PreparedRequest(
             url=f"mock://{endpoint.provider}/{endpoint.model}",
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             body_bytes=b"{}",
         )
 
