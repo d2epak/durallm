@@ -81,9 +81,10 @@
 ## 4. LOW Gaps
 
 ### GAP-L01: Granular Connect, Write, TTFT, and Idle Stream Timeouts
+- **Status:** Partially resolved for opt-in native streaming.
 - **Location:** `src/llm_circuit_breaker/execution/deadline.py` & `providers/adapters.py`
-- **Impact:** Deadline tracks total and attempt budgets, but standard `urllib` only enforces per-call socket timeout. Granular TTFT timeout should be explicitly handled in streaming handlers.
-- **Resolution:** Enforce TTFT deadline in streaming reader.
+- **Evidence:** `TransportTimeouts` enforces separate direct HTTP(S) TCP-connect, TLS-handshake, first-byte, idle-read, and total budgets. The native reader is cancellable and capped at 10 MB; `tests/test_native_streaming.py` covers socket-level forwarding and disconnect boundaries.
+- **Remaining gap:** Atomic buffered requests continue to use the standard-library one-attempt transport timeout. Direct native streaming does not yet support proxy tunnels or a distinct configurable write-phase deadline.
 
 ### GAP-L02: Optional Persistence Abstraction (SQLite)
 - **Location:** `src/llm_circuit_breaker/health/` & `breaker/`

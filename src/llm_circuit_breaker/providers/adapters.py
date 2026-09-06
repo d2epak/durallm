@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import socket
 import ssl
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
-from typing import Dict, List, Optional
+from typing import Dict, Iterator, List, Optional
 
 from llm_circuit_breaker._env import ALLOW_LOCAL_UPSTREAM_ENV, env_flag
 from llm_circuit_breaker.capability.profile import Endpoint
@@ -34,6 +36,10 @@ from llm_circuit_breaker.providers.base import (
     PreparedRequest,
     ProviderAdapter,
     ProviderExecutionResult,
+    ProviderStreamError,
+    ProviderStreamResult,
+    RequestCancellation,
+    TransportTimeouts,
 )
 from llm_circuit_breaker.security.defense import MAX_PAYLOAD_BYTES, enforce_payload_limit, validate_upstream_url
 
@@ -57,6 +63,133 @@ def _transport_kind(exc: BaseException) -> str:
     if "timed out" in str(exc).lower():
         return "timeout"
     return "unknown"
+
+
+class _HTTPResponseByteStream:
+    """Bounded raw-byte reader for a single HTTP response.
+
+    It deliberately never assembles SSE frames or response JSON.  A proxy can
+    therefore relay provider-native events with a fixed-size read buffer and
+    terminate the upstream connection as soon as its downstream client goes
+    away.
+    """
+
+    def __init__(
+        self,
+        response: http.client.HTTPResponse,
+        connection: http.client.HTTPConnection,
+        timeouts: TransportTimeouts,
+        cancellation: RequestCancellation,
+        started: float,
+        chunk_size: int = 16 * 1024,
+    ) -> None:
+        self._response = response
+        self._connection = connection
+        self._timeouts = timeouts
+        self._cancellation = cancellation
+        self._started = started
+        self._chunk_size = chunk_size
+        self._bytes_read = 0
+        self._closed = False
+        self._cancellation.add_callback(self.close)
+
+    def _remaining_seconds(self) -> float:
+        remaining = self._timeouts.total_timeout_ms - ((time.monotonic() - self._started) * 1000.0)
+        if remaining <= 0:
+            raise ProviderStreamError("total", "upstream stream exceeded its total deadline")
+        return remaining / 1000.0
+
+    def _set_idle_timeout(self) -> None:
+        sock = getattr(self._connection, "sock", None)
+        if sock is not None:
+            sock.settimeout(min(self._timeouts.idle_timeout_seconds, self._remaining_seconds()))
+
+    def iter_bytes(self) -> Iterator[bytes]:
+        try:
+            while True:
+                if self._cancellation.is_cancelled:
+                    raise ProviderStreamError("cancelled", self._cancellation.reason or "stream cancelled")
+                self._set_idle_timeout()
+                try:
+                    # ``read(n)`` may wait for ``n`` bytes and destroys token
+                    # latency for chunked SSE. ``read1`` returns a currently
+                    # available network buffer while retaining HTTP decoding.
+                    read_chunk = getattr(self._response, "read1", self._response.read)
+                    chunk = read_chunk(self._chunk_size)
+                except (socket.timeout, TimeoutError) as exc:
+                    raise ProviderStreamError("idle", "upstream stream was idle beyond its deadline") from exc
+                except (OSError, http.client.HTTPException) as exc:
+                    phase = "cancelled" if self._cancellation.is_cancelled else "connection"
+                    raise ProviderStreamError(phase, f"upstream stream read failed: {exc}") from exc
+                if not chunk:
+                    return
+                self._bytes_read += len(chunk)
+                if self._bytes_read > MAX_PAYLOAD_BYTES:
+                    raise ProviderStreamError(
+                        "buffer_limit",
+                        f"upstream stream exceeded {MAX_PAYLOAD_BYTES} byte safety ceiling",
+                    )
+                yield chunk
+        finally:
+            self.close()
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self._response.close()
+        finally:
+            self._connection.close()
+
+
+def _bounded_http_body(response: http.client.HTTPResponse) -> bytes:
+    """Read an error body with the same ceiling as ordinary responses."""
+    body = response.read(MAX_PAYLOAD_BYTES + 1)
+    enforce_payload_limit(len(body))
+    return body
+
+
+def _open_phase_connection(
+    parsed: urllib.parse.SplitResult,
+    timeouts: TransportTimeouts,
+) -> http.client.HTTPConnection:
+    """Connect direct HTTP(S), measuring socket and TLS handshakes separately.
+
+    ``urllib`` exposes only one opaque timeout.  The native streaming path is
+    direct by design so it can set an explicit timeout for TCP connect, TLS
+    handshake, first response byte and every later idle interval. HTTP proxy
+    tunnelling is not silently attempted by this path.
+    """
+    host = parsed.hostname
+    if not host:
+        raise ValueError("upstream URL has no hostname")
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"}:
+        raise ValueError(f"native streaming supports only http(s), got {scheme!r}")
+    port = parsed.port or (443 if scheme == "https" else 80)
+    raw_socket = socket.create_connection((host, port), timeout=timeouts.connect_timeout_seconds)
+    try:
+        if scheme == "https":
+            raw_socket.settimeout(timeouts.tls_timeout_seconds)
+            context = ssl.create_default_context()
+            secure_socket = context.wrap_socket(raw_socket, server_hostname=host)
+            connection: http.client.HTTPConnection = http.client.HTTPSConnection(host, port=port, context=context)
+            connection.sock = secure_socket
+        else:
+            connection = http.client.HTTPConnection(host, port=port)
+            connection.sock = raw_socket
+        return connection
+    except Exception:
+        raw_socket.close()
+        raise
+
+
+def _request_target(parsed: urllib.parse.SplitResult) -> str:
+    target = parsed.path or "/"
+    if parsed.query:
+        target = f"{target}?{parsed.query}"
+    return target
 
 
 class BaseHTTPAdapter:
@@ -93,7 +226,8 @@ class BaseHTTPAdapter:
         except urllib.error.HTTPError as exc:
             duration = (time.monotonic() - start) * 1000.0
             try:
-                body = exc.read()
+                body = exc.read(MAX_PAYLOAD_BYTES + 1)
+                enforce_payload_limit(len(body))
             except Exception:
                 body = b""
             headers = {k.lower(): v for k, v in exc.headers.items()} if hasattr(exc, "headers") else {}
@@ -113,6 +247,107 @@ class BaseHTTPAdapter:
                 headers={},
                 body=f"transport_error:{kind}: {exc}".encode("utf-8"),
                 duration_ms=duration,
+                transport_error=kind,
+            )
+
+    def open_stream(
+        self,
+        prepared: PreparedRequest,
+        timeouts: TransportTimeouts,
+        cancellation: Optional[RequestCancellation] = None,
+    ) -> ProviderStreamResult:
+        """Open a direct provider-native stream with phase-specific deadlines.
+
+        The returned stream is raw bytes, not a normalized response.  This is
+        intentional: protocol conversion after the first visible event could
+        splice two model trajectories.  Callers may fail over before the first
+        byte, but must emit a terminal interruption event after it.
+        """
+        validate_upstream_url(prepared.url, allow_localhost=env_flag(ALLOW_LOCAL_UPSTREAM_ENV))
+        enforce_payload_limit(len(prepared.body_bytes))
+        token = cancellation or RequestCancellation()
+        started = time.monotonic()
+        connection: Optional[http.client.HTTPConnection] = None
+        try:
+            if token.is_cancelled:
+                raise ProviderStreamError("cancelled", token.reason or "stream cancelled before connect")
+            parsed = urllib.parse.urlsplit(prepared.url)
+            connection = _open_phase_connection(parsed, timeouts)
+            token.add_callback(connection.close)
+            elapsed_ms = (time.monotonic() - started) * 1000.0
+            if elapsed_ms >= timeouts.total_timeout_ms:
+                raise ProviderStreamError("total", "upstream stream exceeded its total deadline during setup")
+
+            # Request bytes are bounded before the socket is opened. First-byte
+            # timing starts after those bytes have been dispatched.
+            sock = getattr(connection, "sock", None)
+            if sock is not None:
+                remaining_s = max(0.001, (timeouts.total_timeout_ms - elapsed_ms) / 1000.0)
+                # A bounded request still needs a socket deadline while it is
+                # written. We use the first-byte budget here because this
+                # direct transport has no separate write phase configuration.
+                sock.settimeout(min(timeouts.first_byte_timeout_seconds, remaining_s))
+            connection.request(prepared.method, _request_target(parsed), body=prepared.body_bytes, headers=prepared.headers)
+            elapsed_ms = (time.monotonic() - started) * 1000.0
+            if elapsed_ms >= timeouts.total_timeout_ms:
+                raise ProviderStreamError("total", "upstream stream exceeded its total deadline while sending request")
+            sock = getattr(connection, "sock", None)
+            if sock is not None:
+                remaining_s = max(0.001, (timeouts.total_timeout_ms - elapsed_ms) / 1000.0)
+                sock.settimeout(min(timeouts.first_byte_timeout_seconds, remaining_s))
+            response = connection.getresponse()
+            duration = (time.monotonic() - started) * 1000.0
+            headers = {key.lower(): value for key, value in response.headers.items()}
+            content_length = headers.get("content-length")
+            if content_length is not None:
+                try:
+                    enforce_payload_limit(int(content_length))
+                except ValueError:
+                    # Bad Content-Length is handled by http.client while
+                    # reading. Do not convert a valid chunked stream into a
+                    # configuration error merely because an upstream lies.
+                    pass
+            if response.status != 200:
+                try:
+                    body = _bounded_http_body(response)
+                finally:
+                    connection.close()
+                return ProviderStreamResult(
+                    status_code=response.status,
+                    headers=headers,
+                    body=body,
+                    duration_ms=duration,
+                )
+            return ProviderStreamResult(
+                status_code=response.status,
+                headers=headers,
+                duration_ms=duration,
+                stream=_HTTPResponseByteStream(response, connection, timeouts, token, started),
+            )
+        except CircuitBreakerGatewayError:
+            if connection is not None:
+                connection.close()
+            raise
+        except ProviderStreamError as exc:
+            if connection is not None:
+                connection.close()
+            kind = "timeout" if exc.phase in {"total", "first_byte", "idle"} else "connection"
+            return ProviderStreamResult(
+                status_code=TRANSPORT_STATUS[kind],
+                headers={},
+                body=f"transport_error:{kind}: {exc}".encode("utf-8"),
+                duration_ms=(time.monotonic() - started) * 1000.0,
+                transport_error=kind,
+            )
+        except Exception as exc:
+            if connection is not None:
+                connection.close()
+            kind = _transport_kind(exc)
+            return ProviderStreamResult(
+                status_code=TRANSPORT_STATUS[kind],
+                headers={},
+                body=f"transport_error:{kind}: {exc}".encode("utf-8"),
+                duration_ms=(time.monotonic() - started) * 1000.0,
                 transport_error=kind,
             )
 

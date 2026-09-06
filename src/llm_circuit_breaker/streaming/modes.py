@@ -35,6 +35,42 @@ class StreamingMetrics:
     fallback_occurred: bool = False
 
 
+def interruption_sse(protocol: str, message: str, endpoint_id: str) -> bytes:
+    """Return a terminal, protocol-shaped event for a visible stream failure.
+
+    The event is deliberately explicit rather than a synthetic completion.
+    Callers can create a new continuation turn, but cannot mistake a partial
+    answer for one safely completed by a fallback model.
+    """
+    detail = {
+        "event": "interrupted",
+        "continuation_required": True,
+        "endpoint_id": endpoint_id,
+        "message": message[:500],
+    }
+    if protocol == "anthropic":
+        payload = {
+            "type": "error",
+            "error": {
+                "type": "api_error",
+                "message": "Upstream stream interrupted; start a new continuation turn.",
+                "lcb": detail,
+            },
+        }
+        return f"event: error\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+    payload = {
+        "error": {
+            "type": "stream_interrupted",
+            "message": "Upstream stream interrupted; start a new continuation turn.",
+            "lcb": detail,
+        }
+    }
+    return (
+        f"event: lcb.interrupted\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        "data: [DONE]\n\n"
+    ).encode("utf-8")
+
+
 def synthesize_anthropic_sse(resp: NormalizedResponse, requested_model: str) -> Iterator[str]:
     """Generate clean synthetic Anthropic SSE events from a NormalizedResponse."""
     msg_id = resp.response_id if resp.response_id.startswith("msg_") else f"msg_{resp.response_id}"

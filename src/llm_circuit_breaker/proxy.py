@@ -23,6 +23,7 @@ from typing import Any, Dict, Optional
 from llm_circuit_breaker.continuation import ContinuationEvent, ContinuationRequest, SQLiteContinuationStore
 from llm_circuit_breaker.errors import (
     CircuitBreakerGatewayError,
+    ConfigurationError,
     ContinuationProtocolError,
     ToolOperationProtocolError,
 )
@@ -36,6 +37,7 @@ from llm_circuit_breaker.pruner import estimate_tokens
 from llm_circuit_breaker.router import UniversalFailoverRouter
 from llm_circuit_breaker.security.defense import enforce_payload_limit
 from llm_circuit_breaker.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
+from llm_circuit_breaker.streaming import StreamingMode, interruption_sse
 
 logger = logging.getLogger("llm_circuit_breaker.proxy")
 
@@ -157,6 +159,54 @@ def logical_operation_id_from_headers(headers: Any) -> Optional[str]:
     if len(value) > 256 or "\r" in value or "\n" in value:
         raise ToolOperationProtocolError("Invalid X-LCB-Operation-Id", status_code=400)
     return value
+
+
+def streaming_mode_from_request(body: Dict[str, Any], headers: Any) -> StreamingMode:
+    """Read the opt-in streaming contract without changing provider schemas.
+
+    ``stream: true`` alone remains atomic-buffered for compatibility and for
+    full tool validation. Native pass-through is an explicit contract because
+    it cannot safely switch models after its first visible bytes.
+    """
+    raw = headers.get("X-LCB-Streaming-Mode") or body.get("lcb_stream_mode") or StreamingMode.ATOMIC_BUFFERED.value
+    try:
+        return StreamingMode(str(raw).lower())
+    except ValueError as exc:
+        allowed = ", ".join(mode.value for mode in StreamingMode)
+        raise ConfigurationError(f"Invalid streaming mode {raw!r}; choose one of: {allowed}") from exc
+
+
+def open_native_messages_stream(body: Dict[str, Any], logical_operation_id: Optional[str] = None):
+    request = anthropic_request_to_ir(body)
+    if logical_operation_id:
+        request.request_id = logical_operation_id
+    return GATEWAY.open_native_stream(request, pool="coding", client_protocol="anthropic")
+
+
+def open_native_chat_stream(body: Dict[str, Any], logical_operation_id: Optional[str] = None):
+    requested_model = body.get("model", "hermes-default")
+    request = openai_request_to_ir(body)
+    if logical_operation_id:
+        request.request_id = logical_operation_id
+    return GATEWAY.open_native_stream(
+        request,
+        pool=pool_for_model(requested_model),
+        client_protocol="openai",
+    )
+
+
+def native_stream_chunks(native_stream: Any, protocol: str):
+    """Yield provider bytes for ASGI while preserving the no-splice boundary."""
+    completed = False
+    try:
+        for chunk in native_stream.iter_bytes():
+            yield chunk
+        completed = True
+    except Exception as exc:
+        yield interruption_sse(protocol, str(exc), native_stream.endpoint.id)
+    finally:
+        if not completed:
+            native_stream.cancel("ASGI downstream stream ended")
 
 
 def update_tool_operation(body: Dict[str, Any], action: str) -> Dict[str, Any]:
@@ -377,6 +427,31 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         # 2. ANTHROPIC MESSAGES (Claude Code)
         # ------------------------------------------------------------------
         if path in ("/v1/messages", "/messages"):
+            try:
+                streaming_mode = streaming_mode_from_request(body, self.headers)
+            except CircuitBreakerGatewayError as exc:
+                status, kind = http_error_for(exc)
+                self._send_json(status, {"type": "error", "error": {"type": kind, "message": str(exc)}})
+                return
+            if body.get("stream", False) and streaming_mode == StreamingMode.TRUE_STREAMING:
+                if continuation is not None:
+                    self._send_json(409, {
+                        "type": "error",
+                        "error": {
+                            "type": "continuation_protocol_error",
+                            "message": "ACP turns require atomic_buffered streaming until checkpoint completion is stream-aware",
+                        },
+                    })
+                    return
+                try:
+                    native_stream = open_native_messages_stream(body, logical_operation_id)
+                except CircuitBreakerGatewayError as exc:
+                    status, kind = http_error_for(exc)
+                    self._send_json(status, {"type": "error", "error": {"type": kind, "message": str(exc)}})
+                    return
+                self._route = native_stream.endpoint
+                self._emit_native_stream(native_stream, "anthropic")
+                return
             status, anthropic_resp, self._route, event = serve_messages(body, continuation, logical_operation_id)
             headers = continuation_headers(event)
             if status != 200:
@@ -391,6 +466,30 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         # 3. OPENAI CHAT COMPLETIONS (Hermes Agent, OpenClaw, Cursor)
         # ------------------------------------------------------------------
         if path in ("/v1/chat/completions", "/chat/completions"):
+            try:
+                streaming_mode = streaming_mode_from_request(body, self.headers)
+            except CircuitBreakerGatewayError as exc:
+                status, kind = http_error_for(exc)
+                self._send_json(status, {"error": {"type": kind, "message": str(exc)}})
+                return
+            if body.get("stream", False) and streaming_mode == StreamingMode.TRUE_STREAMING:
+                if continuation is not None:
+                    self._send_json(409, {
+                        "error": {
+                            "type": "continuation_protocol_error",
+                            "message": "ACP turns require atomic_buffered streaming until checkpoint completion is stream-aware",
+                        },
+                    })
+                    return
+                try:
+                    native_stream = open_native_chat_stream(body, logical_operation_id)
+                except CircuitBreakerGatewayError as exc:
+                    status, kind = http_error_for(exc)
+                    self._send_json(status, {"error": {"type": kind, "message": str(exc)}})
+                    return
+                self._route = native_stream.endpoint
+                self._emit_native_stream(native_stream, "openai")
+                return
             status, openai_resp, self._route, event = serve_chat_completions(body, continuation, logical_operation_id)
             headers = continuation_headers(event)
             if status == 200 and body.get("stream", False):
@@ -400,6 +499,37 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             return
 
         self._send_json(404, {"error": {"message": f"POST endpoint {path} not found"}})
+
+    def _emit_native_stream(self, native_stream: Any, protocol: str) -> None:
+        """Relay raw provider bytes; never switch model after visibility begins."""
+        self.send_response(200)
+        self.send_header("Content-Type", "text/event-stream")
+        self.send_header("Cache-Control", "no-cache")
+        self.send_header("Connection", "close")
+        self.send_header("X-LCB-Streaming-Mode", StreamingMode.TRUE_STREAMING.value)
+        self.send_header("X-LCB-Selected-Endpoint", native_stream.endpoint.id)
+        self.end_headers()
+
+        visible = False
+        try:
+            for chunk in native_stream.iter_bytes():
+                self.wfile.write(chunk)
+                self.wfile.flush()
+                visible = True
+        except (BrokenPipeError, ConnectionResetError):
+            native_stream.cancel("downstream client disconnected")
+        except Exception as exc:
+            # The first chunk was prefetched before sending headers; every
+            # error reaching here is necessarily after the selected provider
+            # became visible. Do not route it to another provider.
+            if visible:
+                try:
+                    self.wfile.write(interruption_sse(protocol, str(exc), native_stream.endpoint.id))
+                    self.wfile.flush()
+                except (BrokenPipeError, ConnectionResetError):
+                    native_stream.cancel("downstream client disconnected")
+            else:
+                native_stream.cancel("native stream failed before downstream visibility")
 
     def _emit_synthetic_anthropic_stream(
         self, anthropic_resp: Dict[str, Any], extra_headers: Optional[Dict[str, str]] = None
@@ -525,6 +655,7 @@ def create_proxy_app():
     """Optional ASGI application for FastAPI/Uvicorn users."""
     try:
         from fastapi import FastAPI, Request, Response
+        from fastapi.responses import StreamingResponse
     except ImportError:
         raise ImportError("FastAPI is optional. Install with: pip install 'llm-circuit-breaker[proxy]'")
 
@@ -552,6 +683,42 @@ def create_proxy_app():
                 status_code=status,
                 media_type="application/json",
             )
+        try:
+            streaming_mode = streaming_mode_from_request(body, req.headers)
+        except CircuitBreakerGatewayError as exc:
+            status, kind = http_error_for(exc)
+            return Response(
+                content=json.dumps({"type": "error", "error": {"type": kind, "message": str(exc)}}),
+                status_code=status,
+                media_type="application/json",
+            )
+        if body.get("stream", False) and streaming_mode == StreamingMode.TRUE_STREAMING:
+            if continuation is not None:
+                return Response(
+                    content=json.dumps({"type": "error", "error": {
+                        "type": "continuation_protocol_error",
+                        "message": "ACP turns require atomic_buffered streaming until checkpoint completion is stream-aware",
+                    }}),
+                    status_code=409,
+                    media_type="application/json",
+                )
+            try:
+                native_stream = open_native_messages_stream(body, logical_operation_id)
+            except CircuitBreakerGatewayError as exc:
+                status, kind = http_error_for(exc)
+                return Response(
+                    content=json.dumps({"type": "error", "error": {"type": kind, "message": str(exc)}}),
+                    status_code=status,
+                    media_type="application/json",
+                )
+            return StreamingResponse(
+                native_stream_chunks(native_stream, "anthropic"),
+                media_type="text/event-stream",
+                headers={
+                    "X-LCB-Streaming-Mode": StreamingMode.TRUE_STREAMING.value,
+                    "X-LCB-Selected-Endpoint": native_stream.endpoint.id,
+                },
+            )
         status, anthropic_resp, _, event = serve_messages(body, continuation, logical_operation_id)
         return Response(
             content=json.dumps(anthropic_resp),
@@ -572,6 +739,42 @@ def create_proxy_app():
                 content=json.dumps({"error": {"type": kind, "message": str(exc)}}),
                 status_code=status,
                 media_type="application/json",
+            )
+        try:
+            streaming_mode = streaming_mode_from_request(body, req.headers)
+        except CircuitBreakerGatewayError as exc:
+            status, kind = http_error_for(exc)
+            return Response(
+                content=json.dumps({"error": {"type": kind, "message": str(exc)}}),
+                status_code=status,
+                media_type="application/json",
+            )
+        if body.get("stream", False) and streaming_mode == StreamingMode.TRUE_STREAMING:
+            if continuation is not None:
+                return Response(
+                    content=json.dumps({"error": {
+                        "type": "continuation_protocol_error",
+                        "message": "ACP turns require atomic_buffered streaming until checkpoint completion is stream-aware",
+                    }}),
+                    status_code=409,
+                    media_type="application/json",
+                )
+            try:
+                native_stream = open_native_chat_stream(body, logical_operation_id)
+            except CircuitBreakerGatewayError as exc:
+                status, kind = http_error_for(exc)
+                return Response(
+                    content=json.dumps({"error": {"type": kind, "message": str(exc)}}),
+                    status_code=status,
+                    media_type="application/json",
+                )
+            return StreamingResponse(
+                native_stream_chunks(native_stream, "openai"),
+                media_type="text/event-stream",
+                headers={
+                    "X-LCB-Streaming-Mode": StreamingMode.TRUE_STREAMING.value,
+                    "X-LCB-Selected-Endpoint": native_stream.endpoint.id,
+                },
             )
         status, openai_resp, _, event = serve_chat_completions(body, continuation, logical_operation_id)
         return Response(

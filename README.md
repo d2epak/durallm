@@ -31,7 +31,7 @@ An independent adversarial review on 2026-09-06 found the following. Read this b
 
 **Known not yet delivered**
 - 402 and 429 open the breaker (documented in `docs/FAILURE_TAXONOMY.md`); other 4xx never poison health as of `0.2.0`+.
-- Streaming is synthetic (buffered response re-emitted as SSE); there is no mid-stream failover.
+- Streaming defaults to atomic-buffered SSE replay. Opt-in `X-LCB-Streaming-Mode: true_streaming` relays a compatible provider's native SSE with phase deadlines and cancellation; after any visible bytes it emits an explicit interruption event rather than splicing a fallback model. Tool and ACP turns remain atomic-buffered.
 - Nothing enters the `METRICS_ONLY` breaker state; the state exists in the FSM but no API selects it.
 - Benchmarks in `docs/BENCHMARKS.md` run three in-process baselines inside the same harness, not external systems; treat the numbers as smoke tests, not measurements.
 

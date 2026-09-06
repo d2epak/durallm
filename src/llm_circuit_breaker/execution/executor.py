@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import logging
 import time
-from dataclasses import replace
-from typing import Callable, Dict, List, Optional, Tuple
+from dataclasses import dataclass, replace
+from typing import Callable, Dict, Iterator, List, Optional, Tuple
 
 from llm_circuit_breaker.agent.context import ContextBudget, ContextManager, estimate_tokens
 from llm_circuit_breaker.agent.failover_plan import FailoverPlan
@@ -27,6 +27,7 @@ from llm_circuit_breaker.capability.registry import (
 from llm_circuit_breaker.classifier import classify_failure
 from llm_circuit_breaker.errors import (
     BreakerOpenError,
+    ConfigurationError,
     ContextOverflowError,
     IndeterminateToolOperationError,
     NoHealthyRouteError,
@@ -55,6 +56,11 @@ from llm_circuit_breaker.providers.adapters import (
     DEFAULT_ADAPTER_REGISTRY,
     ProviderAdapterRegistry,
 )
+from llm_circuit_breaker.providers.base import (
+    ProviderByteStream,
+    ProviderStreamError,
+    RequestCancellation,
+)
 from llm_circuit_breaker.routing.decision import RoutingDecision
 from llm_circuit_breaker.routing.requirements import RequirementVector
 from llm_circuit_breaker.routing.router import CapabilityRouter
@@ -62,6 +68,76 @@ from llm_circuit_breaker.storage.contracts import AttemptStore
 from llm_circuit_breaker.validation.response import ResponseValidator
 
 logger = logging.getLogger("llm_circuit_breaker.execution")
+
+
+@dataclass
+class NativeStreamHandle:
+    """One provider-native stream after its first downstream-visible bytes.
+
+    This object has a deliberately narrow safety contract: its provider may
+    not be replaced once ``first_chunk`` exists.  Failure after that point is
+    terminal for this client stream and is reported to the caller so it can
+    emit an explicit continuation/interruption event.
+    """
+
+    stream: ProviderByteStream
+    stream_iterator: Iterator[bytes]
+    first_chunk: bytes
+    endpoint: Endpoint
+    decision: RoutingDecision
+    attempt: AttemptRecord
+    ledger: AttemptLedger
+    breaker: object
+    executor: "GatewayExecutor"
+    cancellation: RequestCancellation
+    _finished: bool = False
+
+    def _finish_success(self) -> None:
+        if self._finished:
+            return
+        self._finished = True
+        self.attempt.finish(success=True, status_code=200)
+        self.breaker.record_success(self.attempt.latency_ms)
+        self.executor.health_store.record_success(self.endpoint.id, self.attempt.latency_ms)
+        self.ledger.record_attempt(self.attempt)
+        self.executor._emit_attempt(self.attempt)
+        self.executor._finish_durable_attempt(self.attempt, "stream_succeeded")
+
+    def _finish_failure(self, error: BaseException) -> None:
+        if self._finished:
+            return
+        self._finished = True
+        phase = error.phase if isinstance(error, ProviderStreamError) else "connection"
+        status = 597 if phase in {"idle", "total", "first_byte"} else 598
+        classified = classify_failure(str(error), status_code=status)
+        self.attempt.finish(success=False, status_code=status, failure=classified)
+        self.breaker.record_failure(self.attempt.latency_ms, failure_classification=classified)
+        self.executor.health_store.record_failure(
+            endpoint_id=self.endpoint.id,
+            latency_ms=self.attempt.latency_ms,
+            error_message=classified.message[:160],
+        )
+        self.ledger.record_attempt(self.attempt)
+        self.executor._emit_attempt(self.attempt)
+        self.executor._finish_durable_attempt(self.attempt, "stream_interrupted", str(error))
+
+    def iter_bytes(self) -> Iterator[bytes]:
+        try:
+            yield self.first_chunk
+            for chunk in self.stream_iterator:
+                if chunk:
+                    yield chunk
+        except BaseException as exc:
+            self._finish_failure(exc)
+            raise
+        else:
+            self._finish_success()
+        finally:
+            self.stream.close()
+
+    def cancel(self, reason: str = "downstream client disconnected") -> None:
+        self.cancellation.cancel(reason)
+        self.stream.close()
 
 
 class GatewayExecutor:
@@ -140,6 +216,185 @@ class GatewayExecutor:
                 status,
                 self._attempt_payload(attempt, status, detail),
             )
+
+    @staticmethod
+    def _streaming_prepared_request(prepared: object) -> object:
+        """Set the native provider streaming flag without mutating the retry body."""
+        try:
+            payload = json.loads(prepared.body_bytes.decode("utf-8"))
+        except (AttributeError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ConfigurationError("Provider request cannot be converted into a native stream") from exc
+        if not isinstance(payload, dict):
+            raise ConfigurationError("Provider request must be a JSON object to use native streaming")
+        payload["stream"] = True
+        headers = dict(prepared.headers)
+        headers["Accept"] = "text/event-stream"
+        return replace(prepared, body_bytes=json.dumps(payload, ensure_ascii=False).encode("utf-8"), headers=headers)
+
+    def open_native_stream(
+        self,
+        request: NormalizedRequest,
+        pool: str = "general_agent",
+        strategy: Optional[str] = None,
+        api_keys: Optional[Dict[str, str]] = None,
+        client_protocol: str = "openai",
+        deadline_ms: float = 60000.0,
+    ) -> NativeStreamHandle:
+        """Open a raw provider-native stream, failing over only before bytes escape.
+
+        Native streaming deliberately excludes tool-bearing turns.  Tool calls
+        need whole-response validation and durable submission handling, so the
+        proxy keeps those requests in atomic-buffered mode until a transaction
+        aware streamed tool protocol is available.
+        """
+        if request.tools:
+            raise ConfigurationError("Native streaming is unavailable for tool-bearing turns; use atomic_buffered mode")
+
+        deadline = Deadline(total_timeout_ms=deadline_ms)
+        ledger = AttemptLedger(self.policy)
+        keys = dict(api_keys or {})
+        req_vector = RequirementVector(
+            require_tools=False,
+            task_class="coding" if pool == "coding" else "general",
+            estimated_input_tokens=estimate_tokens(request),
+            expected_output_tokens=request.max_output_tokens or 0,
+        )
+        excluded_endpoints: List[str] = []
+        last_failure_reason: Optional[str] = None
+        attempt_idx = 0
+
+        while not deadline.is_expired() and ledger.total_attempts < self.policy.max_total_attempts:
+            attempt_idx += 1
+            deadline.check()
+            endpoint, decision = self.router.select_candidate(
+                requirements=req_vector,
+                pool=pool,
+                strategy=strategy,
+                request_id=request.request_id,
+                excluded_endpoints=excluded_endpoints,
+                fallback_reason=last_failure_reason,
+            )
+            if endpoint is None:
+                break
+            # Raw pass-through is safe only when the client and upstream use
+            # the same event protocol. Cross-protocol calls remain atomic.
+            if endpoint.protocol != client_protocol:
+                excluded_endpoints.append(endpoint.id)
+                last_failure_reason = "stream_protocol_mismatch"
+                continue
+            profile = endpoint.profile or self.capability_registry.get_profile(endpoint.provider, endpoint.model)
+            if not profile.supports_streaming:
+                excluded_endpoints.append(endpoint.id)
+                last_failure_reason = "streaming_not_supported"
+                continue
+            try:
+                ledger.validate_next_candidate(endpoint.id)
+                breaker = self.breaker_registry.get_or_create(endpoint.resource_key)
+                breaker.acquire_permission()
+            except (BreakerOpenError, ProbeAdmissionDeniedError):
+                excluded_endpoints.append(endpoint.id)
+                last_failure_reason = "breaker_admission_denied"
+                continue
+            except Exception:
+                excluded_endpoints.append(endpoint.id)
+                last_failure_reason = "stream_route_rejected"
+                continue
+
+            budget = ContextBudget(
+                model_context_window=profile.context_window,
+                desired_output_tokens=request.max_output_tokens or 4096,
+                safety_margin_tokens=2048,
+            )
+            try:
+                adapted_request, was_compacted = self.context_manager.compact(request, budget)
+            except ContextOverflowError:
+                excluded_endpoints.append(endpoint.id)
+                last_failure_reason = "context_overflow"
+                continue
+
+            adapter = self.adapter_registry.get_adapter(endpoint.provider, protocol=endpoint.protocol)
+            if not hasattr(adapter, "open_stream"):
+                excluded_endpoints.append(endpoint.id)
+                last_failure_reason = "adapter_has_no_native_stream"
+                continue
+            key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
+            prepared = self._streaming_prepared_request(adapter.prepare_request(endpoint, adapted_request, api_key=key_val))
+            attempt = AttemptRecord(
+                request_id=request.request_id,
+                endpoint_id=endpoint.id,
+                provider=endpoint.provider,
+                model=endpoint.model,
+                attempt_index=attempt_idx,
+                fallback_index=ledger.fallback_count,
+                compacted=was_compacted,
+            )
+            self._prepare_durable_attempt(attempt)
+            cancellation = RequestCancellation()
+            result = adapter.open_stream(prepared, deadline.transport_timeouts(streaming=True), cancellation)
+            if result.status_code == 200 and result.stream is not None:
+                stream_iterator = result.stream.iter_bytes()
+                try:
+                    first_chunk = next(stream_iterator)
+                except StopIteration:
+                    first_chunk = b""
+                    first_error: Optional[BaseException] = ProviderStreamError("first_byte", "provider closed an empty stream")
+                except BaseException as exc:
+                    first_chunk = b""
+                    first_error = exc
+                else:
+                    first_error = None
+                if first_chunk:
+                    attempt.ttft_ms = max(result.duration_ms, (time.monotonic() - attempt.start_time_monotonic) * 1000.0)
+                    return NativeStreamHandle(
+                        stream=result.stream,
+                        stream_iterator=stream_iterator,
+                        first_chunk=first_chunk,
+                        endpoint=endpoint,
+                        decision=decision,
+                        attempt=attempt,
+                        ledger=ledger,
+                        breaker=breaker,
+                        executor=self,
+                        cancellation=cancellation,
+                    )
+                result.stream.close()
+                failure_source: object = first_error or "provider returned an empty stream"
+                failure_status = 597 if isinstance(first_error, ProviderStreamError) else 502
+            else:
+                failure_source = result.body.decode("utf-8", errors="ignore")
+                failure_status = result.status_code
+
+            classified = classify_failure(failure_source, status_code=failure_status, headers=result.headers)
+            attempt.finish(success=False, status_code=failure_status, failure=classified)
+            breaker.record_failure(attempt.latency_ms, failure_classification=classified)
+            self.health_store.record_failure(
+                endpoint_id=endpoint.id,
+                latency_ms=attempt.latency_ms,
+                error_message=classified.message[:160],
+                cooldown_seconds=classified.retry_after_seconds,
+            )
+            ledger.record_attempt(attempt)
+            self._emit_attempt(attempt)
+            self._finish_durable_attempt(attempt, "stream_open_failed", classified.message)
+            last_failure_reason = classified.reason.value
+
+            if not classified.should_fallback:
+                raise NonRecoverableFailureError(
+                    f"{endpoint.id} failed before native stream visibility: {classified.message[:160]}",
+                    classification=classified,
+                    endpoint_id=endpoint.id,
+                )
+            if classified.retryable and ledger.can_attempt_endpoint(endpoint.id):
+                backoff_s = self.policy.retry.compute_backoff_seconds(
+                    ledger.attempts_on(endpoint.id), retry_after=classified.retry_after_seconds
+                )
+                if backoff_s < deadline.remaining_ms() / 1000.0:
+                    self._sleep(backoff_s)
+                    continue
+            excluded_endpoints.append(endpoint.id)
+            ledger.mark_fallback()
+
+        raise NoHealthyRouteError(f"No native streaming route is available in pool '{pool}'", pool=pool)
 
     def execute(
         self,

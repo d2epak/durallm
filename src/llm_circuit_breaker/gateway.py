@@ -29,7 +29,7 @@ from llm_circuit_breaker.errors import (
     NonRecoverableFailureError,
     ToolOperationProtocolError,
 )
-from llm_circuit_breaker.execution.executor import GatewayExecutor
+from llm_circuit_breaker.execution.executor import GatewayExecutor, NativeStreamHandle
 from llm_circuit_breaker.execution.ledger import AttemptLedger
 from llm_circuit_breaker.pools import POOL_MANAGER, IsolatedPoolManager, RouteDefinition
 from llm_circuit_breaker.protocol.ir import NormalizedRequest, NormalizedResponse
@@ -117,6 +117,22 @@ class ProxyGateway:
     def complete(self, request: NormalizedRequest, pool: str) -> Tuple[NormalizedResponse, RoutingDecision, AttemptLedger]:
         self.sync_endpoints()
         return self.executor.execute(request, pool=pool, strategy="priority", api_keys=self.pool_manager.keys)
+
+    def open_native_stream(
+        self,
+        request: NormalizedRequest,
+        pool: str,
+        client_protocol: str,
+    ) -> NativeStreamHandle:
+        """Open an opt-in raw stream; pre-visible failures may still fail over."""
+        self.sync_endpoints()
+        return self.executor.open_native_stream(
+            request,
+            pool=pool,
+            strategy="priority",
+            api_keys=self.pool_manager.keys,
+            client_protocol=client_protocol,
+        )
 
     def complete_turn(
         self,
