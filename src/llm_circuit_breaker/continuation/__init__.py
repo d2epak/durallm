@@ -7,6 +7,7 @@ from llm_circuit_breaker.continuation.models import (
     ContinuationRequest,
     ContinuationTurn,
 )
+from llm_circuit_breaker.continuation.sqlite import SQLiteContinuationStore
 from llm_circuit_breaker.continuation.store import ContinuationStore, InMemoryContinuationStore
 
 __all__ = [
@@ -17,4 +18,5 @@ __all__ = [
     "ContinuationStore",
     "ContinuationTurn",
     "InMemoryContinuationStore",
+    "SQLiteContinuationStore",
 ]

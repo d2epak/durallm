@@ -1,10 +1,14 @@
 """A committed tool call re-proposed under the same logical operation is replayed, not re-executed."""
 
+import os
+import tempfile
 import unittest
 
 from llm_circuit_breaker.agent.idempotency import ToolExecutionStatus
+from llm_circuit_breaker.errors import IndeterminateToolOperationError
 from llm_circuit_breaker.execution.policy import RetryPolicy
 from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolDefinition
+from llm_circuit_breaker.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
 from tests.faults.mock_provider import MockFaultAction
 from tests.faults.test_executor_backoff import build_executor
 
@@ -70,6 +74,29 @@ class TestToolReplay(unittest.TestCase):
             self.assertFalse(resp.tool_calls[0].metadata.get("replayed", False))
             runner.run(resp.tool_calls[0])
         self.assertEqual(runner.executions, 2)
+
+    def test_durable_ledger_blocks_an_unacknowledged_side_effect(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SQLitePersistenceStore(os.path.join(directory, "durable-tools.db"))
+            ledger = SQLiteToolExecutionLedger(store, owner_id="test-worker", recover_inflight=False)
+            ex, mock_a, _, _ = build_executor(RetryPolicy(max_attempts_same_endpoint=1))
+            ex.tool_ledger = ledger
+            mock_a.set_sequence([MockFaultAction.valid_tool_call("bash", {"command": "deploy"})] * 2)
+
+            first, _, _ = ex.execute(turn_request("op-durable"), pool="coding", strategy="priority")
+            ledger.mark_submitted(first.tool_calls[0].metadata["ledger_call_id"])
+
+            with self.assertRaises(IndeterminateToolOperationError):
+                ex.execute(turn_request("op-durable"), pool="coding", strategy="priority")
+
+            # The second model completion was inspected, but no duplicate tool
+            # call was returned to an executor after the lost acknowledgement.
+            self.assertEqual(len(mock_a.call_history), 2)
+            self.assertEqual(
+                ledger.get_record(first.tool_calls[0].metadata["ledger_call_id"]).status,
+                ToolExecutionStatus.INDETERMINATE,
+            )
+            store.close()
 
 
 if __name__ == "__main__":

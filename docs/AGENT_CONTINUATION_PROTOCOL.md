@@ -76,16 +76,17 @@ checks before dispatching the provider request.
 ACP v1's default `InMemoryContinuationStore` is thread-safe **within one
 gateway process only**. It prevents an ordered client from accidentally
 advancing past a result it has not persisted, and it records the actual
-endpoint selected after failover. It does **not** survive process restart,
-support multiple proxy instances, execute tools, or provide exactly-once tool
-effects. A failed upstream attempt releases its active turn without issuing a
-checkpoint; a client can retry that same epoch.
+endpoint selected after failover. A failed upstream attempt releases its active
+turn without issuing a checkpoint; a client can retry that same epoch.
 
-Durable session/attempt/operation repositories, persisted pre-dispatch and
-tool-operation receipts are a separate prerequisite for crash recovery and
-non-idempotent tool safety. Until those are configured, product documentation
-and clients must never describe ACP as durable continuation or automatic tool
-replay protection.
+Set `LLM_BREAKER_STATE_DB` to use the SQLite/WAL `SQLiteContinuationStore`.
+It persists the session/checkpoint and uses a fenced session lease, so an
+uncompleted active turn after restart is interrupted rather than advanced. It
+still does not reconstruct a provider request that may have been in flight,
+execute tools, or make an arbitrary external action exactly once. Durable tool
+operations require a cooperating `SQLiteToolExecutionLedger`; see
+`DURABLE_STATE.md` for the explicit submit/commit protocol and its
+indeterminate-state boundary.
 
 ## Client responsibilities
 

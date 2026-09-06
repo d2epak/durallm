@@ -219,6 +219,44 @@ class TestProxyServedByExecutor(unittest.TestCase):
         self.assertEqual(json.loads(raw)["error"]["type"], "continuation_protocol_error")
         self.assertEqual(len(self.mock_a.call_history), 0)
 
+    def test_tool_operation_http_protocol_replays_only_a_committed_receipt(self):
+        self.mock_a.set_sequence([MockFaultAction.valid_tool_call("bash", {"command": "deploy"})] * 2)
+        body = {
+            "model": "hermes-default",
+            "messages": [{"role": "user", "content": "deploy"}],
+            "tools": [{
+                "type": "function",
+                "function": {
+                    "name": "bash",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"command": {"type": "string"}},
+                        "required": ["command"],
+                    },
+                },
+            }],
+        }
+        headers = {"X-LCB-Operation-Id": "deploy-operation-1"}
+        status, _, raw = self._post("/v1/chat/completions", body, headers=headers)
+        first = json.loads(raw)
+        self.assertEqual(status, 200)
+        ledger_call_id = first["lcb_tool_operations"][0]["ledger_call_id"]
+        self.assertEqual(first["lcb_tool_operations"][0]["status"], "validated")
+
+        status, _, _ = self._post("/v1/tool-operations/submit", {"ledger_call_id": ledger_call_id})
+        self.assertEqual(status, 200)
+        status, _, raw = self._post(
+            "/v1/tool-operations/commit",
+            {"ledger_call_id": ledger_call_id, "receipt": {"deployment_id": "dep-1"}},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)["tool_operation"]["status"], "committed")
+
+        status, _, raw = self._post("/v1/chat/completions", body, headers=headers)
+        replay = json.loads(raw)
+        self.assertEqual(status, 200)
+        self.assertEqual(replay["lcb_tool_operations"][0]["status"], "replayed")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -62,8 +62,10 @@ from llm_circuit_breaker.errors import (
     CycleDetectedError,
     DeadlineExceededError,
     GatewayError,
+    IndeterminateToolOperationError,
     NoHealthyRouteError,
     ProbeAdmissionDeniedError,
+    ToolOperationProtocolError,
     UnsafeToolCallError,
 )
 from llm_circuit_breaker.execution import (
@@ -222,6 +224,8 @@ __all__ = [
     "NoHealthyRouteError",
     "UnsafeToolCallError",
     "ContinuationProtocolError",
+    "IndeterminateToolOperationError",
+    "ToolOperationProtocolError",
     "ContextOverflowError",
     "CycleDetectedError",
     # Configuration

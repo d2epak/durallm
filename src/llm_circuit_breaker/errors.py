@@ -107,6 +107,26 @@ class UnsafeToolCallError(CircuitBreakerGatewayError):
         self.raw_arguments = raw_arguments
 
 
+class IndeterminateToolOperationError(CircuitBreakerGatewayError):
+    """Raised when a prior tool submission may have completed without a receipt."""
+
+    def __init__(self, logical_operation_id: str, tool_name: str):
+        super().__init__(
+            f"Tool operation '{tool_name}' for '{logical_operation_id}' is indeterminate; manual reconciliation is required",
+            details={"logical_operation_id": logical_operation_id, "tool_name": tool_name},
+        )
+        self.logical_operation_id = logical_operation_id
+        self.tool_name = tool_name
+
+
+class ToolOperationProtocolError(CircuitBreakerGatewayError):
+    """Raised when a client reports an invalid tool-operation lifecycle transition."""
+
+    def __init__(self, message: str, status_code: int = 400):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 class ContextOverflowError(CircuitBreakerGatewayError):
     """Raised when request tokens exceed target context length and cannot be compacted."""
 

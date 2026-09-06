@@ -24,10 +24,17 @@ stateDiagram-v2
     PROPOSED --> FAILED : Schema invalid or unparseable
     VALIDATED --> SUBMITTED : Dispatched to execution environment
     SUBMITTED --> COMMITTED : Execution completes with receipt
-    SUBMITTED --> AMBIGUOUS : Network drop / timeout before ack
-    AMBIGUOUS --> COMMITTED : Replay matches cached receipt
+    SUBMITTED --> INDETERMINATE : Network drop, timeout, or restart before ack
+    INDETERMINATE --> [*] : Manual reconciliation only
 ```
 
 - **Receipt Storage:**
   Receipts are indexed by `_op_key(logical_operation_id, tool_name, sha256(arguments))`.
   When a retry occurs, `check_idempotency` identifies the committed operation and returns `(True, receipt)`, bypassing duplicate side effects.
+
+- **Lost acknowledgement:**
+  `SUBMITTED` without a durably committed receipt means the side effect may
+  already exist. The SQLite ledger turns this into `INDETERMINATE` on recovery
+  and blocks the identical call; it never converts uncertainty into an
+  automatic replay. See `DURABLE_STATE.md` for the required tool-runner
+  submit/commit ordering.

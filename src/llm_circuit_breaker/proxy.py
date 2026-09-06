@@ -14,13 +14,19 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, Optional
 
-from llm_circuit_breaker.continuation import ContinuationEvent, ContinuationRequest
-from llm_circuit_breaker.errors import CircuitBreakerGatewayError, ContinuationProtocolError
+from llm_circuit_breaker.continuation import ContinuationEvent, ContinuationRequest, SQLiteContinuationStore
+from llm_circuit_breaker.errors import (
+    CircuitBreakerGatewayError,
+    ContinuationProtocolError,
+    ToolOperationProtocolError,
+)
+from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.gateway import ProxyGateway, http_error_for
 from llm_circuit_breaker.observability.logger import DEFAULT_STRUCTURED_LOGGER
 from llm_circuit_breaker.pools import POOL_MANAGER
@@ -29,6 +35,7 @@ from llm_circuit_breaker.protocol.openai import ir_to_openai_response, openai_re
 from llm_circuit_breaker.pruner import estimate_tokens
 from llm_circuit_breaker.router import UniversalFailoverRouter
 from llm_circuit_breaker.security.defense import enforce_payload_limit
+from llm_circuit_breaker.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
 
 logger = logging.getLogger("llm_circuit_breaker.proxy")
 
@@ -37,37 +44,89 @@ logger = logging.getLogger("llm_circuit_breaker.proxy")
 # The V1 router is kept as the configuration façade (LLM_ALLOWED_PROVIDERS, configured fallbacks);
 # requests are served by the V3 executor through GATEWAY.
 ROUTER = UniversalFailoverRouter()
-GATEWAY = ProxyGateway(pool_manager=POOL_MANAGER)
+
+
+def build_proxy_gateway(storage_path: Optional[str] = None) -> ProxyGateway:
+    """Create a proxy, opting into durable ACP/tool/attempt state when configured.
+
+    ``LLM_BREAKER_STATE_DB`` is intentionally opt-in so importing the package
+    remains side-effect free. A file-backed SQLite path enables WAL-backed ACP
+    sessions, write-ahead provider attempts and tool-operation receipts.
+    """
+    path = storage_path if storage_path is not None else os.environ.get("LLM_BREAKER_STATE_DB")
+    if not path:
+        return ProxyGateway(pool_manager=POOL_MANAGER)
+    store = SQLitePersistenceStore(path)
+    executor = GatewayExecutor(
+        tool_ledger=SQLiteToolExecutionLedger(store),
+        attempt_store=store,
+    )
+    return ProxyGateway(
+        pool_manager=POOL_MANAGER,
+        executor=executor,
+        continuation_store=SQLiteContinuationStore(store),
+    )
+
+
+GATEWAY = build_proxy_gateway()
 
 
 def pool_for_model(requested_model: str) -> str:
     return "coding" if any(k in requested_model.lower() for k in ["code", "claude", "coder"]) else "general_agent"
 
 
-def serve_messages(body: Dict[str, Any], continuation: Optional[ContinuationRequest] = None):
-    """Anthropic /v1/messages body -> (status, response dict, selected endpoint)."""
+def _attach_tool_operation_metadata(body: Dict[str, Any], response: Any) -> Dict[str, Any]:
+    """Expose local ledger IDs without changing the provider-native tool blocks."""
+    operations = [
+        {
+            "tool_call_id": call.id,
+            "ledger_call_id": call.metadata["ledger_call_id"],
+            "status": "replayed" if call.metadata.get("replayed") else "validated",
+        }
+        for call in response.tool_calls
+        if call.metadata.get("ledger_call_id")
+    ]
+    if operations:
+        body["lcb_tool_operations"] = operations
+    return body
+
+
+def serve_messages(
+    body: Dict[str, Any],
+    continuation: Optional[ContinuationRequest] = None,
+    logical_operation_id: Optional[str] = None,
+):
+    """Anthropic /v1/messages body -> (status, response dict, selected endpoint, ACP event)."""
     requested_model = body.get("model", "auto-coding-agent")
     try:
-        response, decision, _, event = GATEWAY.complete_turn(
-            anthropic_request_to_ir(body), pool="coding", continuation=continuation
-        )
+        request = anthropic_request_to_ir(body)
+        if logical_operation_id:
+            request.request_id = logical_operation_id
+        response, decision, _, event = GATEWAY.complete_turn(request, pool="coding", continuation=continuation)
     except CircuitBreakerGatewayError as exc:
         status, kind = http_error_for(exc)
         return status, {"type": "error", "error": {"type": kind, "message": str(exc)}}, None, None
-    return 200, ir_to_anthropic_response(response, requested_model), decision.selected_endpoint, event
+    return 200, _attach_tool_operation_metadata(ir_to_anthropic_response(response, requested_model), response), decision.selected_endpoint, event
 
 
-def serve_chat_completions(body: Dict[str, Any], continuation: Optional[ContinuationRequest] = None):
-    """OpenAI /v1/chat/completions body -> (status, response dict, selected endpoint)."""
+def serve_chat_completions(
+    body: Dict[str, Any],
+    continuation: Optional[ContinuationRequest] = None,
+    logical_operation_id: Optional[str] = None,
+):
+    """OpenAI /v1/chat/completions body -> (status, response dict, selected endpoint, ACP event)."""
     requested_model = body.get("model", "hermes-default")
     try:
+        request = openai_request_to_ir(body)
+        if logical_operation_id:
+            request.request_id = logical_operation_id
         response, decision, _, event = GATEWAY.complete_turn(
-            openai_request_to_ir(body), pool=pool_for_model(requested_model), continuation=continuation
+            request, pool=pool_for_model(requested_model), continuation=continuation
         )
     except CircuitBreakerGatewayError as exc:
         status, kind = http_error_for(exc)
         return status, {"error": {"type": kind, "message": str(exc)}}, None, None
-    return 200, ir_to_openai_response(response, requested_model), decision.selected_endpoint, event
+    return 200, _attach_tool_operation_metadata(ir_to_openai_response(response, requested_model), response), decision.selected_endpoint, event
 
 
 def continuation_request_from_headers(headers: Any) -> Optional[ContinuationRequest]:
@@ -88,6 +147,41 @@ def continuation_request_from_headers(headers: Any) -> Optional[ContinuationRequ
         parent_checkpoint_digest=headers.get("X-LCB-Parent-Checkpoint-Digest") or None,
         state_digest=headers.get("X-LCB-State-Digest") or "",
     )
+
+
+def logical_operation_id_from_headers(headers: Any) -> Optional[str]:
+    """Read the caller's stable tool-operation identity, if it supplied one."""
+    value = headers.get("X-LCB-Operation-Id")
+    if not value:
+        return None
+    if len(value) > 256 or "\r" in value or "\n" in value:
+        raise ToolOperationProtocolError("Invalid X-LCB-Operation-Id", status_code=400)
+    return value
+
+
+def update_tool_operation(body: Dict[str, Any], action: str) -> Dict[str, Any]:
+    """Apply a cooperating tool-runner state transition through the gateway."""
+    tool_call_id = body.get("ledger_call_id")
+    if not isinstance(tool_call_id, str) or not tool_call_id:
+        raise ToolOperationProtocolError("ledger_call_id is required", status_code=400)
+    ledger = GATEWAY.executor.tool_ledger
+    if ledger.get_record(tool_call_id) is None:
+        raise ToolOperationProtocolError("Unknown ledger_call_id", status_code=404)
+    if action == "submit":
+        ledger.mark_submitted(tool_call_id)
+    elif action == "commit":
+        receipt = body.get("receipt")
+        if not isinstance(receipt, dict):
+            raise ToolOperationProtocolError("commit requires an object receipt", status_code=400)
+        ledger.mark_committed(tool_call_id, receipt)
+    elif action == "indeterminate":
+        ledger.mark_indeterminate(tool_call_id, str(body.get("reason", "Lost tool acknowledgement")))
+    else:
+        raise ToolOperationProtocolError(f"Unsupported tool operation action: {action}", status_code=404)
+    record = ledger.get_record(tool_call_id)
+    if record is None:
+        raise ToolOperationProtocolError("Tool operation disappeared", status_code=409)
+    return {"tool_operation": record.to_dict()}
 
 
 def continuation_headers(event: Optional[ContinuationEvent]) -> Dict[str, str]:
@@ -245,8 +339,27 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(200, {"continuation": event.to_dict()}, continuation_headers(event))
             return
 
+        tool_operation_actions = {
+            "/v1/tool-operations/submit": "submit",
+            "/v1/tool-operations/commit": "commit",
+            "/v1/tool-operations/indeterminate": "indeterminate",
+        }
+        if path in tool_operation_actions:
+            try:
+                result = update_tool_operation(body, tool_operation_actions[path])
+            except CircuitBreakerGatewayError as exc:
+                status, kind = http_error_for(exc)
+                self._send_json(status, {"error": {"type": kind, "message": str(exc)}})
+                return
+            except Exception as exc:
+                self._send_json(409, {"error": {"type": "tool_operation_protocol_error", "message": str(exc)}})
+                return
+            self._send_json(200, result)
+            return
+
         try:
             continuation = continuation_request_from_headers(self.headers)
+            logical_operation_id = logical_operation_id_from_headers(self.headers)
         except CircuitBreakerGatewayError as exc:
             status, kind = http_error_for(exc)
             self._send_json(status, {"error": {"type": kind, "message": str(exc)}})
@@ -264,7 +377,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         # 2. ANTHROPIC MESSAGES (Claude Code)
         # ------------------------------------------------------------------
         if path in ("/v1/messages", "/messages"):
-            status, anthropic_resp, self._route, event = serve_messages(body, continuation)
+            status, anthropic_resp, self._route, event = serve_messages(body, continuation, logical_operation_id)
             headers = continuation_headers(event)
             if status != 200:
                 self._send_json(status, anthropic_resp, headers)
@@ -278,7 +391,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         # 3. OPENAI CHAT COMPLETIONS (Hermes Agent, OpenClaw, Cursor)
         # ------------------------------------------------------------------
         if path in ("/v1/chat/completions", "/chat/completions"):
-            status, openai_resp, self._route, event = serve_chat_completions(body, continuation)
+            status, openai_resp, self._route, event = serve_chat_completions(body, continuation, logical_operation_id)
             headers = continuation_headers(event)
             if status == 200 and body.get("stream", False):
                 self._emit_synthetic_openai_stream(openai_resp, body.get("model", "hermes-default"), headers)
@@ -431,6 +544,7 @@ def create_proxy_app():
         body = await req.json()
         try:
             continuation = continuation_request_from_headers(req.headers)
+            logical_operation_id = logical_operation_id_from_headers(req.headers)
         except CircuitBreakerGatewayError as exc:
             status, kind = http_error_for(exc)
             return Response(
@@ -438,7 +552,7 @@ def create_proxy_app():
                 status_code=status,
                 media_type="application/json",
             )
-        status, anthropic_resp, _, event = serve_messages(body, continuation)
+        status, anthropic_resp, _, event = serve_messages(body, continuation, logical_operation_id)
         return Response(
             content=json.dumps(anthropic_resp),
             status_code=status,
@@ -451,6 +565,7 @@ def create_proxy_app():
         body = await req.json()
         try:
             continuation = continuation_request_from_headers(req.headers)
+            logical_operation_id = logical_operation_id_from_headers(req.headers)
         except CircuitBreakerGatewayError as exc:
             status, kind = http_error_for(exc)
             return Response(
@@ -458,7 +573,7 @@ def create_proxy_app():
                 status_code=status,
                 media_type="application/json",
             )
-        status, openai_resp, _, event = serve_chat_completions(body, continuation)
+        status, openai_resp, _, event = serve_chat_completions(body, continuation, logical_operation_id)
         return Response(
             content=json.dumps(openai_resp),
             status_code=status,
@@ -492,6 +607,26 @@ def create_proxy_app():
             media_type="application/json",
             headers=continuation_headers(event),
         )
+
+    @app.post("/v1/tool-operations/{action}")
+    async def tool_operation(req: Request, action: str):
+        body = await req.json()
+        try:
+            result = update_tool_operation(body, action)
+        except CircuitBreakerGatewayError as exc:
+            status, kind = http_error_for(exc)
+            return Response(
+                content=json.dumps({"error": {"type": kind, "message": str(exc)}}),
+                status_code=status,
+                media_type="application/json",
+            )
+        except Exception as exc:
+            return Response(
+                content=json.dumps({"error": {"type": "tool_operation_protocol_error", "message": str(exc)}}),
+                status_code=409,
+                media_type="application/json",
+            )
+        return Response(content=json.dumps(result), status_code=200, media_type="application/json")
 
     return app
 

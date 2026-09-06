@@ -59,6 +59,22 @@ class Checkpoint:
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, value: Dict[str, Any]) -> "Checkpoint":
+        """Rehydrate a checkpoint persisted by a durable SessionStore."""
+        return cls(
+            checkpoint_id=str(value["checkpoint_id"]),
+            session_id=str(value["session_id"]),
+            turn_id=str(value["turn_id"]),
+            epoch=int(value["epoch"]),
+            parent_checkpoint_digest=value.get("parent_checkpoint_digest"),
+            request_digest=str(value["request_digest"]),
+            client_state_digest=str(value["client_state_digest"]),
+            response_digest=str(value["response_digest"]),
+            gateway_digest=str(value["gateway_digest"]),
+            created_at=float(value["created_at"]),
+        )
+
 
 @dataclass(frozen=True)
 class ContinuationEvent:

@@ -11,7 +11,11 @@ This guide outlines deployment topologies, configuration management, health tele
 2. **Local Sidecar / Gateway Server:**
    Runs as a lightweight HTTP microservice on `127.0.0.1:4001` (the default for `llm-proxy`, `GatewayConfig.port` and `LLM_BREAKER_PORT`) mediating requests for multi-process or multi-language agents.
 3. **Optional SQLite Persistence:**
-   For state preservation across gateway restarts, set `storage_path="circuit_breaker.db"`. The `SQLitePersistenceStore` maintains WAL-mode persistence for breaker states and tool receipts.
+   Set `LLM_BREAKER_STATE_DB=/absolute/path/gateway.db` before starting the
+   proxy. The `SQLitePersistenceStore` enables WAL-backed ACP session state,
+   write-ahead provider attempts, and durable tool-operation receipts. Read
+   `DURABLE_STATE.md` before treating an external tool action as safe to
+   replay: a lost acknowledgement is intentionally `INDETERMINATE`.
 
 ---
 

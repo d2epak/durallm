@@ -17,7 +17,8 @@ class ToolExecutionStatus(str, Enum):
     VALIDATED = "validated"    # Tool call passed schema & parameter validation
     SUBMITTED = "submitted"    # Dispatched to local execution environment
     COMMITTED = "committed"    # Execution completed with verified receipt
-    AMBIGUOUS = "ambiguous"    # Execution status uncertain (e.g. network dropped after submission)
+    INDETERMINATE = "indeterminate"  # Submission occurred but the result/ack is not durably known
+    AMBIGUOUS = "ambiguous"    # Legacy spelling; treated as indeterminate and never replayed
     FAILED = "failed"          # Execution failed with definitive error
     REPLAYED = "replayed"      # Identical call already COMMITTED; receipt attached, must not execute again
 
@@ -145,10 +146,15 @@ class ToolExecutionLedger:
                 rec.updated_at = self._clock()
 
     def mark_ambiguous(self, tool_call_id: str, reason: str = "") -> None:
+        """Backward-compatible alias for the fail-closed indeterminate state."""
+        self.mark_indeterminate(tool_call_id, reason)
+
+    def mark_indeterminate(self, tool_call_id: str, reason: str = "") -> None:
+        """Record a lost acknowledgement; this operation must not be auto-replayed."""
         with self._lock:
             rec = self._records_by_call_id.get(tool_call_id)
             if rec:
-                rec.status = ToolExecutionStatus.AMBIGUOUS
+                rec.status = ToolExecutionStatus.INDETERMINATE
                 rec.error_message = reason
                 rec.updated_at = time.time()
 
@@ -178,6 +184,33 @@ class ToolExecutionLedger:
             if entry is None or self._clock() - entry[1] > self._ttl_seconds:
                 return False, None
             return True, entry[0]
+
+    def has_indeterminate_operation(
+        self,
+        logical_operation_id: str,
+        tool_name: str,
+        arguments: Dict[str, Any],
+    ) -> bool:
+        """Return true when an identical external effect may already have happened.
+
+        Callers must stop for manual reconciliation instead of dispatching the
+        same tool again.  A committed receipt is intentionally handled by
+        :meth:`check_idempotency`; this method covers only unknown outcomes.
+        """
+        arg_hash = self.compute_arguments_hash(arguments)
+        indeterminate = {
+            ToolExecutionStatus.SUBMITTED,
+            ToolExecutionStatus.INDETERMINATE,
+            ToolExecutionStatus.AMBIGUOUS,
+        }
+        with self._lock:
+            return any(
+                rec.logical_operation_id == logical_operation_id
+                and rec.tool_name == tool_name
+                and rec.arguments_hash == arg_hash
+                and rec.status in indeterminate
+                for rec in self._records_by_call_id.values()
+            )
 
     def get_record(self, tool_call_id: str) -> Optional[ToolExecutionRecord]:
         with self._lock:

@@ -28,6 +28,7 @@ from llm_circuit_breaker.classifier import classify_failure
 from llm_circuit_breaker.errors import (
     BreakerOpenError,
     ContextOverflowError,
+    IndeterminateToolOperationError,
     NoHealthyRouteError,
     NonRecoverableFailureError,
     ProbeAdmissionDeniedError,
@@ -57,6 +58,7 @@ from llm_circuit_breaker.providers.adapters import (
 from llm_circuit_breaker.routing.decision import RoutingDecision
 from llm_circuit_breaker.routing.requirements import RequirementVector
 from llm_circuit_breaker.routing.router import CapabilityRouter
+from llm_circuit_breaker.storage.contracts import AttemptStore
 from llm_circuit_breaker.validation.response import ResponseValidator
 
 logger = logging.getLogger("llm_circuit_breaker.execution")
@@ -80,6 +82,7 @@ class GatewayExecutor:
         tool_ledger: Optional[ToolExecutionLedger] = None,
         response_validator: Optional[ResponseValidator] = None,
         router: Optional[CapabilityRouter] = None,
+        attempt_store: Optional[AttemptStore] = None,
         sleeper: Callable[[float], None] = time.sleep,
         events: Optional[StructuredJsonLogger] = None,
     ):
@@ -92,6 +95,7 @@ class GatewayExecutor:
         self.tool_validator = tool_validator or ToolCallValidator(strict=True)
         self.tool_ledger = tool_ledger or DEFAULT_TOOL_LEDGER
         self.response_validator = response_validator or ResponseValidator(tool_validator=self.tool_validator)
+        self.attempt_store = attempt_store
         self._sleep = sleeper
         self.events = events or DEFAULT_STRUCTURED_LOGGER
         # The router must read the same telemetry this executor writes, or scoring never sees it.
@@ -100,6 +104,42 @@ class GatewayExecutor:
             breaker_registry=self.breaker_registry,
             health_store=self.health_store,
         )
+
+    @staticmethod
+    def _attempt_payload(attempt: AttemptRecord, status: str, detail: str = "") -> Dict[str, object]:
+        """Serialize an attempt without leaking provider request bodies or credentials."""
+        return {
+            "request_id": attempt.request_id,
+            "operation_id": attempt.operation_id,
+            "endpoint_id": attempt.endpoint_id,
+            "provider": attempt.provider,
+            "model": attempt.model,
+            "attempt_index": attempt.attempt_index,
+            "fallback_index": attempt.fallback_index,
+            "compacted": attempt.compacted,
+            "status": status,
+            "status_code": attempt.status_code,
+            "success": attempt.success,
+            "latency_ms": attempt.latency_ms,
+            "failure_reason": attempt.failure.reason.value if attempt.failure else None,
+            "detail": detail[:500],
+        }
+
+    def _prepare_durable_attempt(self, attempt: AttemptRecord) -> None:
+        if self.attempt_store is not None:
+            self.attempt_store.prepare_attempt(
+                attempt.attempt_id,
+                attempt.request_id,
+                self._attempt_payload(attempt, "prepared"),
+            )
+
+    def _finish_durable_attempt(self, attempt: AttemptRecord, status: str, detail: str = "") -> None:
+        if self.attempt_store is not None:
+            self.attempt_store.finish_attempt(
+                attempt.attempt_id,
+                status,
+                self._attempt_payload(attempt, status, detail),
+            )
 
     def execute(
         self,
@@ -232,9 +272,18 @@ class GatewayExecutor:
                 fallback_index=ledger.fallback_count,
                 compacted=was_compacted,
             )
+            # Persist dispatch intent before an adapter can send bytes to an
+            # upstream provider. A later process can distinguish a request it
+            # never issued from one whose outcome is merely unknown.
+            self._prepare_durable_attempt(attempt_rec)
 
             # Execute attempt
-            exec_result = adapter.execute(prepared, timeout_seconds=attempt_timeout_sec)
+            try:
+                exec_result = adapter.execute(prepared, timeout_seconds=attempt_timeout_sec)
+            except Exception as exec_err:
+                attempt_rec.finish(success=False, status_code=502)
+                self._finish_durable_attempt(attempt_rec, "transport_error", str(exec_err))
+                raise
 
             if exec_result.status_code == 200:
                 try:
@@ -270,6 +319,20 @@ class GatewayExecutor:
                             self.tool_ledger.mark_replayed(tc_id, cached_receipt)
                             tc.metadata["replayed"] = True
                             tc.metadata["execution_receipt"] = cached_receipt
+                        elif self.tool_ledger.has_indeterminate_operation(
+                            logical_operation_id=request.request_id,
+                            tool_name=tc.name,
+                            arguments=tc.arguments,
+                        ):
+                            # A submitted side effect without a durable receipt
+                            # is not a retry candidate. Returning it to a tool
+                            # runner would silently permit duplicate execution.
+                            self.tool_ledger.mark_indeterminate(
+                                tc_id,
+                                "A prior submission has no durable acknowledgement",
+                            )
+                            tc.metadata["indeterminate"] = True
+                            raise IndeterminateToolOperationError(request.request_id, tc.name)
 
                         # Find schema
                         tool_schema = next((t.parameters for t in request.tools if t.name == tc.name), None)
@@ -313,6 +376,7 @@ class GatewayExecutor:
                         out_tokens = estimate_tokens(norm_response.content or "")
                         cost = ((in_tokens / 1_000_000.0) * profile.input_price_per_1m) + ((out_tokens / 1_000_000.0) * profile.output_price_per_1m)
                         ledger.add_cost(cost)
+                        self._finish_durable_attempt(attempt_rec, "succeeded")
 
                         return norm_response, decision, ledger
                     else:
@@ -337,6 +401,12 @@ class GatewayExecutor:
                             status_code=200,
                             message=message,
                         )
+                except IndeterminateToolOperationError:
+                    attempt_rec.finish(success=False, status_code=409)
+                    ledger.record_attempt(attempt_rec)
+                    self._emit_attempt(attempt_rec)
+                    self._finish_durable_attempt(attempt_rec, "blocked_indeterminate_operation")
+                    raise
                 except Exception as norm_err:
                     logger.warning("Failed to normalize response from %s: %s", endpoint.id, norm_err)
                     classified = classify_failure(norm_err, status_code=502)
@@ -357,6 +427,7 @@ class GatewayExecutor:
             attempt_rec.finish(success=False, status_code=exec_result.status_code, failure=classified)
             ledger.record_attempt(attempt_rec)
             self._emit_attempt(attempt_rec)
+            self._finish_durable_attempt(attempt_rec, "failed", classified.message)
 
             last_failure_reason = classified.reason.value
 

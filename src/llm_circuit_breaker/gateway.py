@@ -24,8 +24,10 @@ from llm_circuit_breaker.errors import (
     ContextOverflowError,
     ContinuationProtocolError,
     DeadlineExceededError,
+    IndeterminateToolOperationError,
     NoHealthyRouteError,
     NonRecoverableFailureError,
+    ToolOperationProtocolError,
 )
 from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.execution.ledger import AttemptLedger
@@ -69,6 +71,10 @@ def http_error_for(exc: CircuitBreakerGatewayError) -> Tuple[int, str]:
         return 500, "configuration_error"
     if isinstance(exc, ContinuationProtocolError):
         return exc.status_code, "continuation_protocol_error"
+    if isinstance(exc, IndeterminateToolOperationError):
+        return 409, "indeterminate_tool_operation"
+    if isinstance(exc, ToolOperationProtocolError):
+        return exc.status_code, "tool_operation_protocol_error"
     return 502, "gateway_error"
 
 
