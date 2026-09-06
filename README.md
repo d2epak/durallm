@@ -24,13 +24,11 @@ An independent adversarial review on 2026-09-06 found the following. Read this b
 
 **Experimental (Python API only)**
 - The V3 engine (`GatewayExecutor`, `CapabilityRouter`, protocol IR, `FailoverPlan`, tool ledger) is reachable only from Python. **The HTTP proxy started by `llm-proxy` still runs the legacy V1 router** and does not use any of it.
+- Since the 2026-09-06 review the V3 executor applies exponential backoff and honours `Retry-After`, follows the classifier's retry/fallback flags, rejects HTTP 200 responses with empty bodies, replays committed tool calls from the ledger instead of re-issuing them, compacts and retries the same candidate on a size rejection, enforces `maximum_cost_usd`/`latency_budget_ms`, and keys breakers per deployment. Each is covered by tests in `tests/`, but none of it is reachable through the HTTP proxy yet.
 
 **Known not yet delivered**
-- The V3 executor applies no backoff and ignores `Retry-After`; `RetryPolicy` exists but is not wired in.
 - 402 and 429 open the breaker (documented in `docs/FAILURE_TAXONOMY.md`); other 4xx never poison health as of `0.2.0`+.
-- The tool execution ledger records state but does not yet suppress duplicate executions.
 - Streaming is synthetic (buffered response re-emitted as SSE); there is no mid-stream failover.
-- `ResponseValidator` is not wired in and does not handle successful responses.
 - Benchmarks in `docs/BENCHMARKS.md` compare against in-process baselines inside the same harness, not against external systems; treat the numbers as smoke tests, not measurements.
 - Importing the package performs OpenRouter model discovery over the network and scans shell dotfiles for API keys by default.
 
