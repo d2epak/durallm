@@ -19,24 +19,33 @@ import statistics
 import time
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Dict, List, Optional, Protocol
+from unittest.mock import patch
 
 from benchmarks.scenarios import BenchmarkScenario, ScenarioRun, ScenarioTurn, get_all_scenarios
 from benchmarks.tool_runner import ToolRunner
 from llm_circuit_breaker.agent.idempotency import ToolExecutionLedger
 from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
+from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
 from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 from llm_circuit_breaker.capability.registry import CapabilityRegistry
 from llm_circuit_breaker.execution.executor import GatewayExecutor
+from llm_circuit_breaker.errors import CircuitBreakerGatewayError
 from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
 from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
+from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
 from llm_circuit_breaker.protocol.ir import NormalizedRequest, NormalizedResponse, NormalizedToolCall
+from llm_circuit_breaker.protocol.openai import ir_to_openai_request, openai_request_to_ir, openai_response_to_ir
 from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
+from llm_circuit_breaker.router import UniversalFailoverRouter
 from tests.faults.mock_provider import ProgrammableMockAdapter
 
 V3_NAME = "LLM-Circuit-Breaker-V3"
 PROVIDER_ORDER = ("provider_a", "provider_b", "provider_c")
+# Shared by V3 and Baseline D so the breaker itself is not the variable between them.
+BREAKER_CONFIG = CircuitBreakerConfig(
+    sliding_window_size=5, minimum_number_of_calls=2, wait_duration_open_ms=100.0, half_open_max_calls=2,
+)
 
 # (endpoint id, provider, model, context window, priority): one topology shared by every system.
 ENDPOINT_TABLE = (
@@ -149,11 +158,7 @@ class V3Runner:
         cap_reg = CapabilityRegistry()
         for endpoint in fixture.endpoints.values():
             cap_reg.register_endpoint(endpoint)
-        self.breakers = CircuitBreakerRegistry(
-            default_config=CircuitBreakerConfig(
-                sliding_window_size=5, minimum_number_of_calls=2, wait_duration_open_ms=100.0, half_open_max_calls=2,
-            )
-        )
+        self.breakers = CircuitBreakerRegistry(default_config=BREAKER_CONFIG)
         # Fresh telemetry and ledger per run: the module defaults are process-wide singletons.
         self.executor = GatewayExecutor(
             capability_registry=cap_reg,
@@ -233,11 +238,91 @@ class StaticFallbackRunner:
         pass  # no ledger
 
 
+class BreakerStaticFallbackRunner:
+    """Baseline D: static a -> b -> c order guarded by one circuit breaker per provider (V3's config);
+    no validation, no compaction, no ledger, no telemetry-driven routing."""
+    name = "Baseline-D-Breaker-Static-Fallback"
+
+    def __init__(self, fixture: Fixture, strategy: str = "priority"):
+        self.fixture = fixture
+        self.breakers = {provider: CircuitBreaker(provider, BREAKER_CONFIG) for provider in fixture.adapters}
+
+    def run(self, turn: ScenarioTurn) -> NormalizedResponse:
+        last: Optional[Exception] = None
+        for provider in PROVIDER_ORDER:
+            breaker = self.breakers.get(provider)
+            if breaker is None:
+                continue
+            try:
+                breaker.acquire_permission()
+            except CircuitBreakerGatewayError as exc:  # OPEN, or half-open probes exhausted
+                last = exc
+                continue
+            started = time.perf_counter()
+            try:
+                response = call_provider(self.fixture, provider, turn.request)
+            except UpstreamError as exc:
+                breaker.record_failure((time.perf_counter() - started) * 1000.0, error=exc)
+                last = exc
+                continue
+            breaker.record_success((time.perf_counter() - started) * 1000.0)
+            return response
+        raise last or UpstreamError("no providers configured")
+
+    def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
+        pass  # no ledger
+
+
+class V1PrototypeRunner:
+    """Baseline E: the v0.1 `UniversalFailoverRouter` (round-robin pools, cooldown timers, payload pruning)
+    driven through its real `dispatch` loop, with its upstream HTTP call redirected to the mock providers."""
+    name = "Baseline-E-V1-Prototype"
+
+    def __init__(self, fixture: Fixture, strategy: str = "priority"):
+        self.fixture = fixture
+        self.router = UniversalFailoverRouter(auto_discover_free=False)
+        pools = IsolatedPoolManager()
+        pools.keys = {"MOCK_API_KEY": "mock"}
+        pools.coding_routes, pools.agent_routes = [], []
+        for provider in PROVIDER_ORDER:
+            if provider not in fixture.adapters:
+                continue
+            endpoint = fixture.endpoints[provider]
+            route = RouteDefinition(
+                id=f"{provider}-v1", provider=provider, model=endpoint.model, pool=endpoint.pool,
+                base_url=f"mock://{provider}", api_format="openai", env_key="MOCK_API_KEY",
+                context_length=endpoint.profile.context_window,
+            )
+            (pools.coding_routes if endpoint.pool == "coding" else pools.agent_routes).append(route)
+        self.router.pool_manager = pools
+
+    def _upstream(self, route: RouteDefinition, openai_payload: Dict[str, Any], timeout: int = 0):
+        """Stands in for `execute_upstream_request`: same mock providers, same accounting as every other system."""
+        adapter = self.fixture.registry.get_adapter(route.provider)
+        endpoint = self.fixture.endpoints[route.provider]
+        prepared = adapter.prepare_request(endpoint, openai_request_to_ir(openai_payload))
+        result = adapter.execute(prepared, timeout_seconds=5.0)
+        return result.status_code, result.headers, result.body
+
+    def run(self, turn: ScenarioTurn) -> NormalizedResponse:
+        payload = ir_to_openai_request(turn.request, "default")
+        with patch("llm_circuit_breaker.router.execute_upstream_request", self._upstream):
+            status, parsed, _ = self.router.dispatch(turn.pool, payload)
+        if status != 200:
+            raise UpstreamError(f"HTTP {status}")
+        return openai_response_to_ir(parsed)
+
+    def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
+        pass  # no ledger
+
+
 SYSTEMS: Dict[str, Callable[[Fixture, str], SystemRunner]] = {
     V3Runner.name: V3Runner,
     DirectRunner.name: DirectRunner,
     SameProviderRetryRunner.name: SameProviderRetryRunner,
     StaticFallbackRunner.name: StaticFallbackRunner,
+    BreakerStaticFallbackRunner.name: BreakerStaticFallbackRunner,
+    V1PrototypeRunner.name: V1PrototypeRunner,
 }
 
 

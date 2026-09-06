@@ -120,6 +120,32 @@ class TestMultiTurnScoring(unittest.TestCase):
         self.assertEqual(fx.adapters["provider_a"].context_window, 131072)
 
 
+class TestAddedBaselines(unittest.TestCase):
+
+    def test_baseline_d_stops_calling_a_provider_once_its_breaker_opens(self):
+        # One try per provider per turn: A fails in turns 1 and 2 (minimum_number_of_calls=2), so turn 3 skips it.
+        seqs = {"provider_a": [MockFaultAction.server_error(503)] * 5, "provider_b": [MockFaultAction.success("b")] * 3}
+        observed = {}
+        scn = scenario(seqs, turns=[ScenarioTurn(request()) for _ in range(3)],
+                       verify=lambda run: observed.__setitem__("calls", run.turn_calls))
+        res = BenchmarkHarness(scenarios=[scn]).run_scenario("Baseline-D-Breaker-Static-Fallback", scn)
+        self.assertTrue(res.success, res.final_output)
+        self.assertEqual(observed["calls"], [["provider_a", "provider_b"], ["provider_a", "provider_b"], ["provider_b"]])
+
+    def test_baseline_e_drives_the_v1_dispatch_loop_through_the_mocks(self):
+        seqs = {"provider_a": [MockFaultAction.server_error(503)], "provider_b": [MockFaultAction.success("via v1")]}
+        scn = scenario(seqs)
+        fx = build_fixture(scn)
+        runner = SYSTEMS["Baseline-E-V1-Prototype"](fx, "priority")
+        resp = runner.run(scn.turns[0])
+        self.assertEqual(resp.content, "via v1")
+        self.assertEqual(fx.call_log, ["provider_a", "provider_b"])
+        # The pool manager is private to the run; the process-wide POOL_MANAGER is untouched.
+        from llm_circuit_breaker.pools import POOL_MANAGER
+        self.assertIsNot(runner.router.pool_manager, POOL_MANAGER)
+        self.assertEqual({r.provider for r in runner.router.pool_manager.coding_routes}, {"provider_a", "provider_b"})
+
+
 class TestToolRunner(unittest.TestCase):
 
     def test_counts_duplicates_and_honours_replay_marker(self):

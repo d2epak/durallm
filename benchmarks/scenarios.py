@@ -119,7 +119,9 @@ def compaction_verifier(root_marker: str, final: str) -> Verifier:
         tokens = estimate_tokens(req)
         if tokens > SECONDARY_CONTEXT_WINDOW:
             return f"provider_b received {tokens} tokens, over its {SECONDARY_CONTEXT_WINDOW} window"
-        if root_marker not in (req.messages[0].content or ""):
+        # Systems that carry the system prompt as a message put it first; judge the first non-system message.
+        root = next((m for m in req.messages if m.role != "system"), None)
+        if root is None or root_marker not in (root.content or ""):
             return "root objective was dropped during compaction"
         if (req.messages[-1].content or "") != final:
             return "latest user turn was dropped during compaction"

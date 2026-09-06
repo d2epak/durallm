@@ -90,16 +90,18 @@ Standard reverse proxies (LiteLLM, Cloudflare AI Gateway, Portkey) treat LLMs as
 
 ## 📊 Benchmark Results (B1–B15 in-process suite)
 
-Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits, timeouts, context overflows, malformed tool syntax, semantic schema violations, tool execution idempotency, mid-stream disconnects, cascades, pool isolation, cost ceilings, tool-reliability routing, and capability mismatches) against 3 in-process baselines. Numbers are copied from `results/v3_benchmark_report.md`, regenerated on 2026-09-06:
+Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits, timeouts, context overflows, malformed tool syntax, semantic schema violations, tool execution idempotency, mid-stream disconnects, cascades, pool isolation, cost ceilings, tool-reliability routing, and capability mismatches) against 5 in-process baselines. Numbers are copied from `results/v3_benchmark_report.md`, regenerated on 2026-09-06:
 
 | Baseline / System | Request Completion | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **13.23 ms** | **313.77 ms** | **0.0%** |
-| **Baseline-A-Direct** | 0.0% | 0.0% | 0.01 ms | 0.04 ms | 20.0% |
-| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.03 ms | 0.14 ms | 20.0% |
-| **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.19 ms | 20.0% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **12.55 ms** | **314.08 ms** | **0.0%** |
+| **Baseline-A-Direct** | 0.0% | 0.0% | 0.03 ms | 0.07 ms | 20.0% |
+| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.03 ms | 0.12 ms | 20.0% |
+| **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.16 ms | 20.0% |
+| **Baseline-D-Breaker-Static-Fallback** | 33.3% | 33.3% | 0.09 ms | 0.27 ms | 20.0% |
+| **Baseline-E-V1-Prototype** | 53.3% | 53.3% | 0.24 ms | 4.60 ms | 20.0% |
 
-> All four rows run in one process against the same mock providers, so latencies measure harness overhead, not network. Every row is scored by the same rule (a turn counts only if every delivered tool call passes the schema validator), so the baselines' semantic errors are the invalid tool calls they forward in B6, B7 and B14. Multi-turn scenarios are judged by verify hooks on observable state (which provider served each turn, how often the tool ran, what the secondary received). The V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2; the baselines never wait.
+> All six rows run in one process against the same mock providers (Baseline D adds V3's breaker to static fallback; Baseline E is the v0.1 router driven through its own dispatch loop), so latencies measure harness overhead, not network. Every row is scored by the same rule (a turn counts only if every delivered tool call passes the schema validator), so the baselines' semantic errors are the invalid tool calls they forward in B6, B7 and B14. Multi-turn scenarios are judged by verify hooks on observable state (which provider served each turn, how often the tool ran, what the secondary received). The V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2; the baselines never wait.
 > Run the full reproducible benchmark suite: `python -m benchmarks.run`  
 > Complete technical analysis: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 

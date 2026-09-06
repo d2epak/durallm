@@ -1,6 +1,6 @@
 # Reproducible Benchmarks & Empirical Evaluation
 
-This document details the design, implementation, and results of the **B1 through B15 Benchmark Suite**, the **3 Comparative Baselines**, and the **Primary Research Benchmark** in **LLM Circuit Breaker (V3)**.
+This document details the design, implementation, and results of the **B1 through B15 Benchmark Suite**, the **5 Comparative Baselines**, and the **Primary Research Benchmark** in **LLM Circuit Breaker (V3)**.
 
 ---
 
@@ -28,14 +28,27 @@ B4, B5, B8, B10 and B12–B15 are multi-turn or state-checking scenarios: each c
 
 ## 2. Multi-Baseline Empirical Results
 
+Six systems run every scenario through the same harness and are scored by the same rule:
+
+- **Baseline-A-Direct:** one call to the primary; no retry, no fallback.
+- **Baseline-B-Same-Provider-Retry:** up to three attempts on the primary; no fallback.
+- **Baseline-C-Static-Fallback:** static a → b → c order; no breaker, validation, compaction or ledger.
+- **Baseline-D-Breaker-Static-Fallback:** Baseline C guarded by one circuit breaker per provider with V3's configuration; nothing else.
+- **Baseline-E-V1-Prototype:** the v0.1 `UniversalFailoverRouter` (round-robin pools, cooldown timers, payload pruning) driven through its real `dispatch` loop, with its upstream HTTP call redirected to the mock providers.
+- **LLM-Circuit-Breaker-V3:** the current gateway.
+
+LiteLLM and the hosted gateways in the README comparison table are not rows here: they cannot be driven in-process against these mock providers without network access, so no number is claimed for them.
+
 | Baseline / System | Completion Rate | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **13.23 ms** | **313.77 ms** | **0.0%** |
-| **Baseline-A-Direct** | 0.0% | 0.0% | 0.01 ms | 0.04 ms | 20.0% |
-| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.03 ms | 0.14 ms | 20.0% |
-| **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.19 ms | 20.0% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **12.55 ms** | **314.08 ms** | **0.0%** |
+| **Baseline-A-Direct** | 0.0% | 0.0% | 0.03 ms | 0.07 ms | 20.0% |
+| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.03 ms | 0.12 ms | 20.0% |
+| **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.16 ms | 20.0% |
+| **Baseline-D-Breaker-Static-Fallback** | 33.3% | 33.3% | 0.09 ms | 0.27 ms | 20.0% |
+| **Baseline-E-V1-Prototype** | 53.3% | 53.3% | 0.24 ms | 4.60 ms | 20.0% |
 
-*Takeaway:* Retry and static fallback catch the common HTTP 5xx cases, but **only V3 completes all 15 scenarios**. Every system is scored by one rule (a response counts only if every delivered tool call passes the real schema validator, attempts are counted from the mock providers' call log), so each baseline forwards the invalid tool calls of B6, B7 and B14 (20.0% semantic error rate). All rows run in one process against the same mock providers, so latencies measure harness overhead; the V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2.
+*Takeaway:* Retry and static fallback catch the common HTTP 5xx cases, but **only V3 completes all 15 scenarios**. The V1 prototype's pruner passes the compaction scenarios and its pools pass B12, yet it forwards invalid tool calls, re-executes tools, ignores cost and capability requirements, and its round-robin selection sends B10's recovered turn to the secondary. Adding V3's breaker to static fallback (Baseline D) rescues nothing here: with one try per provider per turn the breaker opens a turn too late for B10. Every system is scored by one rule (a response counts only if every delivered tool call passes the real schema validator, attempts are counted from the mock providers' call log), so each baseline forwards the invalid tool calls of B6, B7 and B14 (20.0% semantic error rate). All rows run in one process against the same mock providers, so latencies measure harness overhead; the V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2.
 
 ---
 
