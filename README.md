@@ -12,6 +12,30 @@ Combines a formal **6-State Circuit Breaker FSM**, **Multi-Turn Semantic Failove
 
 ---
 
+## Project status (0.2.0)
+
+An independent adversarial review on 2026-09-06 found the following. Read this before relying on any other claim in this README.
+
+**Stable and verified**
+- `llm_circuit_breaker.breaker`: six-state circuit breaker FSM with count/time sliding windows and bounded half-open permits. Deterministic, spec-tested, thread-safe.
+- `ToolCallValidator`: fails closed on malformed or unknown tool calls.
+- `ContextManager`: preserves system prompt, first user turn and last K turns; compacts tool results.
+- Zero third-party dependencies.
+
+**Experimental (Python API only)**
+- The V3 engine (`GatewayExecutor`, `CapabilityRouter`, protocol IR, `FailoverPlan`, tool ledger) is reachable only from Python. **The HTTP proxy started by `llm-proxy` still runs the legacy V1 router** and does not use any of it.
+
+**Known not yet delivered**
+- The V3 executor applies no backoff and ignores `Retry-After`; `RetryPolicy` exists but is not wired in.
+- Several 4xx responses (generic 400, 402, 429) currently poison provider health and can open the breaker, contrary to `docs/FAILURE_TAXONOMY.md`.
+- The tool execution ledger records state but does not yet suppress duplicate executions.
+- Streaming is synthetic (buffered response re-emitted as SSE); there is no mid-stream failover.
+- `ResponseValidator` is not wired in and does not handle successful responses.
+- Benchmarks in `docs/BENCHMARKS.md` compare against in-process baselines inside the same harness, not against external systems; treat the numbers as smoke tests, not measurements.
+- Importing the package performs OpenRouter model discovery over the network and scans shell dotfiles for API keys by default.
+
+---
+
 ## ⚡ Instant Demo (Zero API Keys Required)
 
 Experience semantic failover, circuit tripping, and self-healing recovery in under 2 seconds:
