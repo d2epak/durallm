@@ -273,9 +273,15 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
 
 
 def start_proxy_server(host: str = "127.0.0.1", port: int = 4001) -> ThreadingHTTPServer:
-    """Start standalone standard library multi-agent gateway."""
+    """Create and bind the standard-library gateway server.
+
+    The returned server is bound but NOT serving. Call ``serve_forever()``
+    on it (or run it in a thread) to accept requests; ``main()`` does this.
+    Pass ``port=0`` to bind an ephemeral port and read it back from
+    ``server.server_address[1]``.
+    """
     server = ThreadingHTTPServer((host, port), CircuitBreakerGatewayHandler)
-    logger.info("⚡ LLM Circuit Breaker Gateway running on http://%s:%d", host, port)
+    logger.info("⚡ LLM Circuit Breaker Gateway bound to http://%s:%d (call serve_forever() to start)", host, server.server_address[1])
     return server
 
 
