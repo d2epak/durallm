@@ -51,6 +51,17 @@ class TestSecurityAndValidation(unittest.TestCase):
         with self.assertRaises(CircuitBreakerGatewayError):
             enforce_payload_limit(5000, max_allowed_bytes=2048)
 
+    def test_response_validator_accepts_valid_response_and_reports_usage(self):
+        validator = ResponseValidator()
+        req = NormalizedRequest(model="test", messages=[])
+        resp = NormalizedResponse(model="test", content="hello", tool_calls=[], input_tokens=12, output_tokens=3)
+
+        result = validator.validate(resp, req)
+        self.assertTrue(result.is_valid)
+        self.assertIsNone(result.rejection_reason)
+        self.assertIs(result.sanitized_response, resp)
+        self.assertEqual((result.input_tokens, result.output_tokens), (12, 3))
+
     def test_response_validator_rejects_empty_200_response(self):
         validator = ResponseValidator()
         req = NormalizedRequest(model="test", messages=[])

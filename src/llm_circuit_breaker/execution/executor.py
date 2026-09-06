@@ -13,6 +13,7 @@ from llm_circuit_breaker.agent.idempotency import (
     ToolExecutionLedger,
 )
 from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
+from llm_circuit_breaker.validation.response import ResponseValidator
 from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker
 from llm_circuit_breaker.breaker.registry import (
     DEFAULT_BREAKER_REGISTRY,
@@ -75,6 +76,7 @@ class GatewayExecutor:
         context_manager: Optional[ContextManager] = None,
         tool_validator: Optional[ToolCallValidator] = None,
         tool_ledger: Optional[ToolExecutionLedger] = None,
+        response_validator: Optional[ResponseValidator] = None,
         router: Optional[CapabilityRouter] = None,
         sleeper: Callable[[float], None] = time.sleep,
     ):
@@ -86,6 +88,7 @@ class GatewayExecutor:
         self.context_manager = context_manager or ContextManager()
         self.tool_validator = tool_validator or ToolCallValidator(strict=True)
         self.tool_ledger = tool_ledger or DEFAULT_TOOL_LEDGER
+        self.response_validator = response_validator or ResponseValidator(tool_validator=self.tool_validator)
         self._sleep = sleeper
         self.router = router or CapabilityRouter(
             capability_registry=self.capability_registry,
@@ -210,9 +213,10 @@ class GatewayExecutor:
                 try:
                     norm_response = adapter.normalize_response(endpoint, exec_result)
 
-                    # 5. Response / Tool Schema Validation and Idempotency
-                    validation_passed = True
-                    for tc_index, tc in enumerate(norm_response.tool_calls):
+                    # 5. Body sanity (spec §51: HTTP 200 is not semantic success), then tool validation
+                    sanity_failure = self.response_validator.check_sanity(norm_response)
+                    validation_passed = sanity_failure is None
+                    for tc_index, tc in enumerate(norm_response.tool_calls if validation_passed else []):
                         # Preserve the provider's tool-call id for the client (ADR 0005); only mint one if absent.
                         if not tc.id:
                             tc.id = f"call_{request.request_id[:8]}_{attempt_idx}_{tc_index}"
@@ -268,15 +272,26 @@ class GatewayExecutor:
 
                         return norm_response, decision, ledger
                     else:
-                        # Semantic failure: model returned malformed tool call
+                        # Semantic failure: empty/oversized body, or a malformed tool call
+                        if sanity_failure is not None:
+                            logger.warning("Response sanity check rejected %s: %s", endpoint.id, sanity_failure.error_message)
+                            reason = (
+                                FailoverReason.empty_completion
+                                if sanity_failure.rejection_reason == "empty_response"
+                                else FailoverReason.output_cap_exceeded
+                            )
+                            message = sanity_failure.error_message
+                        else:
+                            reason = FailoverReason.malformed_tool_call
+                            message = "Model generated invalid tool arguments"
                         classified = FailureClassification(
                             category=FailureCategory.SEMANTIC_AGENT_FAILURE,
-                            reason=FailoverReason.malformed_tool_call,
+                            reason=reason,
                             should_fallback=True,
                             retryable=False,
                             poisons_health=False,
                             status_code=200,
-                            message="Model generated invalid tool arguments",
+                            message=message,
                         )
                 except Exception as norm_err:
                     logger.warning("Failed to normalize response from %s: %s", endpoint.id, norm_err)

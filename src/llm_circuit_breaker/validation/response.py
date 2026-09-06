@@ -41,11 +41,8 @@ class ResponseValidator:
         self.max_response_chars = max_response_chars
         self.allow_empty_content_with_tools = allow_empty_content_with_tools
 
-    def validate(
-        self,
-        response: NormalizedResponse,
-        request: NormalizedRequest,
-    ) -> ResponseValidationResult:
+    def check_sanity(self, response: NormalizedResponse) -> Optional[ResponseValidationResult]:
+        """Body-level checks that do not need the request: returns a rejection result, or None if sane."""
         # 1. Sanity: Response must have at least content or tool calls
         has_content = bool(response.content and response.content.strip())
         has_tools = bool(response.tool_calls)
@@ -64,6 +61,16 @@ class ResponseValidator:
                 error_message=f"Response exceeded maximum character limit ({len(response.content)} > {self.max_response_chars})",
                 rejection_reason="response_size_exhaustion",
             )
+        return None
+
+    def validate(
+        self,
+        response: NormalizedResponse,
+        request: NormalizedRequest,
+    ) -> ResponseValidationResult:
+        sanity_failure = self.check_sanity(response)
+        if sanity_failure is not None:
+            return sanity_failure
 
         # 3. Tool Schema Validation
         known_tools = [t.name for t in request.tools] if request.tools else []
@@ -83,9 +90,9 @@ class ResponseValidator:
                 )
             tc.arguments = report.validated_arguments
 
-        # 4. Token usage
-        in_tokens = response.usage.get("prompt_tokens", 0)
-        out_tokens = response.usage.get("completion_tokens", 0)
+        # 4. Token usage (NormalizedResponse carries counts directly; there is no raw `usage` dict)
+        in_tokens = response.input_tokens or 0
+        out_tokens = response.output_tokens or 0
 
         return ResponseValidationResult(
             is_valid=True,
