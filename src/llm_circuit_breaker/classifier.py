@@ -61,7 +61,7 @@ _SSL_PATTERNS = [
     "certificate verify failed",
     "self signed certificate",
     "sslcertverificationerror",
-    "ssLError",
+    "sslerror",
 ]
 
 _OUTPUT_CAP_PATTERNS = [
@@ -213,7 +213,7 @@ def classify_failure(
     retry_after = parse_retry_after(clean_headers.get("retry-after"))
 
     # 1. SSL / TLS Verification Failures (Infrastructure)
-    if any(p in msg for p in _SSL_PATTERNS) or "ssLError" in type(error).__name__:
+    if any(p in msg for p in _SSL_PATTERNS) or "sslerror" in type(error).__name__.lower():
         return FailureClassification(
             category=FailureCategory.INFRASTRUCTURE,
             reason=FailoverReason.ssl_cert_verification,
@@ -381,11 +381,24 @@ def classify_failure(
             message=msg,
         )
 
-    # Fallback to Unknown
+    # Any other 4xx: the provider rejected this request but is itself up.
+    # Never poison health, never retry the same endpoint; let routing try an alternative.
+    if code is not None and 400 <= code < 500:
+        return FailureClassification(
+            category=FailureCategory.REQUEST_INCOMPATIBILITY,
+            reason=FailoverReason.client_error,
+            should_fallback=True,
+            retryable=False,
+            poisons_health=False,
+            status_code=code,
+            message=msg,
+        )
+
+    # Fallback to Unknown (5xx-like or no status): try elsewhere, but count against health.
     return FailureClassification(
         category=FailureCategory.UNKNOWN,
         reason=FailoverReason.unknown,
-        should_fallback=False,
+        should_fallback=True,
         retryable=True,
         poisons_health=True,
         status_code=code,

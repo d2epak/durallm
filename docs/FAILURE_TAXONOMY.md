@@ -9,8 +9,8 @@ An authoritative reference defining failure categorization, failover reasons, an
 | Category | HTTP Statuses / Triggers | Description | Poisons Breaker Health? |
 |---|---|---|:---:|
 | **`INFRASTRUCTURE`** | 500, 502, 503, 504, 529, Connection Reset, TCP Timeout | Genuine upstream provider outage, crash, or gateway network failure. | **YES** |
-| **`RATE_LIMIT`** | 429 | Upstream concurrency or requests-per-minute (RPM) quota exceeded. | **NO (Triggers Cooldown)** |
-| **`QUOTA_EXHAUSTED`** | 402, 429 (monthly cap), "insufficient credits" | Billing account out of funds or hard organization spending cap hit. | **NO (Excludes Endpoint)** |
+| **`RATE_LIMIT`** | 429 | Upstream concurrency or requests-per-minute (RPM) quota exceeded. | **YES** (opens the breaker; `Retry-After` is honoured before any same-endpoint retry). Non-poisoning cooldown is planned once the router honours health-store cooldowns. |
+| **`QUOTA_EXHAUSTED`** | 402, 429 (monthly cap), "insufficient credits" | Billing account out of funds or hard organization spending cap hit. | **YES** (classified under `RATE_LIMIT`/`billing`; opening the breaker is currently the only mechanism that excludes the endpoint). |
 | **`CAPABILITY_MISMATCH`** | 400 (context overflow), 404 (model deprecated) | Model lacks required feature (e.g. tools, vision) or context window is too small. | **NO** |
 | **`REQUEST_INCOMPATIBILITY`** | 400 (rejected schema, protobuf failure) | Upstream provider cannot parse request format (e.g. Gemini rejecting `$schema` key). | **NO** |
 | **`SEMANTIC_AGENT_FAILURE`** | 200 (malformed tool JSON, missing required schema args) | Upstream responded with 200 OK, but output was syntactically corrupt or violated tool contract. | **NO** |

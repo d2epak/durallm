@@ -144,3 +144,22 @@ class TestDeterministicFaultInjection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestClientFaultIsolation(TestDeterministicFaultInjection):
+    """A client-side 400 must never open the breaker for other callers (ADR 0003)."""
+
+    def test_repeated_400_does_not_open_breaker_and_falls_back(self):
+        self.mock_a.set_sequence([MockFaultAction.server_error(400, "unsupported parameter: tools")] * 10)
+        self.mock_b.set_sequence([MockFaultAction.success("served by b")] * 10)
+        req = NormalizedRequest(model="default", messages=[NormalizedMessage(role="user", content="x")])
+
+        for _ in range(5):
+            resp, _, ledger = self.executor.execute(req, pool="coding", strategy="priority")
+            self.assertEqual(resp.content, "served by b")
+            self.assertEqual(ledger.attempts[0].status_code, 400)
+            self.assertFalse(ledger.attempts[0].failure.poisons_health)
+
+        states = {k: b.snapshot()["state"] for k, b in self.breaker_reg.all().items()}
+        self.assertTrue(states, "expected at least one breaker")
+        self.assertTrue(all(s == "CLOSED" for s in states.values()), states)

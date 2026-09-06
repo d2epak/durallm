@@ -27,7 +27,7 @@ An independent adversarial review on 2026-09-06 found the following. Read this b
 
 **Known not yet delivered**
 - The V3 executor applies no backoff and ignores `Retry-After`; `RetryPolicy` exists but is not wired in.
-- Several 4xx responses (generic 400, 402, 429) currently poison provider health and can open the breaker, contrary to `docs/FAILURE_TAXONOMY.md`.
+- 402 and 429 open the breaker (documented in `docs/FAILURE_TAXONOMY.md`); other 4xx never poison health as of `0.2.0`+.
 - The tool execution ledger records state but does not yet suppress duplicate executions.
 - Streaming is synthetic (buffered response re-emitted as SSE); there is no mid-stream failover.
 - `ResponseValidator` is not wired in and does not handle successful responses.
