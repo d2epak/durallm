@@ -13,7 +13,7 @@ import urllib.request
 from llm_circuit_breaker.proxy import start_proxy_server
 
 
-class TestProxyGetEndpoints(unittest.TestCase):
+class TestProxyHttpEndpoints(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -53,6 +53,21 @@ class TestProxyGetEndpoints(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             self._get("/nope")
         self.assertEqual(ctx.exception.code, 404)
+
+    def test_malformed_content_length_returns_400(self):
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{self.port}/v1/messages",
+            data=b"{}",
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        # urllib sets Content-Length itself; override with a non-integer value.
+        req.add_unredirected_header("Content-Length", "abc")
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            urllib.request.urlopen(req, timeout=5)
+        self.assertEqual(ctx.exception.code, 400)
+        body = json.loads(ctx.exception.read().decode("utf-8"))
+        self.assertIn("Content-Length", body["error"]["message"])
 
 
 if __name__ == "__main__":

@@ -114,7 +114,11 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         path = urllib.parse.urlsplit(self.path).path
-        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except (TypeError, ValueError):
+            self._send_json(400, {"error": {"message": "Invalid Content-Length header"}})
+            return
         raw_body = self.rfile.read(content_length) if content_length > 0 else b"{}"
 
         try:
