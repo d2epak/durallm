@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import replace
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from llm_circuit_breaker.agent.context import ContextBudget, ContextManager, estimate_tokens
@@ -102,19 +103,24 @@ class GatewayExecutor:
         strategy: Optional[str] = None,
         deadline_ms: float = 60000.0,
         api_keys: Optional[Dict[str, str]] = None,
+        requirements: Optional[RequirementVector] = None,
     ) -> Tuple[NormalizedResponse, RoutingDecision, AttemptLedger]:
         """
         Execute request with bounded retries, semantic failover, and cycle protection.
+        `requirements` carries caller constraints (cost ceiling, latency budget, provider filters);
+        tool requirement, task class and token estimates are always derived from the request.
         """
         deadline = Deadline(total_timeout_ms=deadline_ms)
         ledger = AttemptLedger(self.policy)
         keys = dict(api_keys or {})
 
-        # Build requirement vector from request
-        req_vector = RequirementVector(
-            require_tools=bool(request.tools),
-            minimum_context_tokens=0,
+        # Build requirement vector from request (on top of any caller-supplied constraints)
+        req_vector = replace(
+            requirements or RequirementVector(),
+            require_tools=bool(request.tools) or bool(requirements and requirements.require_tools),
             task_class="coding" if pool == "coding" else "general",
+            estimated_input_tokens=estimate_tokens(request),
+            expected_output_tokens=request.max_output_tokens or 0,
         )
 
         excluded_endpoints: List[str] = []

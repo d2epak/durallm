@@ -88,11 +88,11 @@ class CapabilityRouter:
                 continue
 
             profile = ep.profile or self.capability_registry.get_profile(ep.provider, ep.model)
+            health_snap = self.health_store.get_or_create(ep.id, provider=ep.provider, model=ep.model)
 
-            # 1. Hard constraint filter
-            passed, reason = requirements.matches_hard_constraints(profile)
+            # 1. Hard constraint filter (includes cost ceiling and observed-latency budget)
+            passed, reason = requirements.matches_hard_constraints(profile, health=health_snap)
             if not passed:
-                health_snap = self.health_store.get_or_create(ep.id, provider=ep.provider, model=ep.model)
                 evaluations.append(
                     CandidateEvaluation(
                         endpoint_id=ep.id,
@@ -111,7 +111,6 @@ class CapabilityRouter:
             breaker = self.breaker_registry.get_or_create(ep.resource_key)
             breaker_state = breaker.state
             if breaker_state == CircuitBreakerState.OPEN or breaker_state == CircuitBreakerState.FORCED_OPEN:
-                health_snap = self.health_store.get_or_create(ep.id, provider=ep.provider, model=ep.model)
                 evaluations.append(
                     CandidateEvaluation(
                         endpoint_id=ep.id,
@@ -126,7 +125,6 @@ class CapabilityRouter:
                 continue
 
             # 3. Soft scoring with real observed telemetry
-            health_snap = self.health_store.get_or_create(ep.id, provider=ep.provider, model=ep.model)
             eval_record = self.scorer.score_candidate(
                 endpoint=ep,
                 breaker_state=breaker_state,
