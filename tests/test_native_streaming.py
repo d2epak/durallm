@@ -100,14 +100,14 @@ def _gateway(routes):
     )
 
 
-def _route(route_id, base_url):
+def _route(route_id, base_url, provider="openai", protocol="openai"):
     return RouteDefinition(
         id=route_id,
-        provider="openai",
-        model="gpt-test",
+        provider=provider,
+        model=f"{provider}-test",
         pool="general_agent",
         base_url=base_url,
-        api_format="openai",
+        api_format=protocol,
         env_key=None,
         context_length=65536,
     )
@@ -182,9 +182,9 @@ class TestNativeProxyNoSplice(unittest.TestCase):
         cls.proxy.server_close()
         cls.thread.join(timeout=2)
 
-    def _post(self, body):
+    def _post(self, path, body):
         request = urllib.request.Request(
-            f"http://127.0.0.1:{self.port}/v1/chat/completions",
+            f"http://127.0.0.1:{self.port}{path}",
             data=json.dumps(body).encode("utf-8"),
             headers={"Content-Type": "application/json", "X-LCB-Streaming-Mode": "true_streaming"},
             method="POST",
@@ -200,7 +200,7 @@ class TestNativeProxyNoSplice(unittest.TestCase):
             with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
                 "llm_circuit_breaker.proxy.GATEWAY", gateway
             ):
-                status, headers, raw = self._post({
+                status, headers, raw = self._post("/v1/chat/completions", {
                     "model": "hermes-default",
                     "stream": True,
                     "messages": [{"role": "user", "content": "hello"}],
@@ -222,7 +222,7 @@ class TestNativeProxyNoSplice(unittest.TestCase):
             with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
                 "llm_circuit_breaker.proxy.GATEWAY", gateway
             ):
-                status, _, raw = self._post({
+                status, _, raw = self._post("/v1/chat/completions", {
                     "model": "hermes-default",
                     "stream": True,
                     "messages": [{"role": "user", "content": "hello"}],
@@ -232,6 +232,33 @@ class TestNativeProxyNoSplice(unittest.TestCase):
             self.assertIn(b"event: lcb.interrupted", raw)
             self.assertIn(b"continuation_required", raw)
             self.assertNotIn(b"should-not-appear", raw)
+            self.assertEqual((len(broken.requests), len(healthy.requests)), (1, 0))
+        finally:
+            broken.close()
+            healthy.close()
+
+    def test_claude_code_visible_drop_uses_anthropic_error_without_splicing(self):
+        broken = _UpstreamServer([b"event: content_block_delta\ndata: {\"type\":\"content_block_delta\"}\n\n"], drop=True)
+        healthy = _UpstreamServer([b"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"])
+        gateway = _gateway([
+            _route("broken", broken.base_url, provider="anthropic_contract", protocol="anthropic"),
+            _route("healthy", healthy.base_url, provider="anthropic_contract", protocol="anthropic"),
+        ])
+        try:
+            with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
+                "llm_circuit_breaker.proxy.GATEWAY", gateway
+            ):
+                status, _, raw = self._post("/v1/messages", {
+                    "model": "claude-code-compatible",
+                    "max_tokens": 64,
+                    "stream": True,
+                    "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}],
+                })
+            self.assertEqual(status, 200)
+            self.assertIn(b"content_block_delta", raw)
+            self.assertIn(b"event: error", raw)
+            self.assertIn(b"continuation_required", raw)
+            self.assertNotIn(b"message_stop", raw)
             self.assertEqual((len(broken.requests), len(healthy.requests)), (1, 0))
         finally:
             broken.close()

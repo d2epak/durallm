@@ -1,0 +1,126 @@
+{
+  "schema_version": "lcb-client-contracts/v1",
+  "recorded_at": "2026-09-06",
+  "contracts": [
+    {
+      "client": "Claude Code",
+      "client_reference": "Anthropic Messages API 2023-06-01",
+      "protocol": "anthropic",
+      "path": "/v1/messages",
+      "pool": "coding",
+      "body": {
+        "model": "claude-code-compatible",
+        "max_tokens": 128,
+        "system": "You are continuing a repository repair.",
+        "messages": [
+          {
+            "role": "user",
+            "content": [{"type": "text", "text": "Run the focused test suite."}]
+          }
+        ],
+        "tools": [
+          {
+            "name": "bash",
+            "description": "Run a safe command.",
+            "input_schema": {
+              "type": "object",
+              "properties": {"command": {"type": "string"}},
+              "required": ["command"],
+              "additionalProperties": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "client": "OpenCode",
+      "client_reference": "OpenAI Chat Completions v1 compatibility profile",
+      "protocol": "openai",
+      "path": "/v1/chat/completions",
+      "pool": "coding",
+      "body": {
+        "model": "code-agent",
+        "max_tokens": 128,
+        "messages": [
+          {"role": "system", "content": "You are continuing a repository repair."},
+          {"role": "user", "content": "Run the focused test suite."}
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a safe command.",
+              "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"],
+                "additionalProperties": false
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "client": "Hermes Agent",
+      "client_reference": "OpenAI Chat Completions v1 compatibility profile",
+      "protocol": "openai",
+      "path": "/v1/chat/completions",
+      "pool": "general_agent",
+      "body": {
+        "model": "hermes-default",
+        "max_tokens": 128,
+        "messages": [
+          {"role": "system", "content": "You are a long-running autonomous agent."},
+          {"role": "user", "content": "Inspect the deployment and run a safe check."}
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a safe command.",
+              "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"],
+                "additionalProperties": false
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "client": "OpenClaw",
+      "client_reference": "OpenAI Chat Completions v1 compatibility profile",
+      "protocol": "openai",
+      "path": "/v1/chat/completions",
+      "pool": "general_agent",
+      "body": {
+        "model": "openclaw-default",
+        "max_tokens": 128,
+        "messages": [
+          {"role": "system", "content": "You are a persistent workflow agent."},
+          {"role": "user", "content": "Verify the current workflow state."}
+        ],
+        "tools": [
+          {
+            "type": "function",
+            "function": {
+              "name": "bash",
+              "description": "Run a safe command.",
+              "parameters": {
+                "type": "object",
+                "properties": {"command": {"type": "string"}},
+                "required": ["command"],
+                "additionalProperties": false
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -159,8 +159,14 @@ class ContextManager:
 
         compacted = copy.deepcopy(request)
         messages = compacted.messages
+        # OpenAI-compatible inputs commonly retain the system message in
+        # ``messages`` *and* project it into ``system_instruction``. Protect
+        # every leading system/developer message and the first user objective;
+        # treating index 1 as disposable silently lost that objective.
+        first_user_idx = next((idx for idx, message in enumerate(messages) if message.role == "user"), None)
+        protected_prefix_count = (first_user_idx + 1) if first_user_idx is not None else 1
 
-        if len(messages) <= (self.preserve_tail_turns + 2):
+        if len(messages) <= (self.preserve_tail_turns + protected_prefix_count):
             # Too few messages to drop turns; compact content in place
             for m in messages:
                 for tr in m.tool_results:
@@ -186,10 +192,10 @@ class ContextManager:
         if estimate_tokens(compacted) <= target_tokens:
             return compacted, True
 
-        # Phase 2: Drop oldest intermediate message turns until within target
-        # Protect root prompt at index 0 (or 1 if system)
-        start_evict_idx = 1
-        while len(compacted.messages) > (self.preserve_tail_turns + 2):
+        # Phase 2: Drop only intermediate message turns. The root objective is
+        # the first user message, not a hard-coded numeric index.
+        start_evict_idx = protected_prefix_count
+        while len(compacted.messages) > (self.preserve_tail_turns + protected_prefix_count):
             if estimate_tokens(compacted) <= target_tokens:
                 break
             compacted.messages.pop(start_evict_idx)

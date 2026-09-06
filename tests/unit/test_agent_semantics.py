@@ -141,6 +141,32 @@ class TestAgentSemantics(unittest.TestCase):
         self.assertIn(critical_error, compacted_tool_res)
         self.assertIn("EXTRACTED DIAGNOSTICS & ERRORS", compacted_tool_res)
 
+    def test_system_message_does_not_make_root_user_objective_evictable(self):
+        """OpenAI inputs retain system in messages as well as system_instruction."""
+        root = "ROOT_OBJECTIVE: preserve this deployment invariant"
+        request = NormalizedRequest(
+            model="test-model",
+            system_instruction="You are a coding agent.",
+            messages=[
+                NormalizedMessage(role="system", content="You are a coding agent."),
+                NormalizedMessage(role="user", content=root),
+                *[
+                    NormalizedMessage(role="assistant", content="historical compiler output " * 500)
+                    for _ in range(12)
+                ],
+                NormalizedMessage(role="user", content="Finish the migration safely."),
+            ],
+        )
+
+        compacted, was_compacted = ContextManager(preserve_tail_turns=1).compact(
+            request,
+            ContextBudget(model_context_window=3_000, desired_output_tokens=500, safety_margin_tokens=500),
+        )
+
+        self.assertTrue(was_compacted)
+        self.assertLessEqual(estimate_tokens(compacted), 2_000)
+        self.assertIn(root, [message.content for message in compacted.messages if message.role == "user"])
+
 
 if __name__ == "__main__":
     unittest.main()
