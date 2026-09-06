@@ -55,9 +55,11 @@ class ModelProfile:
     protocol: str = "openai"  # "openai", "anthropic", "gemini"
     context_window: int = 65536
     max_output_tokens: int = 4096
-    supports_tools: bool = True
-    supports_parallel_tools: bool = True
-    supports_structured_output: bool = True
+    # None means "undeclared": the registry returns it for unknown models, and a
+    # requirement for that capability then excludes the candidate (pessimistic).
+    supports_tools: Optional[bool] = True
+    supports_parallel_tools: Optional[bool] = True
+    supports_structured_output: Optional[bool] = True
     supports_vision: bool = False
     supports_reasoning: bool = False
     supports_streaming: bool = True

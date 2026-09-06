@@ -55,8 +55,10 @@ class RequirementVector:
             if profile.provider.lower() in [p.lower() for p in self.forbidden_providers]:
                 return False, f"Provider '{profile.provider}' is in forbidden list"
 
-        # Tool calling
+        # Tool calling (None = undeclared capability for an unknown model; treated as unsupported)
         if self.require_tools and not profile.supports_tools:
+            if profile.supports_tools is None:
+                return False, f"Model '{profile.model}' has no declared tool-calling capability (unknown model)"
             return False, f"Model '{profile.model}' does not support tool calling"
 
         # Parallel tools

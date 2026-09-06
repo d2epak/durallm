@@ -8,17 +8,33 @@ from typing import Dict, List, Optional
 from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 
 
+# (provider, alias) -> canonical model. Resolution is exact match, then this map; never substrings.
+_BUILTIN_ALIASES = (
+    ("groq", "llama-3.3-70b", "llama-3.3-70b-versatile"),
+    ("cerebras", "llama-3.3-70b", "llama3.3-70b"),
+    ("cerebras", "llama-3.1-8b", "llama3.1-8b"),
+)
+
+
 class CapabilityRegistry:
     """Thread-safe registry for model capability profiles and endpoints."""
 
     def __init__(self):
         self._lock = threading.RLock()
         self._profiles: Dict[str, ModelProfile] = {}
+        self._aliases: Dict[str, str] = {}
         self._endpoints: Dict[str, Endpoint] = {}
         self._seed_builtin_profiles()
+        for provider, alias, canonical in _BUILTIN_ALIASES:
+            self.register_alias(provider, alias, canonical)
 
     def _make_key(self, provider: str, model: str) -> str:
         return f"{provider.lower()}:{model.lower()}"
+
+    def register_alias(self, provider: str, alias: str, canonical_model: str) -> None:
+        """Map an alternate model name to a registered profile of the same provider."""
+        with self._lock:
+            self._aliases[self._make_key(provider, alias)] = self._make_key(provider, canonical_model)
 
     def register_profile(self, profile: ModelProfile) -> None:
         """Register or update a model profile."""
@@ -27,25 +43,29 @@ class CapabilityRegistry:
             self._profiles[key] = profile
 
     def get_profile(self, provider: str, model: str) -> ModelProfile:
-        """Get model profile, falling back to safe default assumptions if unknown."""
+        """
+        Resolve a profile by exact key, then by explicit alias. Unknown models get a
+        pessimistic profile whose tool/parallel/structured-output capabilities are
+        undeclared (None), so requirements for them exclude the candidate.
+        """
         with self._lock:
             key = self._make_key(provider, model)
             if key in self._profiles:
                 return self._profiles[key]
 
-            # Model suffix/prefix heuristic fallback
-            for k, p in self._profiles.items():
-                if model.lower() in k or k in model.lower():
-                    return p
+            target = self._aliases.get(key)
+            if target in self._profiles:
+                return self._profiles[target]
 
-            # Safe generic fallback
             return ModelProfile(
                 provider=provider,
                 model=model,
                 protocol="openai",
                 context_window=32768,
                 max_output_tokens=4096,
-                supports_tools=True,
+                supports_tools=None,
+                supports_parallel_tools=None,
+                supports_structured_output=None,
                 supports_streaming=True,
             )
 
