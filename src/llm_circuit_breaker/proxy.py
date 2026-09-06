@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional
 
 from llm_circuit_breaker.classifier import classify_api_error
 from llm_circuit_breaker.errors import CircuitBreakerGatewayError
+from llm_circuit_breaker.observability.logger import DEFAULT_STRUCTURED_LOGGER
 from llm_circuit_breaker.pools import POOL_MANAGER
 from llm_circuit_breaker.pruner import estimate_tokens
 from llm_circuit_breaker.router import UniversalFailoverRouter
@@ -44,6 +45,26 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
 
     def log_message(self, format: str, *args: Any) -> None:
         pass  # Suppress default noisy access logs
+
+    def handle_one_request(self) -> None:
+        self._started = time.monotonic()
+        self._route = None
+        super().handle_one_request()
+
+    def log_request(self, code: Any = "-", size: Any = "-") -> None:
+        # Called by send_response for every reply (JSON, stream, or error): one redacted event each.
+        route = getattr(self, "_route", None)
+        started = getattr(self, "_started", None)
+        DEFAULT_STRUCTURED_LOGGER.info(
+            "proxy_response",
+            request_id=self.headers.get("X-Request-Id") if getattr(self, "headers", None) else None,
+            method=getattr(self, "command", None),
+            path=urllib.parse.urlsplit(getattr(self, "path", "") or "").path,
+            status=int(code) if str(code).isdigit() else code,
+            duration_ms=round((time.monotonic() - started) * 1000.0, 1) if started else None,
+            provider=route.provider if route else None,
+            model=route.model if route else None,
+        )
 
     def _send_json(self, status: int, data: Any) -> None:
         encoded = json.dumps(data, ensure_ascii=False).encode("utf-8")
@@ -151,6 +172,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             requested_model = body.get("model", "auto-coding-agent")
             openai_req = anthropic_to_openai_request(body, requested_model)
             status, openai_resp, route = ROUTER.dispatch("coding", openai_req, requested_model)
+            self._route = route
 
             if status != 200:
                 self._send_json(status, openai_resp)
@@ -173,6 +195,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             # Determine pool: if model specifies coding or comes from Claude, use coding, else general_agent
             pool = "coding" if any(k in requested_model.lower() for k in ["code", "claude", "coder"]) else "general_agent"
             status, openai_resp, route = ROUTER.dispatch(pool, body, requested_model)
+            self._route = route
 
             is_streaming = body.get("stream", False)
             if is_streaming and status == 200:

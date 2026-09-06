@@ -136,6 +136,23 @@ class TestSecurityAndValidation(unittest.TestCase):
         self.assertEqual(redacted["nested"]["user_password"], "[REDACTED]")
         self.assertEqual(redacted["nested"]["normal_field"], 12345)
 
+    def test_redaction_leaves_token_counts_alone_but_catches_key_variants(self):
+        # The old unanchored pattern turned every usage counter into "[REDACTED]".
+        data = {"input_tokens": 12, "max_tokens": 4096, "output_tokens": 3, "tokens_input": 7,
+                "access_token": "abc", "secret_key": "def", "X-Api-Key": "ghi"}
+        redacted = redact_sensitive_data(data)
+        self.assertEqual({k: redacted[k] for k in ("input_tokens", "max_tokens", "output_tokens", "tokens_input")},
+                         {"input_tokens": 12, "max_tokens": 4096, "output_tokens": 3, "tokens_input": 7})
+        for k in ("access_token", "secret_key", "X-Api-Key"):
+            self.assertEqual(redacted[k], "[REDACTED]", k)
+
+    def test_secret_values_inside_free_text_are_masked_in_place(self):
+        msg = "401 from groq: invalid key gsk_abcdefghijklmnopqrstuvwxyz0123 (header Bearer tok_123)"
+        out = redact_sensitive_data(msg)
+        self.assertNotIn("gsk_abcdefghijklmnopqrstuvwxyz0123", out)
+        self.assertNotIn("tok_123", out)
+        self.assertIn("401 from groq: invalid key [REDACTED_API_KEY]", out)
+
 
 if __name__ == "__main__":
     unittest.main()

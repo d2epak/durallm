@@ -9,10 +9,17 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
+# Anchored at the end of the key so `input_tokens` / `max_tokens` are not treated as secrets.
 SENSITIVE_KEY_PATTERN = re.compile(
-    r"(api[_-]?key|authorization|bearer|secret|token|password|cookie)",
+    r"(api[_-]?key|secret[_-]?key|authorization|bearer|secret|token|password|cookie)$",
     re.IGNORECASE,
 )
+
+# Secret-looking values inside free text (error messages, URLs) are masked in place.
+SECRET_VALUE_PATTERN = re.compile(r"(sk-[a-zA-Z0-9_-]{20,}|gsk_[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]{30,})")
+BEARER_PATTERN = re.compile(r"(bearer\s+)\S+", re.IGNORECASE)
+
+_LEVELS = {"DEBUG": logging.DEBUG, "INFO": logging.INFO, "WARNING": logging.WARNING, "ERROR": logging.ERROR}
 
 
 def redact_sensitive_data(obj: Any, max_prompt_preview_chars: int = 120) -> Any:
@@ -33,19 +40,22 @@ def redact_sensitive_data(obj: Any, max_prompt_preview_chars: int = 120) -> Any:
     elif isinstance(obj, list):
         return [redact_sensitive_data(item, max_prompt_preview_chars) for item in obj]
     elif isinstance(obj, str):
-        # Look for sk-... / gsk_... patterns
-        if re.search(r"(sk-[a-zA-Z0-9_-]{20,}|gsk_[a-zA-Z0-9_-]{20,}|AIza[a-zA-Z0-9_-]{30,})", obj):
-            return "[REDACTED_API_KEY]"
-        return obj
+        masked = SECRET_VALUE_PATTERN.sub("[REDACTED_API_KEY]", obj)
+        return BEARER_PATTERN.sub(r"\1[REDACTED_API_KEY]", masked)
     return obj
 
 
 class StructuredJsonLogger:
-    """Emits JSON-formatted structured logs with automatic redaction."""
+    """Emits one redacted JSON object per event.
 
-    def __init__(self, name: str = "llm_circuit_breaker", stream=sys.stdout):
+    With `stream=None` (the default) events go through the stdlib logger named `name`, so the
+    host application decides where they end up. Pass a stream to write lines directly.
+    """
+
+    def __init__(self, name: str = "llm_circuit_breaker.events", stream=None):
         self.name = name
         self.stream = stream
+        self._logger = logging.getLogger(name)
 
     def log_event(
         self,
@@ -62,8 +72,11 @@ class StructuredJsonLogger:
             "request_id": request_id,
             "data": redact_sensitive_data(metadata or {}),
         }
-        line = json.dumps(payload, ensure_ascii=False) + "\n"
-        self.stream.write(line)
+        line = json.dumps(payload, ensure_ascii=False, default=str)
+        if self.stream is None:
+            self._logger.log(_LEVELS.get(payload["level"], logging.INFO), line)
+            return
+        self.stream.write(line + "\n")
         self.stream.flush()
 
     def info(self, event: str, request_id: Optional[str] = None, **kwargs) -> None:

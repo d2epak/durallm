@@ -50,6 +50,15 @@ class TestProxyHttpEndpoints(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("breakers", body)
 
+    def test_every_response_emits_a_structured_event(self):
+        with self.assertLogs("llm_circuit_breaker.events", level="INFO") as cm:
+            self._get("/health")
+        events = [json.loads(r.getMessage()) for r in cm.records]
+        hit = [e for e in events if e["event"] == "proxy_response" and e["data"]["path"] == "/health"]
+        self.assertEqual(len(hit), 1)
+        self.assertEqual((hit[0]["data"]["method"], hit[0]["data"]["status"]), ("GET", 200))
+        self.assertIsInstance(hit[0]["data"]["duration_ms"], float)
+
     def test_unknown_path_returns_404(self):
         with self.assertRaises(urllib.error.HTTPError) as ctx:
             self._get("/nope")

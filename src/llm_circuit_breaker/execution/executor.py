@@ -41,6 +41,7 @@ from llm_circuit_breaker.health.telemetry import (
     DEFAULT_HEALTH_STORE,
     HealthTelemetryStore,
 )
+from llm_circuit_breaker.observability.logger import DEFAULT_STRUCTURED_LOGGER, StructuredJsonLogger
 from llm_circuit_breaker.models import (
     AttemptRecord,
     FailureCategory,
@@ -81,6 +82,7 @@ class GatewayExecutor:
         response_validator: Optional[ResponseValidator] = None,
         router: Optional[CapabilityRouter] = None,
         sleeper: Callable[[float], None] = time.sleep,
+        events: Optional[StructuredJsonLogger] = None,
     ):
         self.capability_registry = capability_registry or DEFAULT_CAPABILITY_REGISTRY
         self.breaker_registry = breaker_registry or DEFAULT_BREAKER_REGISTRY
@@ -92,6 +94,7 @@ class GatewayExecutor:
         self.tool_ledger = tool_ledger or DEFAULT_TOOL_LEDGER
         self.response_validator = response_validator or ResponseValidator(tool_validator=self.tool_validator)
         self._sleep = sleeper
+        self.events = events or DEFAULT_STRUCTURED_LOGGER
         self.router = router or CapabilityRouter(
             capability_registry=self.capability_registry,
             breaker_registry=self.breaker_registry,
@@ -150,6 +153,11 @@ class GatewayExecutor:
 
             if not endpoint:
                 logger.error("No candidate matches requirements in pool '%s'", pool)
+                self.events.error(
+                    "request_exhausted", request_id=request.request_id, pool=pool,
+                    attempts=ledger.total_attempts, last_reason=last_failure_reason,
+                    detail="no healthy candidate left" if excluded_endpoints else "no candidate matches requirements",
+                )
                 raise NoHealthyRouteError(f"No healthy candidate available in pool '{pool}'", pool=pool)
 
             # Check cycle & budget protection
@@ -287,6 +295,7 @@ class GatewayExecutor:
                         self.health_store.record_success(endpoint.id, exec_result.duration_ms)
                         attempt_rec.finish(success=True, status_code=200)
                         ledger.record_attempt(attempt_rec)
+                        self._emit_attempt(attempt_rec)
 
                         # Estimate cost
                         in_tokens = estimate_tokens(adapted_request)
@@ -336,6 +345,7 @@ class GatewayExecutor:
 
             attempt_rec.finish(success=False, status_code=exec_result.status_code, failure=classified)
             ledger.record_attempt(attempt_rec)
+            self._emit_attempt(attempt_rec)
 
             last_failure_reason = classified.reason.value
 
@@ -347,6 +357,10 @@ class GatewayExecutor:
                 logger.info("Size rejection from %s; compacting and retrying the same candidate", endpoint.id)
             elif not classified.retryable or not ledger.can_attempt_endpoint(endpoint.id):
                 if not classified.should_fallback:
+                    self.events.error(
+                        "request_failed_non_recoverable", request_id=request.request_id, pool=pool,
+                        endpoint_id=endpoint.id, reason=classified.reason.value, attempts=ledger.total_attempts,
+                    )
                     raise NonRecoverableFailureError(
                         f"{endpoint.id} failed with {classified.reason.value} and fallback is not permitted: {classified.message[:160]}",
                         classification=classified,
@@ -369,4 +383,25 @@ class GatewayExecutor:
                 else:
                     self._sleep(backoff_s)
 
+        self.events.error(
+            "request_exhausted", request_id=request.request_id, pool=pool,
+            attempts=ledger.total_attempts, last_reason=last_failure_reason,
+        )
         raise NoHealthyRouteError(f"All fallback attempts exhausted for pool '{pool}'", pool=pool)
+
+    def _emit_attempt(self, rec: AttemptRecord) -> None:
+        data = dict(
+            endpoint_id=rec.endpoint_id, provider=rec.provider, model=rec.model,
+            attempt_index=rec.attempt_index, fallback_index=rec.fallback_index,
+            status_code=rec.status_code, latency_ms=round(rec.latency_ms, 1), compacted=rec.compacted,
+        )
+        if rec.success:
+            self.events.info("upstream_attempt_succeeded", request_id=rec.request_id, **data)
+        else:
+            self.events.warning(
+                "upstream_attempt_failed", request_id=rec.request_id,
+                reason=rec.failure.reason.value if rec.failure else None,
+                retryable=rec.failure.retryable if rec.failure else None,
+                message=(rec.failure.message or "")[:160] if rec.failure else None,
+                **data,
+            )
