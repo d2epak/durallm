@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker
 from llm_circuit_breaker.breaker.registry import (
@@ -66,8 +66,8 @@ class CapabilityRouter:
         strat = strategy or self.default_strategy
         endpoints = self.capability_registry.endpoints_for_pool(pool)
         if not endpoints:
-            # Fallback to all endpoints if pool-specific list is empty
-            endpoints = self.capability_registry.all_endpoints()
+            # A pool is an isolation boundary (ADR 0010): never widen to other pools' endpoints.
+            logger.warning("Pool '%s' has no registered endpoints", pool)
 
         exclusions = set(excluded_endpoints or [])
         evaluations: List[CandidateEvaluation] = []
@@ -106,8 +106,9 @@ class CapabilityRouter:
                 )
                 continue
 
-            # 2. Circuit Breaker Admission filter
-            breaker = self.breaker_registry.get_or_create(f"{ep.provider}:{ep.model}")
+            # 2. Circuit Breaker Admission filter (DISABLED / METRICS_ONLY pass through per ADR 0001;
+            #    HALF_OPEN is left to the breaker's probe admission at execution time)
+            breaker = self.breaker_registry.get_or_create(ep.resource_key)
             breaker_state = breaker.state
             if breaker_state == CircuitBreakerState.OPEN or breaker_state == CircuitBreakerState.FORCED_OPEN:
                 health_snap = self.health_store.get_or_create(ep.id, provider=ep.provider, model=ep.model)

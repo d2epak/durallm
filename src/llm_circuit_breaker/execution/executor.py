@@ -152,7 +152,7 @@ class GatewayExecutor:
                 continue
 
             # 2. Circuit Breaker Admission
-            breaker = self.breaker_registry.get_or_create(f"{endpoint.provider}:{endpoint.model}")
+            breaker = self.breaker_registry.get_or_create(endpoint.resource_key)
             try:
                 breaker.acquire_permission()
             except (BreakerOpenError, ProbeAdmissionDeniedError) as b_err:

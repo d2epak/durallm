@@ -85,7 +85,7 @@ class TestRoutingEngine(unittest.TestCase):
 
     def test_breaker_open_candidate_excluded(self):
         # Trip breaker for groq
-        breaker = self.breaker_reg.get_or_create("groq:llama-3.3-70b")
+        breaker = self.breaker_reg.get_or_create("groq:default:llama-3.3-70b:default")  # Endpoint.resource_key
         breaker.force_open()
 
         req = RequirementVector(require_tools=True)
