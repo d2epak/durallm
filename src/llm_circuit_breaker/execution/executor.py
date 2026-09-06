@@ -207,9 +207,12 @@ class GatewayExecutor:
 
                     # 5. Response / Tool Schema Validation and Idempotency
                     validation_passed = True
-                    for tc in norm_response.tool_calls:
-                        tc_id = f"att_{attempt_idx}_{tc.id or tc.name}"
-                        tc.id = tc_id
+                    for tc_index, tc in enumerate(norm_response.tool_calls):
+                        # Preserve the provider's tool-call id for the client (ADR 0005); only mint one if absent.
+                        if not tc.id:
+                            tc.id = f"call_{request.request_id[:8]}_{attempt_idx}_{tc_index}"
+                        # Ledger key is scoped per request and attempt so retries never collide.
+                        tc_id = f"{request.request_id}:att{attempt_idx}:{tc.id}"
                         # Register in tool ledger
                         self.tool_ledger.register_tool_call(
                             tool_call_id=tc_id,
