@@ -18,6 +18,10 @@ class PreparedRequest:
     method: str = "POST"
 
 
+# Pseudo status codes for failures that never produced an HTTP response.
+TRANSPORT_STATUS = {"tls": 596, "timeout": 597, "connection": 598, "unknown": 599}
+
+
 @dataclass
 class ProviderExecutionResult:
     """Result of an HTTP invocation to an upstream provider."""
@@ -25,6 +29,8 @@ class ProviderExecutionResult:
     headers: Dict[str, str]
     body: bytes
     duration_ms: float = 0.0
+    # Set when no HTTP response was received: "tls", "timeout", "connection" or "unknown".
+    transport_error: Optional[str] = None
 
 
 class ProviderAdapter(Protocol):

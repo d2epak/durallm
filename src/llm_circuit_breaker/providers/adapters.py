@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import json
 import logging
+import socket
+import ssl
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
+from llm_circuit_breaker._env import env_flag
 from llm_circuit_breaker.capability.profile import Endpoint
+from llm_circuit_breaker.errors import ConfigurationError
+from llm_circuit_breaker.security.defense import validate_upstream_url
 from llm_circuit_breaker.protocol.anthropic import (
     anthropic_request_to_ir,
     ir_to_anthropic_request,
@@ -29,12 +34,34 @@ from llm_circuit_breaker.protocol.openai import (
     openai_response_to_ir,
 )
 from llm_circuit_breaker.providers.base import (
+    TRANSPORT_STATUS,
     PreparedRequest,
     ProviderAdapter,
     ProviderExecutionResult,
 )
 
 logger = logging.getLogger("llm_circuit_breaker.providers")
+
+ALLOW_LOCAL_UPSTREAM_ENV = "LLM_BREAKER_ALLOW_LOCAL_UPSTREAM"
+
+
+def _transport_kind(exc: BaseException) -> str:
+    """Name the transport failure so it gets a distinct status instead of a blanket 599."""
+    candidates = [getattr(exc, "reason", None), exc.__cause__, exc.__context__, exc]
+    for c in candidates:
+        if c is None:
+            continue
+        if isinstance(c, (socket.timeout, TimeoutError)):
+            return "timeout"
+        if isinstance(c, ssl.SSLError):
+            return "tls"
+        if isinstance(c, urllib.error.URLError):
+            continue  # a wrapper; its reason was inspected first
+        if isinstance(c, (ConnectionError, socket.gaierror, OSError)):
+            return "connection"
+    if "timed out" in str(exc).lower():
+        return "timeout"
+    return "unknown"
 
 
 class BaseHTTPAdapter:
@@ -45,6 +72,8 @@ class BaseHTTPAdapter:
         prepared: PreparedRequest,
         timeout_seconds: float,
     ) -> ProviderExecutionResult:
+        # SSRF defense at the network boundary; loopback upstreams (Ollama, LM Studio) are opt-in.
+        validate_upstream_url(prepared.url, allow_localhost=env_flag(ALLOW_LOCAL_UPSTREAM_ENV))
         req = urllib.request.Request(
             url=prepared.url,
             data=prepared.body_bytes,
@@ -79,11 +108,13 @@ class BaseHTTPAdapter:
             )
         except Exception as exc:
             duration = (time.monotonic() - start) * 1000.0
+            kind = _transport_kind(exc)
             return ProviderExecutionResult(
-                status_code=599,
+                status_code=TRANSPORT_STATUS[kind],
                 headers={},
-                body=str(exc).encode("utf-8"),
+                body=f"transport_error:{kind}: {exc}".encode("utf-8"),
                 duration_ms=duration,
+                transport_error=kind,
             )
 
 
@@ -163,13 +194,13 @@ class AnthropicAdapter(BaseHTTPAdapter):
     ) -> NormalizedResponse:
         raw_json = json.loads(result.body.decode("utf-8"))
         # Anthropic message response to IR
-        content = ""
+        text_parts: List[str] = []
         reasoning = None
         signature = None
         tool_calls = []
         for b in raw_json.get("content", []):
             if b.get("type") == "text":
-                content = b.get("text", "")
+                text_parts.append(b.get("text", ""))  # keep every block, not just the last
             elif b.get("type") == "thinking":
                 reasoning = b.get("thinking", "")
                 signature = b.get("signature")
@@ -190,7 +221,7 @@ class AnthropicAdapter(BaseHTTPAdapter):
         return NormalizedResponse(
             response_id=raw_json.get("id", ""),
             model=endpoint.model,
-            content=content,
+            content="".join(text_parts),
             reasoning_content=reasoning,
             reasoning_signature=signature,
             tool_calls=tool_calls,
@@ -259,12 +290,20 @@ class ProviderAdapterRegistry:
             "gemini": GeminiAdapter("gemini"),
         }
 
-    def get_adapter(self, provider: str) -> ProviderAdapter:
+    def get_adapter(self, provider: str, protocol: Optional[str] = None) -> ProviderAdapter:
+        """Adapter for a known provider, else for the endpoint's declared wire protocol.
+
+        Unknown providers used to fall through to the OpenAI adapter silently.
+        """
         p_clean = provider.lower()
         if p_clean in self._adapters:
             return self._adapters[p_clean]
-        # Default to OpenAI compatible
-        return self._adapters["openai"]
+        if protocol and protocol.lower() in ("openai", "anthropic", "gemini"):
+            return self._adapters[protocol.lower()]
+        raise ConfigurationError(
+            f"No adapter for provider '{provider}'. Known providers: {sorted(self._adapters)}; "
+            f"otherwise set Endpoint.protocol to 'openai', 'anthropic' or 'gemini'."
+        )
 
 
 DEFAULT_ADAPTER_REGISTRY = ProviderAdapterRegistry()

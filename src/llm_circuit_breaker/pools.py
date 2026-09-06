@@ -21,13 +21,10 @@ from typing import Any, Dict, List, Optional, Set
 logger = logging.getLogger("llm_circuit_breaker.pools")
 
 
+from llm_circuit_breaker._env import env_flag  # noqa: F401  (re-exported for router)
+
 SCAN_DOTFILES_ENV = "LLM_BREAKER_SCAN_DOTFILES"
 AUTO_DISCOVER_ENV = "LLM_BREAKER_AUTO_DISCOVER"
-
-
-def env_flag(name: str) -> bool:
-    """True when an opt-in environment variable is set to 1/true/yes/on."""
-    return os.getenv(name, "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def load_all_env_keys(target_keys: Optional[List[str]] = None, scan_dotfiles: Optional[bool] = None) -> Dict[str, str]:

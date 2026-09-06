@@ -211,7 +211,7 @@ class GatewayExecutor:
             last_endpoint = endpoint
 
             # 4. Prepare and Execute Request
-            adapter = self.adapter_registry.get_adapter(endpoint.provider)
+            adapter = self.adapter_registry.get_adapter(endpoint.provider, protocol=endpoint.protocol)
             key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
             prepared = adapter.prepare_request(endpoint, adapted_request, api_key=key_val)
 
