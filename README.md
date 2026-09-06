@@ -75,7 +75,7 @@ Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits,
 | **Baseline-C-Static-Fallback** | 93.3% | 46.7% | 0.04 ms | 0.06 ms | 6.7% |
 
 > Run the full reproducible benchmark suite: `python -m benchmarks.run`  
-> Complete technical analysis: [docs/BENCHMARKS.md](file:///Users/deepak/llm-circuit-breaker/docs/BENCHMARKS.md)
+> Complete technical analysis: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 
 ---
 
@@ -91,23 +91,23 @@ Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits,
 | **Deployment Footprint** | **Zero Mandatory Dependencies** (<15ms overhead, SQLite persistence) | Requires external Postgres & Redis | Cloudflare Edge Worker (Cloud only) | SaaS cloud or enterprise container | Cloud-only API broker |
 | **Security Hardening** | **SSRF defense, CRLF sanitization, credential redaction** | Telemetry enabled by default | Cloud control plane | Cloud control plane | Third-party proxy |
 
-> Detailed architectural deep-dive: [docs/COMPETITOR_MATRIX.md](file:///Users/deepak/llm-circuit-breaker/docs/COMPETITOR_MATRIX.md)
+> Detailed architectural deep-dive: [docs/COMPETITOR_MATRIX.md](docs/COMPETITOR_MATRIX.md)
 
 ---
 
 ## 📚 Technical Documentation Suite
 
-- [Architecture Overview](file:///Users/deepak/llm-circuit-breaker/ARCHITECTURE.md)
-- [Reliability & FSM State Machine Model](file:///Users/deepak/llm-circuit-breaker/docs/RELIABILITY_MODEL.md)
-- [Comprehensive Failure Taxonomy](file:///Users/deepak/llm-circuit-breaker/docs/FAILURE_TAXONOMY.md)
-- [Routing Policy & Telemetry Scoring](file:///Users/deepak/llm-circuit-breaker/docs/ROUTING_POLICY.md)
-- [Semantic Failover & Protocol IR](file:///Users/deepak/llm-circuit-breaker/docs/SEMANTIC_FAILOVER.md)
-- [Hierarchical Context Compaction](file:///Users/deepak/llm-circuit-breaker/docs/CONTEXT_MODEL.md)
-- [Tool Safety & Idempotency Ledger](file:///Users/deepak/llm-circuit-breaker/docs/TOOL_SAFETY.md)
-- [Streaming Architecture & Mid-Stream Replay](file:///Users/deepak/llm-circuit-breaker/docs/STREAMING.md)
-- [Production Operations & Observability](file:///Users/deepak/llm-circuit-breaker/docs/OPERATIONS.md)
-- [Full Benchmark Report](file:///Users/deepak/llm-circuit-breaker/docs/BENCHMARKS.md)
-- [Final Engineering Self-Critique](file:///Users/deepak/llm-circuit-breaker/docs/FINAL_SELF_CRITIQUE.md)
+- [Architecture Overview](ARCHITECTURE.md)
+- [Reliability & FSM State Machine Model](docs/RELIABILITY_MODEL.md)
+- [Comprehensive Failure Taxonomy](docs/FAILURE_TAXONOMY.md)
+- [Routing Policy & Telemetry Scoring](docs/ROUTING_POLICY.md)
+- [Semantic Failover & Protocol IR](docs/SEMANTIC_FAILOVER.md)
+- [Hierarchical Context Compaction](docs/CONTEXT_MODEL.md)
+- [Tool Safety & Idempotency Ledger](docs/TOOL_SAFETY.md)
+- [Streaming Architecture & Mid-Stream Replay](docs/STREAMING.md)
+- [Production Operations & Observability](docs/OPERATIONS.md)
+- [Full Benchmark Report](docs/BENCHMARKS.md)
+- [Final Engineering Self-Critique](docs/FINAL_SELF_CRITIQUE.md)
 
 ---
 
@@ -139,7 +139,9 @@ print(f"Response: {response.content}")
 ### 3. Launching Local Proxy Server
 
 ```bash
-python -m llm_circuit_breaker.proxy.server --port 8000
+python -m llm_circuit_breaker.proxy --port 8000
+# or, after `pip install -e .`:
+llm-proxy --port 8000
 ```
 
 Configure your agents:
