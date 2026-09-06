@@ -90,7 +90,7 @@ print(f"Content: {response.content}")
 from llm_circuit_breaker import DEFAULT_BREAKER_REGISTRY
 
 # Inspect all breaker states
-for name, breaker in DEFAULT_BREAKER_REGISTRY.all_breakers().items():
+for name, breaker in DEFAULT_BREAKER_REGISTRY.all().items():
     snapshot = breaker.snapshot()
     print(f"Breaker {name}: state={snapshot['state']}, metrics={snapshot['metrics']}")
 ```

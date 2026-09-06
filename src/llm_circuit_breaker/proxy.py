@@ -57,7 +57,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             candidates_coding = POOL_MANAGER.get_candidate_routes("coding")
             candidates_agent = POOL_MANAGER.get_candidate_routes("general_agent")
             from llm_circuit_breaker.breaker.registry import DEFAULT_BREAKER_REGISTRY
-            breaker_snaps = {name: b.snapshot()["state"] for name, b in DEFAULT_BREAKER_REGISTRY.all_breakers().items()}
+            breaker_snaps = {name: b.snapshot()["state"] for name, b in DEFAULT_BREAKER_REGISTRY.all().items()}
             self._send_json(200, {
                 "status": "healthy",
                 "engine": "llm-circuit-breaker",
@@ -81,7 +81,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         if path == "/metrics":
             from llm_circuit_breaker.breaker.registry import DEFAULT_BREAKER_REGISTRY
             from llm_circuit_breaker.health.telemetry import DEFAULT_HEALTH_STORE
-            all_b = {k: b.snapshot() for k, b in DEFAULT_BREAKER_REGISTRY.all_breakers().items()}
+            all_b = {k: b.snapshot() for k, b in DEFAULT_BREAKER_REGISTRY.all().items()}
             all_h = {k: s.__dict__ for k, s in DEFAULT_HEALTH_STORE.all_snapshots().items()}
             self._send_json(200, {
                 "circuit_breakers": all_b,
@@ -92,7 +92,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         if path == "/admin/breakers":
             from llm_circuit_breaker.breaker.registry import DEFAULT_BREAKER_REGISTRY
             self._send_json(200, {
-                "breakers": {k: b.snapshot() for k, b in DEFAULT_BREAKER_REGISTRY.all_breakers().items()}
+                "breakers": {k: b.snapshot() for k, b in DEFAULT_BREAKER_REGISTRY.all().items()}
             })
             return
 
