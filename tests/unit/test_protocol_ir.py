@@ -1,22 +1,16 @@
 """Tests for Normalized Protocol Intermediate Representation (IR) and Adapters."""
 
-import json
 import unittest
 
 from llm_circuit_breaker.protocol import (
     NormalizedMessage,
     NormalizedRequest,
-    NormalizedResponse,
     NormalizedToolCall,
     NormalizedToolDefinition,
     anthropic_request_to_ir,
-    gemini_response_to_ir,
-    ir_to_anthropic_request,
     ir_to_anthropic_response,
     ir_to_gemini_request,
     ir_to_openai_request,
-    ir_to_openai_response,
-    openai_request_to_ir,
     openai_response_to_ir,
 )
 

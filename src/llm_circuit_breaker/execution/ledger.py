@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Set
+from typing import Any, List
 
 from llm_circuit_breaker.errors import (
     CycleDetectedError,

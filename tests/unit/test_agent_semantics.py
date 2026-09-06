@@ -6,7 +6,6 @@ from llm_circuit_breaker.agent import (
     AgentState,
     ContextBudget,
     ContextManager,
-    StateSnapshot,
     estimate_tokens,
 )
 from llm_circuit_breaker.protocol.ir import (

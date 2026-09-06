@@ -7,9 +7,6 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
-from llm_circuit_breaker.agent.state import StateSnapshot
-from llm_circuit_breaker.capability.profile import Endpoint
-
 
 @dataclass
 class FailoverPlan:

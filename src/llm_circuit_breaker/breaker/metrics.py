@@ -6,7 +6,7 @@ import collections
 import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Deque, Dict, List, Optional
+from typing import Any, Callable, Deque, Dict, Optional
 
 
 class SlidingWindowType(str, Enum):

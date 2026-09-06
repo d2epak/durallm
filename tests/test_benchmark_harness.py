@@ -2,11 +2,16 @@
 
 import unittest
 
-from benchmarks.harness import SYSTEMS, BenchmarkHarness, V3_NAME, build_fixture, percentile
+from benchmarks.harness import SYSTEMS, V3_NAME, BenchmarkHarness, build_fixture, percentile
 from benchmarks.scenarios import BenchmarkScenario, ScenarioTurn
 from benchmarks.tool_runner import ToolRunner
 from llm_circuit_breaker.capability.profile import Endpoint
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolCall, NormalizedToolDefinition
+from llm_circuit_breaker.protocol.ir import (
+    NormalizedMessage,
+    NormalizedRequest,
+    NormalizedToolCall,
+    NormalizedToolDefinition,
+)
 from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
@@ -144,6 +149,18 @@ class TestAddedBaselines(unittest.TestCase):
         from llm_circuit_breaker.pools import POOL_MANAGER
         self.assertIsNot(runner.router.pool_manager, POOL_MANAGER)
         self.assertEqual({r.provider for r in runner.router.pool_manager.coding_routes}, {"provider_a", "provider_b"})
+
+    def test_baseline_f_uses_the_real_litellm_router_fallback(self):
+        seqs = {
+            "provider_a": [MockFaultAction.server_error(503)],
+            "provider_b": [MockFaultAction.success("via litellm router")],
+        }
+        scn = scenario(seqs)
+        fx = build_fixture(scn)
+        runner = SYSTEMS["Baseline-F-LiteLLM-Router"](fx, "priority")
+        resp = runner.run(scn.turns[0])
+        self.assertEqual(resp.content, "via litellm router")
+        self.assertEqual(fx.call_log, ["provider_a", "provider_b"])
 
 
 class TestToolRunner(unittest.TestCase):

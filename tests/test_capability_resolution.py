@@ -3,7 +3,7 @@
 import unittest
 
 from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
+from llm_circuit_breaker.capability.profile import Endpoint
 from llm_circuit_breaker.capability.registry import CapabilityRegistry
 from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
 from llm_circuit_breaker.routing.requirements import RequirementVector

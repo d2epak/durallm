@@ -1,6 +1,7 @@
 """Tests for Multi-Agent Isolated Pools and Independent Cooldowns."""
 
 import unittest
+
 from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
 
 

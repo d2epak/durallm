@@ -144,10 +144,10 @@ def run_claude_turn(goal_path: Path, repo_dir: Path, turn: int, port: int, skip_
     cmd = ["claude", "-p", prompt]
     if skip_permissions:
         cmd.insert(1, "--dangerously-skip-permissions")
-    print(f"\n==============================================================")
+    print("\n==============================================================")
     print(f"  [RUNNER] Launching Claude Code Turn #{turn}")
     print(f"  [RUNNER] Goal: {goal_path.name} | Working Directory: {repo_dir}")
-    print(f"==============================================================\n")
+    print("==============================================================\n")
 
     proc = subprocess.Popen(cmd, cwd=str(repo_dir), env=env)
     last_mutation = get_latest_repo_mutation_time(repo_dir)

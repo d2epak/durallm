@@ -7,7 +7,6 @@ from typing import Dict, List, Optional
 
 from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 
-
 # (provider, alias) -> canonical model. Resolution is exact match, then this map; never substrings.
 _BUILTIN_ALIASES = (
     ("groq", "llama-3.3-70b", "llama-3.3-70b-versatile"),

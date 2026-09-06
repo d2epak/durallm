@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import replace
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from llm_circuit_breaker.agent.context import ContextBudget, ContextManager, estimate_tokens
 from llm_circuit_breaker.agent.failover_plan import FailoverPlan
@@ -14,8 +15,6 @@ from llm_circuit_breaker.agent.idempotency import (
     ToolExecutionLedger,
 )
 from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
-from llm_circuit_breaker.validation.response import ResponseValidator
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker
 from llm_circuit_breaker.breaker.registry import (
     DEFAULT_BREAKER_REGISTRY,
     CircuitBreakerRegistry,
@@ -27,11 +26,10 @@ from llm_circuit_breaker.capability.registry import (
 )
 from llm_circuit_breaker.classifier import classify_failure
 from llm_circuit_breaker.errors import (
-    NonRecoverableFailureError,
     BreakerOpenError,
     ContextOverflowError,
-    DeadlineExceededError,
     NoHealthyRouteError,
+    NonRecoverableFailureError,
     ProbeAdmissionDeniedError,
 )
 from llm_circuit_breaker.execution.deadline import Deadline
@@ -41,13 +39,13 @@ from llm_circuit_breaker.health.telemetry import (
     DEFAULT_HEALTH_STORE,
     HealthTelemetryStore,
 )
-from llm_circuit_breaker.observability.logger import DEFAULT_STRUCTURED_LOGGER, StructuredJsonLogger
 from llm_circuit_breaker.models import (
     AttemptRecord,
+    FailoverReason,
     FailureCategory,
     FailureClassification,
-    FailoverReason,
 )
+from llm_circuit_breaker.observability.logger import DEFAULT_STRUCTURED_LOGGER, StructuredJsonLogger
 from llm_circuit_breaker.protocol.ir import (
     NormalizedRequest,
     NormalizedResponse,
@@ -59,6 +57,7 @@ from llm_circuit_breaker.providers.adapters import (
 from llm_circuit_breaker.routing.decision import RoutingDecision
 from llm_circuit_breaker.routing.requirements import RequirementVector
 from llm_circuit_breaker.routing.router import CapabilityRouter
+from llm_circuit_breaker.validation.response import ResponseValidator
 
 logger = logging.getLogger("llm_circuit_breaker.execution")
 
@@ -130,7 +129,6 @@ class GatewayExecutor:
         )
 
         excluded_endpoints: List[str] = []
-        last_decision: Optional[RoutingDecision] = None
         attempt_idx = 0
         last_failure_reason: Optional[str] = None
         last_endpoint: Optional[Endpoint] = None
@@ -151,7 +149,6 @@ class GatewayExecutor:
                 excluded_endpoints=excluded_endpoints,
                 fallback_reason=last_failure_reason,
             )
-            last_decision = decision
 
             if not endpoint:
                 logger.error("No candidate matches requirements in pool '%s'", pool)
@@ -276,9 +273,13 @@ class GatewayExecutor:
 
                         # Find schema
                         tool_schema = next((t.parameters for t in request.tools if t.name == tc.name), None)
+                        # Providers retain malformed tool JSON in ``raw_arguments``
+                        # but expose an empty mapping after parsing.  Validate the
+                        # source bytes so the syntactic-repair policy can act.
+                        validation_input = tc.raw_arguments if tc.raw_arguments and not tc.arguments else tc.arguments
                         val_report = self.tool_validator.validate_tool_call(
                             tool_name=tc.name,
-                            arguments=tc.arguments,
+                            arguments=validation_input,
                             schema=tool_schema,
                             known_tools=[t.name for t in request.tools],
                         )
@@ -291,6 +292,12 @@ class GatewayExecutor:
                             break
                         else:
                             tc.arguments = val_report.validated_arguments
+                            # The native OpenAI encoder prefers ``raw_arguments``. Once a deterministic
+                            # syntactic repair is accepted, return the validated JSON—not the malformed
+                            # pre-repair source—to the client/tool runner. Retain the original for audit.
+                            if val_report.normalizations_applied:
+                                tc.metadata["raw_arguments_before_normalization"] = tc.raw_arguments
+                                tc.raw_arguments = json.dumps(tc.arguments, ensure_ascii=False)
                             self.tool_ledger.mark_validated(tc_id)
 
                     if validation_passed:

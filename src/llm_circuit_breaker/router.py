@@ -5,25 +5,24 @@ from __future__ import annotations
 import json
 import logging
 import os
-import socket
 import time
 import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from llm_circuit_breaker._env import ALLOW_LOCAL_UPSTREAM_ENV
 from llm_circuit_breaker.classifier import (
-    classify_api_error,
     FailoverReason,
+    classify_api_error,
     parse_output_cap_from_error,
 )
-from llm_circuit_breaker._env import ALLOW_LOCAL_UPSTREAM_ENV
 from llm_circuit_breaker.errors import CircuitBreakerGatewayError
 from llm_circuit_breaker.pools import AUTO_DISCOVER_ENV, POOL_MANAGER, RouteDefinition, env_flag
-from llm_circuit_breaker.security.defense import MAX_PAYLOAD_BYTES, enforce_payload_limit, validate_upstream_url
 from llm_circuit_breaker.pruner import prune_openai_request
+from llm_circuit_breaker.security.defense import MAX_PAYLOAD_BYTES, enforce_payload_limit, validate_upstream_url
 from llm_circuit_breaker.translators import (
-    convert_openai_to_gemini_payload,
     convert_gemini_to_openai_response,
+    convert_openai_to_gemini_payload,
 )
 
 logger = logging.getLogger("llm_circuit_breaker.router")

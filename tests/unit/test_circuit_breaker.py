@@ -16,9 +16,9 @@ from llm_circuit_breaker.errors import (
     ProbeAdmissionDeniedError,
 )
 from llm_circuit_breaker.models import (
+    FailoverReason,
     FailureCategory,
     FailureClassification,
-    FailoverReason,
 )
 
 

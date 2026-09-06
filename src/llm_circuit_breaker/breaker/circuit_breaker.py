@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional
 
 from llm_circuit_breaker.breaker.metrics import (
@@ -111,7 +111,7 @@ class CircuitBreaker:
             wait_seconds = self.config.wait_duration_open_ms / 1000.0
             if now >= (self._opened_at_monotonic + wait_seconds):
                 # Transition OPEN -> HALF_OPEN
-                prev = self._state
+                prev: CircuitBreakerState = self._state
                 self._state = CircuitBreakerState.HALF_OPEN
                 self._half_open_entered_at_monotonic = now
                 self._half_open_in_flight = 0
@@ -122,10 +122,14 @@ class CircuitBreaker:
             max_half_open_seconds = self.config.max_half_open_duration_ms / 1000.0
             if (now - self._half_open_entered_at_monotonic) > max_half_open_seconds and self._half_open_in_flight == 0:
                 # Probes timed out without success -> return to OPEN
-                prev = self._state
+                prev_half_open: CircuitBreakerState = self._state
                 self._state = CircuitBreakerState.OPEN
                 self._opened_at_monotonic = now
-                self._emit_transition(prev, CircuitBreakerState.OPEN, "Half-open probe timeout elapsed without recovery")
+                self._emit_transition(
+                    prev_half_open,
+                    CircuitBreakerState.OPEN,
+                    "Half-open probe timeout elapsed without recovery",
+                )
 
     def acquire_permission(self) -> bool:
         """

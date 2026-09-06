@@ -2,17 +2,12 @@
 
 import unittest
 
-from llm_circuit_breaker.breaker.circuit_breaker import (
-    CircuitBreaker,
-    CircuitBreakerConfig,
-)
 from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
 from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 from llm_circuit_breaker.capability.registry import CapabilityRegistry
 from llm_circuit_breaker.routing import (
     CapabilityRouter,
     RequirementVector,
-    RoutingDecision,
 )
 
 

@@ -13,9 +13,9 @@ from typing import Any, Dict, Optional
 
 from llm_circuit_breaker.models import (
     ClassifiedError,
+    FailoverReason,
     FailureCategory,
     FailureClassification,
-    FailoverReason,
 )
 
 _BILLING_PATTERNS = [

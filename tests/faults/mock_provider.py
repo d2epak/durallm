@@ -3,20 +3,17 @@
 from __future__ import annotations
 
 import json
-import time
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from llm_circuit_breaker.agent.context import estimate_tokens
 from llm_circuit_breaker.capability.profile import Endpoint
 from llm_circuit_breaker.protocol.ir import (
     NormalizedRequest,
     NormalizedResponse,
-    NormalizedToolCall,
 )
 from llm_circuit_breaker.providers.base import (
     PreparedRequest,
-    ProviderAdapter,
     ProviderExecutionResult,
 )
 

@@ -9,7 +9,7 @@ import time
 from collections import OrderedDict
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 
 class ToolExecutionStatus(str, Enum):

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Protocol
+from dataclasses import dataclass
+from typing import Dict, Optional, Protocol
 
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
+from llm_circuit_breaker.capability.profile import Endpoint
 from llm_circuit_breaker.protocol.ir import NormalizedRequest, NormalizedResponse
 
 

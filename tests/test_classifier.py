@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import MagicMock
-from llm_circuit_breaker.classifier import classify_api_error, FailoverReason
+
+from llm_circuit_breaker.classifier import FailoverReason, classify_api_error
+
 
 class MockAPIError(Exception):
     def __init__(self, message, status_code=None, body=None):

@@ -3,7 +3,7 @@
 import logging
 import unittest
 
-from benchmarks.harness import BenchmarkHarness, V3_NAME
+from benchmarks.harness import V3_NAME, BenchmarkHarness
 from benchmarks.scenarios import get_all_scenarios
 
 

@@ -1,14 +1,13 @@
 import unittest
-import json
 from pathlib import Path
 from unittest.mock import patch
+
 from llm_circuit_breaker.discovery import (
     discover_models,
-    save_model_catalog,
-    load_model_catalog,
     is_model_free,
     supports_tool_calling,
 )
+
 
 class TestModelDiscovery(unittest.TestCase):
 

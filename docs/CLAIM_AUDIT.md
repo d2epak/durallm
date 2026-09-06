@@ -1,7 +1,7 @@
 # LLM Circuit Breaker — Public Claim Audit
 
 **Date:** 2026-09-03  
-**Review Standard:** Mandate Section 4 (Phase Zero-A: Public-Claim Audit)
+**Review Standard:** Public-claim audit against repository evidence
 
 Every substantive claim across `README.md`, `ARCHITECTURE.md`, docstrings, and benchmark reports is audited below to verify whether it is `PROVEN`, `EXPERIMENTAL`, or `UNSUPPORTED / REQUIRES QUALIFICATION`.
 

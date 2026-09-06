@@ -39,7 +39,7 @@ class TestToolExecutionIdempotency(unittest.TestCase):
         tool_name = "transfer_funds"
         args = {"from_account": "A", "to_account": "B", "amount": 100}
 
-        rec = self.ledger.register_tool_call("call_transfer_1", op_id, tool_name, args)
+        self.ledger.register_tool_call("call_transfer_1", op_id, tool_name, args)
         self.ledger.mark_submitted("call_transfer_1")
         self.ledger.mark_committed("call_transfer_1", {"tx_id": "tx_999", "status": "settled"})
 

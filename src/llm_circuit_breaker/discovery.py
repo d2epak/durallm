@@ -9,11 +9,10 @@ from __future__ import annotations
 import json
 import logging
 import os
-import time
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger("llm_circuit_breaker.discovery")
 

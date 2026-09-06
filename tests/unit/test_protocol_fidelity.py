@@ -3,10 +3,18 @@
 import time
 import unittest
 
-from llm_circuit_breaker.protocol.anthropic import anthropic_request_to_ir, ir_to_anthropic_request, ir_to_anthropic_response
+from llm_circuit_breaker.protocol.anthropic import (
+    anthropic_request_to_ir,
+    ir_to_anthropic_request,
+    ir_to_anthropic_response,
+)
 from llm_circuit_breaker.protocol.gemini import clean_gemini_schema, gemini_response_to_ir, ir_to_gemini_request
 from llm_circuit_breaker.protocol.ir import (
-    NormalizedMessage, NormalizedRequest, NormalizedResponse, NormalizedToolDefinition, NormalizedToolResult,
+    NormalizedMessage,
+    NormalizedRequest,
+    NormalizedResponse,
+    NormalizedToolDefinition,
+    NormalizedToolResult,
 )
 from llm_circuit_breaker.protocol.openai import ir_to_openai_request, ir_to_openai_response, openai_request_to_ir
 

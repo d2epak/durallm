@@ -11,7 +11,7 @@ from llm_circuit_breaker.capability.registry import CapabilityRegistry
 from llm_circuit_breaker.errors import NonRecoverableFailureError
 from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.models import FailureCategory, FailureClassification, FailoverReason
+from llm_circuit_breaker.models import FailoverReason, FailureCategory, FailureClassification
 from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest
 from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter

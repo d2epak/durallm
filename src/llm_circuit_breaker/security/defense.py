@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 from urllib.parse import urlparse
 
 from llm_circuit_breaker.errors import CircuitBreakerGatewayError
@@ -52,7 +52,7 @@ def validate_upstream_url(
 
         if hostname == "169.254.169.254" or hostname == "metadata.google.internal":
             raise CircuitBreakerGatewayError(
-                f"Security violation: Access to cloud metadata service is prohibited."
+                "Security violation: Access to cloud metadata service is prohibited."
             )
 
         return True

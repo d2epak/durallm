@@ -1,7 +1,6 @@
 """Tests for Circuit Breaker Gateway Proxy Handler and Synthetic Streaming."""
 
 import io
-import json
 import unittest
 from unittest.mock import MagicMock
 

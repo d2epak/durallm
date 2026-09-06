@@ -3,7 +3,7 @@
 **Date:** 2026-09-03  
 **Auditor:** Antigravity Principal Engineering & Reliability Review  
 **Repository State:** v0.2.0 post-V2 milestone (`commit c99ee86`)  
-**Evaluation Standard:** Master Engineering Mandate (Phases 0–64)
+**Evaluation Standard:** Versioned V2 long-horizon specification and local evidence available in this repository
 
 ---
 

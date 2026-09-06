@@ -36,9 +36,9 @@ from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 from llm_circuit_breaker.capability.registry import CapabilityRegistry
 from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
 from llm_circuit_breaker.protocol.ir import NormalizedRequest
 from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
-from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 PLANTED_SECRET = "CRITICAL_AUTH_SECRET: vault_key_sec_999123847"

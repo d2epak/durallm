@@ -11,11 +11,9 @@ import json
 from typing import Any, Dict, List, Optional
 
 from llm_circuit_breaker.protocol.ir import (
-    NormalizedMessage,
     NormalizedRequest,
     NormalizedResponse,
     NormalizedToolCall,
-    NormalizedToolDefinition,
 )
 
 _GEMINI_TYPE_MAP = {

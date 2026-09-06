@@ -8,8 +8,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from llm_circuit_breaker.errors import UnsafeToolCallError
-
 
 class ToolCallResult(str, Enum):
     VALID = "valid"

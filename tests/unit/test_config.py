@@ -26,6 +26,7 @@ class TestGatewayConfig(unittest.TestCase):
     def test_default_port_matches_the_proxy_default(self):
         # README, docs, GatewayConfig and the proxy CLI used to disagree (8000 / 8080 / 4001).
         import inspect
+
         from llm_circuit_breaker.proxy import start_proxy_server
 
         self.assertEqual(GatewayConfig().port, 4001)

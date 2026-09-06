@@ -1,9 +1,8 @@
 """Tests for Streaming Modes, Synthetic SSE, and Provider Adapters."""
 
-import json
 import unittest
 
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
+from llm_circuit_breaker.capability.profile import Endpoint
 from llm_circuit_breaker.health import HealthTelemetryStore
 from llm_circuit_breaker.protocol.ir import (
     NormalizedRequest,
@@ -11,9 +10,7 @@ from llm_circuit_breaker.protocol.ir import (
     NormalizedToolCall,
 )
 from llm_circuit_breaker.providers import (
-    AnthropicAdapter,
     GeminiAdapter,
-    OpenAICompatibleAdapter,
 )
 from llm_circuit_breaker.streaming import (
     synthesize_anthropic_sse,

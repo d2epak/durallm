@@ -1,10 +1,11 @@
 import os
 import unittest
-import time
 from unittest.mock import patch
-from llm_circuit_breaker.router import UniversalFailoverRouter, execute_upstream_request
-from llm_circuit_breaker.pools import RouteDefinition
+
 from llm_circuit_breaker.classifier import FailoverReason
+from llm_circuit_breaker.pools import RouteDefinition
+from llm_circuit_breaker.router import UniversalFailoverRouter, execute_upstream_request
+
 
 class TestFailoverRouter(unittest.TestCase):
 

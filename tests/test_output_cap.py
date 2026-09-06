@@ -1,10 +1,10 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from llm_circuit_breaker.classifier import (
+    FailoverReason,
     classify_api_error,
     classify_failure,
-    FailoverReason,
     parse_output_cap_from_error,
 )
 from llm_circuit_breaker.pools import RouteDefinition

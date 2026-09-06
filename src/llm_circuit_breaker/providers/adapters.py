@@ -9,16 +9,13 @@ import ssl
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from llm_circuit_breaker._env import ALLOW_LOCAL_UPSTREAM_ENV, env_flag
 from llm_circuit_breaker.capability.profile import Endpoint
 from llm_circuit_breaker.errors import CircuitBreakerGatewayError, ConfigurationError
-from llm_circuit_breaker.security.defense import MAX_PAYLOAD_BYTES, enforce_payload_limit, validate_upstream_url
 from llm_circuit_breaker.protocol.anthropic import (
-    anthropic_request_to_ir,
     ir_to_anthropic_request,
-    ir_to_anthropic_response,
 )
 from llm_circuit_breaker.protocol.gemini import (
     gemini_response_to_ir,
@@ -30,7 +27,6 @@ from llm_circuit_breaker.protocol.ir import (
 )
 from llm_circuit_breaker.protocol.openai import (
     ir_to_openai_request,
-    ir_to_openai_response,
     openai_response_to_ir,
 )
 from llm_circuit_breaker.providers.base import (
@@ -39,6 +35,7 @@ from llm_circuit_breaker.providers.base import (
     ProviderAdapter,
     ProviderExecutionResult,
 )
+from llm_circuit_breaker.security.defense import MAX_PAYLOAD_BYTES, enforce_payload_limit, validate_upstream_url
 
 logger = logging.getLogger("llm_circuit_breaker.providers")
 

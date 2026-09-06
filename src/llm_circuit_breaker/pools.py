@@ -16,12 +16,11 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
-
-logger = logging.getLogger("llm_circuit_breaker.pools")
-
+from typing import Dict, List, Optional, Set
 
 from llm_circuit_breaker._env import env_flag  # noqa: F401  (re-exported for router)
+
+logger = logging.getLogger("llm_circuit_breaker.pools")
 
 SCAN_DOTFILES_ENV = "LLM_BREAKER_SCAN_DOTFILES"
 AUTO_DISCOVER_ENV = "LLM_BREAKER_AUTO_DISCOVER"

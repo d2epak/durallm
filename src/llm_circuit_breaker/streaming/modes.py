@@ -6,7 +6,7 @@ import json
 import time
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator
 
 from llm_circuit_breaker.protocol.ir import NormalizedResponse
 

@@ -1,13 +1,8 @@
 """Deterministic, Zero-API-Key Local Demonstration of Semantic Failover and Circuit Breaking."""
 
-import sys
-import time
 
-from llm_circuit_breaker.agent.context import ContextBudget, ContextManager
-from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
 from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
 from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.breaker.state import CircuitBreakerState
 from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 from llm_circuit_breaker.capability.registry import CapabilityRegistry
 from llm_circuit_breaker.execution.executor import GatewayExecutor
@@ -15,7 +10,6 @@ from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy
 from llm_circuit_breaker.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
-    NormalizedToolCall,
     NormalizedToolDefinition,
 )
 from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry

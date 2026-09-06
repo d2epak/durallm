@@ -32,9 +32,9 @@ from llm_circuit_breaker.capability import (
 )
 from llm_circuit_breaker.classifier import (
     ClassifiedError,
+    FailoverReason,
     FailureCategory,
     FailureClassification,
-    FailoverReason,
     classify_api_error,
     classify_failure,
     parse_retry_after,
@@ -92,15 +92,15 @@ from llm_circuit_breaker.protocol import (
     openai_request_to_ir,
     openai_response_to_ir,
 )
-from llm_circuit_breaker.pruner import (
-    estimate_tokens,
-    prune_anthropic_request,
-    prune_openai_request,
-)
 from llm_circuit_breaker.proxy import (
     CircuitBreakerGatewayHandler,
     create_proxy_app,
     start_proxy_server,
+)
+from llm_circuit_breaker.pruner import (
+    estimate_tokens,
+    prune_anthropic_request,
+    prune_openai_request,
 )
 from llm_circuit_breaker.router import UniversalFailoverRouter
 from llm_circuit_breaker.routing import (

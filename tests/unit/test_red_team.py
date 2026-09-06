@@ -1,4 +1,4 @@
-"""Adversarial Red Team Tests (Tests 1 through 10 from Mandate Section 56)."""
+"""Adversarial Red Team Tests (the initial local threat-model cases)."""
 
 import time
 import unittest
@@ -12,7 +12,6 @@ from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 from llm_circuit_breaker.capability.registry import CapabilityRegistry
 from llm_circuit_breaker.classifier import classify_failure
 from llm_circuit_breaker.errors import (
-    BreakerOpenError,
     CycleDetectedError,
     DeadlineExceededError,
     FallbackBudgetExhaustedError,
@@ -21,17 +20,14 @@ from llm_circuit_breaker.errors import (
 from llm_circuit_breaker.execution.deadline import Deadline
 from llm_circuit_breaker.execution.ledger import AttemptLedger
 from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.models import FailureCategory, FailoverReason
+from llm_circuit_breaker.models import FailoverReason, FailureCategory
 from llm_circuit_breaker.protocol.ir import (
-    NormalizedToolResult,
     NormalizedMessage,
     NormalizedRequest,
-    NormalizedToolCall,
-    NormalizedToolDefinition,
+    NormalizedToolResult,
 )
 from llm_circuit_breaker.routing.requirements import RequirementVector
 from llm_circuit_breaker.routing.router import CapabilityRouter
-from llm_circuit_breaker.validation.response import ResponseValidator
 
 
 class TestRedTeamAdversarial(unittest.TestCase):
@@ -91,7 +87,7 @@ class TestRedTeamAdversarial(unittest.TestCase):
         tool_name = "transfer_payment"
         args = {"amount": 500, "dest": "acct_888"}
 
-        rec = ledger.register_tool_call("call_pay_1", op_id, tool_name, args)
+        ledger.register_tool_call("call_pay_1", op_id, tool_name, args)
         ledger.mark_committed("call_pay_1", {"tx_id": "tx_settled_123", "status": "committed"})
 
         # Gateway retries request under same logical op:

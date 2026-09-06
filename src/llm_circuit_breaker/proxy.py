@@ -14,12 +14,10 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import os
-import sys
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from llm_circuit_breaker.errors import CircuitBreakerGatewayError
 from llm_circuit_breaker.gateway import ProxyGateway, http_error_for

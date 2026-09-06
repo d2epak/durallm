@@ -26,6 +26,18 @@ jobs:
         python -m pip install --upgrade pip
         pip install .[dev,proxy]
         
-    - name: Run unit test suite
+    - name: Run test suite with coverage
       run: |
-        python -m unittest discover -s tests
+        python -m pytest -q --cov=llm_circuit_breaker --cov-report=term-missing
+
+    - name: Lint
+      run: |
+        ruff check .
+
+    - name: Type check circuit-breaker core
+      run: |
+        mypy
+
+    - name: Build distribution
+      run: |
+        python -m build

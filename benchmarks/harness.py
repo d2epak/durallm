@@ -15,10 +15,13 @@ then applies one predicate to what the agent would have received:
 
 from __future__ import annotations
 
+import json
+import os
 import statistics
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
-from typing import Any, Callable, Dict, List, Optional, Protocol
+from typing import Any, Callable, Dict, Iterator, List, Optional, Protocol
 from unittest.mock import patch
 
 from benchmarks.scenarios import BenchmarkScenario, ScenarioRun, ScenarioTurn, get_all_scenarios
@@ -29,13 +32,18 @@ from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker, CircuitB
 from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
 from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
 from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.errors import CircuitBreakerGatewayError
+from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
 from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
 from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
 from llm_circuit_breaker.protocol.ir import NormalizedRequest, NormalizedResponse, NormalizedToolCall
-from llm_circuit_breaker.protocol.openai import ir_to_openai_request, openai_request_to_ir, openai_response_to_ir
+from llm_circuit_breaker.protocol.openai import (
+    ir_to_openai_request,
+    ir_to_openai_response,
+    openai_request_to_ir,
+    openai_response_to_ir,
+)
 from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
 from llm_circuit_breaker.router import UniversalFailoverRouter
 from tests.faults.mock_provider import ProgrammableMockAdapter
@@ -316,6 +324,141 @@ class V1PrototypeRunner:
         pass  # no ledger
 
 
+class LiteLLMRouterRunner:
+    """Baseline F: the actual LiteLLM ``Router`` over local custom mock providers.
+
+    LiteLLM does not understand this project's IR or mock adapter interface.  Its documented
+    custom-provider hook lets the benchmark bridge the Router to the same scripted providers
+    every other row uses, without a network call or a reimplementation of Router fallback logic.
+    This baseline deliberately provides only LiteLLM's request routing: it adds no LCB context
+    compaction, tool validation, receipt ledger, or capability policy.
+    """
+
+    name = "Baseline-F-LiteLLM-Router"
+    _provider_name = "lcb_benchmark_mock"
+
+    def __init__(self, fixture: Fixture, strategy: str = "priority"):
+        self.fixture = fixture
+        self._litellm, self._router_cls, self._custom_llm_setup = self._load_litellm()
+        owner = self
+
+        class MockProvider(self._litellm.CustomLLM):
+            def completion(self, model, messages, **kwargs):
+                return owner._complete(model, messages, **kwargs)
+
+        self._handler = MockProvider()
+        self._groups = {provider: f"lcb-router-{provider}" for provider in fixture.adapters}
+        with self._registered_custom_provider():
+            self._router = self._router_cls(
+                model_list=[
+                    {
+                        "model_name": self._groups[provider],
+                        "litellm_params": {
+                            "model": f"{self._provider_name}/{provider}",
+                            "api_base": "http://lcb-benchmark.invalid",
+                            "api_key": "benchmark-only",
+                        },
+                    }
+                    for provider in fixture.adapters
+                ],
+                # A one-way primary-to-secondary cascade is a conventional
+                # LiteLLM Router configuration. Reciprocal rules would create
+                # A -> B -> A cycles and distort the baseline.
+                fallbacks=[
+                    {
+                        self._groups[PROVIDER_ORDER[0]]: [
+                            self._groups[alternative]
+                            for alternative in PROVIDER_ORDER[1:]
+                            if alternative in self._groups
+                        ]
+                    }
+                ]
+                if len(fixture.adapters) > 1
+                else [],
+                num_retries=0,
+                max_fallbacks=max(0, len(fixture.adapters) - 1),
+            )
+
+    @staticmethod
+    def _load_litellm():
+        # LiteLLM otherwise fetches its model-price catalog at import time, which is neither needed
+        # nor permitted in this deterministic, offline benchmark.
+        os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+        try:
+            import litellm
+            from litellm import Router
+            from litellm.utils import custom_llm_setup
+        except ImportError as exc:  # pragma: no cover - CI's dev extra installs LiteLLM.
+            raise RuntimeError("Baseline-F-LiteLLM-Router requires the project 'dev' extra") from exc
+        return litellm, Router, custom_llm_setup
+
+    @contextmanager
+    def _registered_custom_provider(self) -> Iterator[None]:
+        """Install the custom provider only around Router construction/calls and restore globals."""
+        litellm = self._litellm
+        original_map = list(litellm.custom_provider_map)
+        original_custom = list(litellm._custom_providers)
+        original_providers = list(litellm.provider_list)
+        litellm.custom_provider_map = [
+            entry for entry in original_map if entry.get("provider") != self._provider_name
+        ] + [{"provider": self._provider_name, "custom_handler": self._handler}]
+        self._custom_llm_setup()
+        try:
+            yield
+        finally:
+            litellm.custom_provider_map = original_map
+            litellm._custom_providers[:] = original_custom
+            litellm.provider_list[:] = original_providers
+
+    def _complete(self, model: str, messages: List[Dict[str, Any]], optional_params: Dict[str, Any], **kwargs):
+        """LiteLLM custom-provider callback backed by the shared mock adapter fixture."""
+        provider = model.rsplit("/", 1)[-1]
+        if provider not in self.fixture.adapters:
+            raise self._litellm.InternalServerError(
+                message=f"unknown benchmark provider {provider}", model=model, llm_provider=self._provider_name,
+            )
+        payload: Dict[str, Any] = {"model": model, "messages": messages}
+        for key in ("max_tokens", "temperature", "tools", "tool_choice"):
+            if key in optional_params:
+                payload[key] = optional_params[key]
+        request = openai_request_to_ir(payload)
+        adapter = self.fixture.registry.get_adapter(provider)
+        endpoint = self.fixture.endpoints[provider]
+        result = adapter.execute(adapter.prepare_request(endpoint, request), timeout_seconds=5.0)
+        if result.status_code != 200:
+            message = result.body.decode("utf-8", errors="replace")
+            raise self._litellm.InternalServerError(
+                message=f"mock HTTP {result.status_code}: {message}", model=model, llm_provider=self._provider_name,
+            )
+        normalized = adapter.normalize_response(endpoint, result)
+        return self._litellm.ModelResponse(**ir_to_openai_response(normalized, model))
+
+    def run(self, turn: ScenarioTurn) -> NormalizedResponse:
+        primary = self._groups.get("provider_a") or next(iter(self._groups.values()))
+        payload = ir_to_openai_request(turn.request, primary)
+        request_kwargs = {
+            key: value
+            for key, value in payload.items()
+            if key not in ("model", "messages")
+        }
+        with self._registered_custom_provider():
+            response = self._router.completion(model=primary, messages=payload["messages"], **request_kwargs)
+        if hasattr(response, "model_dump"):
+            raw = response.model_dump()
+        else:  # pragma: no cover - compatibility with older supported LiteLLM versions.
+            raw = json.loads(response.json())
+        # LiteLLM serializes absent tool calls as ``null``; the OpenAI wire form emitted by
+        # providers uses an omitted/empty list. Normalize only that representation boundary.
+        for choice in raw.get("choices", []):
+            message = choice.get("message") or {}
+            if message.get("tool_calls") is None:
+                message.pop("tool_calls", None)
+        return openai_response_to_ir(raw)
+
+    def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
+        pass  # LiteLLM's Router does not implement this repository's tool receipt ledger.
+
+
 SYSTEMS: Dict[str, Callable[[Fixture, str], SystemRunner]] = {
     V3Runner.name: V3Runner,
     DirectRunner.name: DirectRunner,
@@ -323,6 +466,7 @@ SYSTEMS: Dict[str, Callable[[Fixture, str], SystemRunner]] = {
     StaticFallbackRunner.name: StaticFallbackRunner,
     BreakerStaticFallbackRunner.name: BreakerStaticFallbackRunner,
     V1PrototypeRunner.name: V1PrototypeRunner,
+    LiteLLMRouterRunner.name: LiteLLMRouterRunner,
 }
 
 

@@ -1,6 +1,6 @@
 # Final Self-Critique & Defensibility Report
 
-An honest, rigorous engineering self-critique addressing the 12 key reliability questions specified in Mandate Section 61.
+An honest, rigorous engineering self-critique addressing twelve key reliability questions derived from the versioned repository specification.
 
 ---
 

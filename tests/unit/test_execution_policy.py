@@ -6,7 +6,6 @@ from llm_circuit_breaker.errors import (
     CycleDetectedError,
     DeadlineExceededError,
     FallbackBudgetExhaustedError,
-    RetryBudgetExhaustedError,
 )
 from llm_circuit_breaker.execution import (
     AttemptLedger,

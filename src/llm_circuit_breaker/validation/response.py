@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Optional
 
 from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
 from llm_circuit_breaker.protocol.ir import NormalizedRequest, NormalizedResponse

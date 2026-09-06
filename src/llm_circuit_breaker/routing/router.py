@@ -6,7 +6,6 @@ import logging
 import threading
 from typing import Any, Dict, List, Optional, Tuple
 
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker
 from llm_circuit_breaker.breaker.registry import (
     DEFAULT_BREAKER_REGISTRY,
     CircuitBreakerRegistry,

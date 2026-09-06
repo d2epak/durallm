@@ -8,7 +8,7 @@ same endpoint; unknown failures must still allow fallback.
 import unittest
 
 from llm_circuit_breaker.classifier import classify_failure
-from llm_circuit_breaker.models import FailureCategory, FailoverReason
+from llm_circuit_breaker.models import FailoverReason, FailureCategory
 
 
 class SSLError(Exception):

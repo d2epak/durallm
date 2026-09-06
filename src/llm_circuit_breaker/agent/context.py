@@ -7,13 +7,11 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Tuple
 
 from llm_circuit_breaker.errors import ContextOverflowError
 from llm_circuit_breaker.protocol.ir import (
-    NormalizedMessage,
     NormalizedRequest,
-    NormalizedToolResult,
 )
 
 logger = logging.getLogger("llm_circuit_breaker.agent.context")
