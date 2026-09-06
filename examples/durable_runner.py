@@ -3,7 +3,8 @@
 ⚡ LLM Circuit Breaker: Durable Autonomous Long-Horizon Runner for Claude Code.
 
 Runs Claude Code in an unattended outer control loop:
-1. Executes multi-turn engineering workflows without human intervention using --dangerously-skip-permissions.
+1. Executes multi-turn engineering workflows without human intervention
+   (pass --skip-permissions to run claude with --dangerously-skip-permissions).
 2. Tracks progress across turns via Git checkpoints and PROGRESS.md.
 3. Implements an Activity Watchdog to detect zombie hangs, deadlocks, or socket timeouts.
 4. Automatically restarts fresh turns with clean context when a turn completes or stalls.
@@ -14,6 +15,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -57,10 +59,20 @@ def ensure_gateway_running(port: int = DEFAULT_GATEWAY_PORT) -> Optional[subproc
     raise RuntimeError(f"Gateway failed to start on port {port}. Check gateway.log")
 
 
-def configure_claude_settings(port: int = DEFAULT_GATEWAY_PORT) -> None:
+def configure_claude_settings(port: int = DEFAULT_GATEWAY_PORT, force: bool = False) -> None:
     claude_dir = Path.home() / ".claude"
     claude_dir.mkdir(parents=True, exist_ok=True)
     settings_file = claude_dir / "settings.json"
+
+    if settings_file.exists():
+        if not force:
+            raise SystemExit(
+                f"[!] Refusing to overwrite existing {settings_file}. "
+                "Re-run with --force-settings to back it up and replace it."
+            )
+        backup = settings_file.with_name(f"settings.json.bak-{int(time.time())}")
+        shutil.copy2(settings_file, backup)
+        print(f"[i] Backed up existing settings -> {backup}")
 
     settings = {
         "env": {
@@ -100,7 +112,7 @@ def get_latest_repo_mutation_time(repo_dir: Path) -> float:
     return latest or time.time()
 
 
-def run_claude_turn(goal_path: Path, repo_dir: Path, turn: int, port: int) -> int:
+def run_claude_turn(goal_path: Path, repo_dir: Path, turn: int, port: int, skip_permissions: bool = False) -> int:
     """Execute a single autonomous Claude Code engineering turn."""
     progress_file = repo_dir / "PROGRESS.md"
     progress_context = ""
@@ -129,7 +141,9 @@ def run_claude_turn(goal_path: Path, repo_dir: Path, turn: int, port: int) -> in
     env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = "claude-3-7-sonnet-20250219"
     env["DISABLE_TELEMETRY"] = "1"
 
-    cmd = ["claude", "--dangerously-skip-permissions", "-p", prompt]
+    cmd = ["claude", "-p", prompt]
+    if skip_permissions:
+        cmd.insert(1, "--dangerously-skip-permissions")
     print(f"\n==============================================================")
     print(f"  [RUNNER] Launching Claude Code Turn #{turn}")
     print(f"  [RUNNER] Goal: {goal_path.name} | Working Directory: {repo_dir}")
@@ -168,6 +182,8 @@ def main() -> None:
     parser.add_argument("--repo", type=str, default=".", help="Target repository directory (default: current)")
     parser.add_argument("--max-turns", type=int, default=30, help="Maximum turns to execute (default: 30)")
     parser.add_argument("--port", type=int, default=DEFAULT_GATEWAY_PORT, help=f"Gateway port (default: {DEFAULT_GATEWAY_PORT})")
+    parser.add_argument("--force-settings", action="store_true", help="Back up and overwrite an existing ~/.claude/settings.json")
+    parser.add_argument("--skip-permissions", action="store_true", help="Run claude with --dangerously-skip-permissions (off by default)")
     args = parser.parse_args()
 
     goal_path = Path(args.goal).resolve()
@@ -178,11 +194,11 @@ def main() -> None:
         sys.exit(1)
 
     ensure_gateway_running(args.port)
-    configure_claude_settings(args.port)
+    configure_claude_settings(args.port, force=args.force_settings)
 
     turn = 1
     while turn <= args.max_turns:
-        exit_code = run_claude_turn(goal_path, repo_dir, turn, args.port)
+        exit_code = run_claude_turn(goal_path, repo_dir, turn, args.port, skip_permissions=args.skip_permissions)
         print(f"[RUNNER] Turn #{turn} completed with exit code {exit_code}")
 
         if exit_code == 0:
