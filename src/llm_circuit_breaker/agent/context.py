@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
+from llm_circuit_breaker.errors import ContextOverflowError
 from llm_circuit_breaker.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
@@ -144,6 +145,8 @@ class ContextManager:
         """
         Compact request to fit strictly within the target model's available input budget.
         Returns (compacted_request, was_compacted).
+        Raises ContextOverflowError when the protected content (system instruction, root
+        objective, preserved tail turns) still exceeds the budget after every compaction phase.
         """
         current_tokens = estimate_tokens(request)
         target_tokens = budget.available_input_budget
@@ -165,6 +168,7 @@ class ContextManager:
                 for tr in m.tool_results:
                     if len(tr.content) > 400:
                         tr.content = extract_structured_tool_summary(tr.content, max_chars=400)
+            self._require_fit(compacted, target_tokens)
             return compacted, True
 
         # Phase 1: Structured semantic compaction of historical tool results in older turns
@@ -192,4 +196,11 @@ class ContextManager:
                 break
             compacted.messages.pop(start_evict_idx)
 
+        self._require_fit(compacted, target_tokens)
         return compacted, True
+
+    @staticmethod
+    def _require_fit(request: NormalizedRequest, target_tokens: int) -> None:
+        remaining = estimate_tokens(request)
+        if remaining > target_tokens:
+            raise ContextOverflowError(required_tokens=remaining, available_budget=target_tokens)

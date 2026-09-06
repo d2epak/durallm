@@ -29,6 +29,7 @@ from llm_circuit_breaker.classifier import classify_failure
 from llm_circuit_breaker.errors import (
     NonRecoverableFailureError,
     BreakerOpenError,
+    ContextOverflowError,
     DeadlineExceededError,
     NoHealthyRouteError,
     ProbeAdmissionDeniedError,
@@ -129,6 +130,8 @@ class GatewayExecutor:
         last_failure_reason: Optional[str] = None
         last_endpoint: Optional[Endpoint] = None
         fallback_marked = False  # True once the retry loop has already counted the pending hop
+        # Spec §15: after a size rejection, shrink the assumed window and retry the same candidate once.
+        window_shrink: Dict[str, float] = {}
 
         while not deadline.is_expired() and ledger.total_attempts < self.policy.max_total_attempts:
             attempt_idx += 1
@@ -168,12 +171,23 @@ class GatewayExecutor:
 
             # 3. Context Adaptation (Budget Sizing)
             profile = endpoint.profile or self.capability_registry.get_profile(endpoint.provider, endpoint.model)
+            shrink = window_shrink.get(endpoint.id, 1.0)
             budget = ContextBudget(
-                model_context_window=profile.context_window,
+                model_context_window=int(profile.context_window * shrink),
                 desired_output_tokens=request.max_output_tokens or 4096,
                 safety_margin_tokens=2048,
             )
-            adapted_request, was_compacted = self.context_manager.compact(request, budget)
+            try:
+                adapted_request, was_compacted = self.context_manager.compact(request, budget)
+            except ContextOverflowError as c_err:
+                logger.warning("Protected context does not fit %s: %s", endpoint.id, c_err)
+                excluded_endpoints.append(endpoint.id)
+                continue
+            if shrink < 1.0 and not was_compacted:
+                # The provider rejected the size but nothing is compactable: do not resend the same payload.
+                logger.warning("Nothing to compact for %s after size rejection; falling back", endpoint.id)
+                excluded_endpoints.append(endpoint.id)
+                continue
 
             # Record observable FailoverPlan if switching endpoints
             if last_endpoint and last_endpoint.id != endpoint.id:
@@ -326,7 +340,12 @@ class GatewayExecutor:
             last_failure_reason = classified.reason.value
 
             # Retry / fallback decision is driven by the classification first, budget second.
-            if not classified.retryable or not ledger.can_attempt_endpoint(endpoint.id):
+            size_rejected = classified.reason in (FailoverReason.payload_too_large, FailoverReason.context_overflow)
+            if size_rejected and endpoint.id not in window_shrink and ledger.can_attempt_endpoint(endpoint.id):
+                # Spec §15: compact harder and retry this candidate before falling back; no backoff needed.
+                window_shrink[endpoint.id] = 0.5
+                logger.info("Size rejection from %s; compacting and retrying the same candidate", endpoint.id)
+            elif not classified.retryable or not ledger.can_attempt_endpoint(endpoint.id):
                 if not classified.should_fallback:
                     raise NonRecoverableFailureError(
                         f"{endpoint.id} failed with {classified.reason.value} and fallback is not permitted: {classified.message[:160]}",

@@ -3,7 +3,7 @@
 import time
 import unittest
 
-from llm_circuit_breaker.agent.context import ContextBudget, ContextManager
+from llm_circuit_breaker.agent.context import ContextBudget, ContextManager, estimate_tokens
 from llm_circuit_breaker.agent.idempotency import ToolExecutionLedger
 from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
 from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
@@ -23,6 +23,7 @@ from llm_circuit_breaker.execution.ledger import AttemptLedger
 from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
 from llm_circuit_breaker.models import FailureCategory, FailoverReason
 from llm_circuit_breaker.protocol.ir import (
+    NormalizedToolResult,
     NormalizedMessage,
     NormalizedRequest,
     NormalizedToolCall,
@@ -102,11 +103,16 @@ class TestRedTeamAdversarial(unittest.TestCase):
     def test_05_critical_fact_hidden_deep_in_context_survives_compaction(self):
         planted_fact = "PLANTED_SECRET_KEY: alpha_vault_9921"
         noisy = "\n".join([f"LOG_DATA_LINE_{i}" for i in range(1000)])
+        # The fact lives in the protected root prompt; the noise is a compactable tool result.
+        # (Noise inside the root prompt itself cannot be shrunk and now raises ContextOverflowError.)
         req = NormalizedRequest(
             model="large",
             messages=[
-                NormalizedMessage(role="user", content=f"GOAL: Restore system\n{planted_fact}\n{noisy}"),
-                NormalizedMessage(role="assistant", content="Working..."),
+                NormalizedMessage(role="user", content=f"GOAL: Restore system\n{planted_fact}"),
+                NormalizedMessage(
+                    role="assistant", content="Working...",
+                    tool_results=[NormalizedToolResult(tool_call_id="call_log", tool_name="read_log", content=noisy)],
+                ),
                 NormalizedMessage(role="user", content="Next step"),
             ],
         )
@@ -116,6 +122,7 @@ class TestRedTeamAdversarial(unittest.TestCase):
 
         self.assertTrue(was_compacted)
         self.assertIn(planted_fact, compacted.messages[0].content)
+        self.assertLessEqual(estimate_tokens(compacted), budget.available_input_budget)
 
     # Test 6: Low-latency unreliable provider vs high-latency reliable provider -> policy-controlled
     def test_06_unreliable_vs_reliable_provider_selection(self):
