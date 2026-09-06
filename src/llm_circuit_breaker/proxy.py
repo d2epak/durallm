@@ -21,23 +21,50 @@ import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional
 
-from llm_circuit_breaker.classifier import classify_api_error
 from llm_circuit_breaker.errors import CircuitBreakerGatewayError
+from llm_circuit_breaker.gateway import ProxyGateway, http_error_for
 from llm_circuit_breaker.observability.logger import DEFAULT_STRUCTURED_LOGGER
 from llm_circuit_breaker.pools import POOL_MANAGER
+from llm_circuit_breaker.protocol.anthropic import anthropic_request_to_ir, ir_to_anthropic_response
+from llm_circuit_breaker.protocol.openai import ir_to_openai_response, openai_request_to_ir
 from llm_circuit_breaker.pruner import estimate_tokens
 from llm_circuit_breaker.router import UniversalFailoverRouter
 from llm_circuit_breaker.security.defense import enforce_payload_limit
-from llm_circuit_breaker.translators import (
-    anthropic_to_openai_request,
-    openai_to_anthropic_response,
-)
 
 logger = logging.getLogger("llm_circuit_breaker.proxy")
 
 # Discovery (network) and dotfile key scanning are opt-in via LLM_BREAKER_AUTO_DISCOVER /
 # LLM_BREAKER_SCAN_DOTFILES, or `llm-proxy --discover`; importing this module makes no network call.
+# The V1 router is kept as the configuration façade (LLM_ALLOWED_PROVIDERS, configured fallbacks);
+# requests are served by the V3 executor through GATEWAY.
 ROUTER = UniversalFailoverRouter()
+GATEWAY = ProxyGateway(pool_manager=POOL_MANAGER)
+
+
+def pool_for_model(requested_model: str) -> str:
+    return "coding" if any(k in requested_model.lower() for k in ["code", "claude", "coder"]) else "general_agent"
+
+
+def serve_messages(body: Dict[str, Any]):
+    """Anthropic /v1/messages body -> (status, response dict, selected endpoint)."""
+    requested_model = body.get("model", "auto-coding-agent")
+    try:
+        response, decision, _ = GATEWAY.complete(anthropic_request_to_ir(body), pool="coding")
+    except CircuitBreakerGatewayError as exc:
+        status, kind = http_error_for(exc)
+        return status, {"type": "error", "error": {"type": kind, "message": str(exc)}}, None
+    return 200, ir_to_anthropic_response(response, requested_model), decision.selected_endpoint
+
+
+def serve_chat_completions(body: Dict[str, Any]):
+    """OpenAI /v1/chat/completions body -> (status, response dict, selected endpoint)."""
+    requested_model = body.get("model", "hermes-default")
+    try:
+        response, decision, _ = GATEWAY.complete(openai_request_to_ir(body), pool=pool_for_model(requested_model))
+    except CircuitBreakerGatewayError as exc:
+        status, kind = http_error_for(exc)
+        return status, {"error": {"type": kind, "message": str(exc)}}, None
+    return 200, ir_to_openai_response(response, requested_model), decision.selected_endpoint
 
 
 class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
@@ -169,19 +196,10 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         # 2. ANTHROPIC MESSAGES (Claude Code)
         # ------------------------------------------------------------------
         if path in ("/v1/messages", "/messages"):
-            requested_model = body.get("model", "auto-coding-agent")
-            openai_req = anthropic_to_openai_request(body, requested_model)
-            status, openai_resp, route = ROUTER.dispatch("coding", openai_req, requested_model)
-            self._route = route
-
+            status, anthropic_resp, self._route = serve_messages(body)
             if status != 200:
-                self._send_json(status, openai_resp)
-                return
-
-            anthropic_resp = openai_to_anthropic_response(openai_resp, requested_model)
-
-            is_streaming = body.get("stream", False)
-            if is_streaming:
+                self._send_json(status, anthropic_resp)
+            elif body.get("stream", False):
                 self._emit_synthetic_anthropic_stream(anthropic_resp)
             else:
                 self._send_json(200, anthropic_resp)
@@ -191,15 +209,9 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         # 3. OPENAI CHAT COMPLETIONS (Hermes Agent, OpenClaw, Cursor)
         # ------------------------------------------------------------------
         if path in ("/v1/chat/completions", "/chat/completions"):
-            requested_model = body.get("model", "hermes-default")
-            # Determine pool: if model specifies coding or comes from Claude, use coding, else general_agent
-            pool = "coding" if any(k in requested_model.lower() for k in ["code", "claude", "coder"]) else "general_agent"
-            status, openai_resp, route = ROUTER.dispatch(pool, body, requested_model)
-            self._route = route
-
-            is_streaming = body.get("stream", False)
-            if is_streaming and status == 200:
-                self._emit_synthetic_openai_stream(openai_resp, requested_model)
+            status, openai_resp, self._route = serve_chat_completions(body)
+            if status == 200 and body.get("stream", False):
+                self._emit_synthetic_openai_stream(openai_resp, body.get("model", "hermes-default"))
             else:
                 self._send_json(status, openai_resp)
             return
@@ -339,20 +351,13 @@ def create_proxy_app():
     @app.post("/v1/messages")
     async def messages(req: Request):
         body = await req.json()
-        requested_model = body.get("model", "auto-coding-agent")
-        openai_req = anthropic_to_openai_request(body, requested_model)
-        status, openai_resp, route = ROUTER.dispatch("coding", openai_req, requested_model)
-        if status != 200:
-            return Response(content=json.dumps(openai_resp), status_code=status, media_type="application/json")
-        anthropic_resp = openai_to_anthropic_response(openai_resp, requested_model)
-        return Response(content=json.dumps(anthropic_resp), status_code=200, media_type="application/json")
+        status, anthropic_resp, _ = serve_messages(body)
+        return Response(content=json.dumps(anthropic_resp), status_code=status, media_type="application/json")
 
     @app.post("/v1/chat/completions")
     async def completions(req: Request):
         body = await req.json()
-        requested_model = body.get("model", "hermes-default")
-        pool = "coding" if any(k in requested_model.lower() for k in ["code", "claude", "coder"]) else "general_agent"
-        status, openai_resp, route = ROUTER.dispatch(pool, body, requested_model)
+        status, openai_resp, _ = serve_chat_completions(body)
         return Response(content=json.dumps(openai_resp), status_code=status, media_type="application/json")
 
     return app
