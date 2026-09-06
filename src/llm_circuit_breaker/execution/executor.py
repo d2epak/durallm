@@ -25,6 +25,7 @@ from llm_circuit_breaker.capability.registry import (
 )
 from llm_circuit_breaker.classifier import classify_failure
 from llm_circuit_breaker.errors import (
+    NonRecoverableFailureError,
     BreakerOpenError,
     DeadlineExceededError,
     NoHealthyRouteError,
@@ -291,9 +292,15 @@ class GatewayExecutor:
 
             last_failure_reason = classified.reason.value
 
-            # Fallback handling
-            if not ledger.can_attempt_endpoint(endpoint.id):
-                # Retries on this endpoint exhausted; exclude and step fallback
+            # Retry / fallback decision is driven by the classification first, budget second.
+            if not classified.retryable or not ledger.can_attempt_endpoint(endpoint.id):
+                if not classified.should_fallback:
+                    raise NonRecoverableFailureError(
+                        f"{endpoint.id} failed with {classified.reason.value} and fallback is not permitted: {classified.message[:160]}",
+                        classification=classified,
+                        endpoint_id=endpoint.id,
+                    )
+                # Non-retryable, or retries on this endpoint exhausted: exclude and step fallback
                 excluded_endpoints.append(endpoint.id)
                 ledger.mark_fallback()
             else:

@@ -74,6 +74,15 @@ class CycleDetectedError(CircuitBreakerGatewayError):
         )
 
 
+class NonRecoverableFailureError(CircuitBreakerGatewayError):
+    """Upstream failure classified as neither retryable nor eligible for fallback."""
+
+    def __init__(self, message: str, classification: Any = None, endpoint_id: str = ""):
+        super().__init__(message, {"endpoint_id": endpoint_id})
+        self.classification = classification
+        self.endpoint_id = endpoint_id
+
+
 class RetryBudgetExhaustedError(CircuitBreakerGatewayError):
     """Raised when maximum attempt count or retry budget is exceeded."""
 
