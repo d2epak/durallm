@@ -27,6 +27,17 @@ class CandidateEvaluation:
     rank: int = 0
     is_cold_start: bool = False
     observed_latency_ms: Optional[float] = None
+    # Admission and capability evidence are carried with the decision so an
+    # operator never has to infer why a particular provider was (not) used.
+    resource_lane: Optional[str] = None
+    resource_lane_available: bool = True
+    tokenizer_id: Optional[str] = None
+    tokenizer_revision: Optional[str] = None
+    preflight_requires_compaction: bool = False
+    expected_quality_score: Optional[float] = None
+    quality_confidence: float = 0.0
+    quality_provenance: Optional[str] = None
+    degradation_required: bool = False
 
 
 @dataclass
@@ -40,6 +51,12 @@ class RoutingDecision:
     total_considered: int = 0
     total_eligible: int = 0
     fallback_reason: Optional[str] = None
+    # Shadow quality is observability-only: it is intentionally never allowed
+    # to alter a live routing choice until an explicit policy enables that.
+    shadow_recommended_endpoint: Optional[str] = None
+    shadow_recommended_score: Optional[float] = None
+    shadow_abstained: bool = True
+    shadow_reason: Optional[str] = None
     timestamp_monotonic: float = field(default_factory=time.monotonic)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -51,5 +68,11 @@ class RoutingDecision:
             "total_considered": self.total_considered,
             "total_eligible": self.total_eligible,
             "fallback_reason": self.fallback_reason,
+            "shadow_quality": {
+                "recommended_endpoint": self.shadow_recommended_endpoint,
+                "recommended_score": self.shadow_recommended_score,
+                "abstained": self.shadow_abstained,
+                "reason": self.shadow_reason,
+            },
             "candidates": [asdict(c) for c in self.evaluated_candidates],
         }

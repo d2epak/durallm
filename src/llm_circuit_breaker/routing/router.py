@@ -20,8 +20,13 @@ from llm_circuit_breaker.routing.decision import (
     CandidateEvaluation,
     RoutingDecision,
 )
+from llm_circuit_breaker.routing.quality import ShadowQualityPolicy
 from llm_circuit_breaker.routing.requirements import RequirementVector
+from llm_circuit_breaker.routing.resources import (
+    ResourceLaneStore,
+)
 from llm_circuit_breaker.routing.scorer import RoutingScorer
+from llm_circuit_breaker.routing.tokenizer import preflight_context
 
 logger = logging.getLogger("llm_circuit_breaker.routing")
 
@@ -35,12 +40,16 @@ class CapabilityRouter:
         breaker_registry: Optional[CircuitBreakerRegistry] = None,
         health_store: Optional[Any] = None,
         default_strategy: str = "balanced",
+        lane_store: Optional[ResourceLaneStore] = None,
+        shadow_quality_policy: Optional[ShadowQualityPolicy] = None,
     ):
         self.capability_registry = capability_registry or DEFAULT_CAPABILITY_REGISTRY
         self.breaker_registry = breaker_registry or DEFAULT_BREAKER_REGISTRY
         from llm_circuit_breaker.health.telemetry import DEFAULT_HEALTH_STORE
         self.health_store = health_store or DEFAULT_HEALTH_STORE
         self.default_strategy = default_strategy
+        self.lane_store = lane_store if lane_store is not None else ResourceLaneStore()
+        self.shadow_quality_policy = shadow_quality_policy if shadow_quality_policy is not None else ShadowQualityPolicy()
         self.scorer = RoutingScorer()
 
         self._lock = threading.RLock()
@@ -105,6 +114,63 @@ class CapabilityRouter:
                 )
                 continue
 
+            # A context decision has to be based on a named tokenizer.  This
+            # records conservative-estimator uncertainty rather than silently
+            # treating character counts as provider-token truth.
+            preflight = preflight_context(
+                profile=profile,
+                input_tokens=requirements.estimated_input_tokens,
+                expected_output_tokens=requirements.expected_output_tokens,
+                safety_margin_tokens=requirements.safety_margin_tokens,
+                allow_compaction=requirements.allow_context_compaction,
+            )
+            if not preflight.compatible:
+                evaluations.append(
+                    CandidateEvaluation(
+                        endpoint_id=ep.id,
+                        provider=ep.provider,
+                        model=ep.model,
+                        eligible=False,
+                        hard_constraints_passed=False,
+                        exclusion_reason=preflight.reason,
+                        is_cold_start=health_snap.is_cold_start,
+                        resource_lane=ep.lane_key,
+                        tokenizer_id=preflight.tokenizer_id,
+                        tokenizer_revision=preflight.tokenizer_revision,
+                        preflight_requires_compaction=preflight.requires_compaction,
+                    )
+                )
+                continue
+
+            # Rate limits and quota exhaustions are scoped to a credential or
+            # deployment lane.  They must not disable unrelated credentials
+            # which happen to use the same provider/model.
+            if ep.lane_key is not None:
+                lane_status = self.lane_store.status(ep.lane_key)
+                if not lane_status.available:
+                    evaluations.append(
+                        CandidateEvaluation(
+                            endpoint_id=ep.id,
+                            provider=ep.provider,
+                            model=ep.model,
+                            eligible=False,
+                            hard_constraints_passed=True,
+                            exclusion_reason=(
+                                "Resource lane '%s' unavailable%s" % (
+                                    ep.lane_key,
+                                    ": " + lane_status.reason if lane_status.reason else "",
+                                )
+                            ),
+                            is_cold_start=health_snap.is_cold_start,
+                            resource_lane=ep.lane_key,
+                            resource_lane_available=False,
+                            tokenizer_id=preflight.tokenizer_id,
+                            tokenizer_revision=preflight.tokenizer_revision,
+                            preflight_requires_compaction=preflight.requires_compaction,
+                        )
+                    )
+                    continue
+
             # 2. Circuit Breaker Admission filter (DISABLED / METRICS_ONLY pass through per ADR 0001;
             #    HALF_OPEN is left to the breaker's probe admission at execution time)
             breaker = self.breaker_registry.get_or_create(ep.resource_key)
@@ -129,11 +195,27 @@ class CapabilityRouter:
                 breaker_state=breaker_state,
                 health=health_snap,
             )
+            quality = self.shadow_quality_policy.estimate(ep, requirements.task_class)
+            eval_record.resource_lane = ep.lane_key
+            eval_record.resource_lane_available = True
+            eval_record.tokenizer_id = preflight.tokenizer_id
+            eval_record.tokenizer_revision = preflight.tokenizer_revision
+            eval_record.preflight_requires_compaction = preflight.requires_compaction
+            if quality is not None:
+                eval_record.expected_quality_score = quality.score
+                eval_record.quality_confidence = quality.confidence
+                eval_record.quality_provenance = quality.provenance
+                eval_record.degradation_required = bool(
+                    requirements.minimum_quality_score is not None
+                    and quality.score < requirements.minimum_quality_score
+                )
             evaluations.append(eval_record)
             eligible_endpoints.append((ep, eval_record))
 
         total_considered = len(endpoints)
         total_eligible = len(eligible_endpoints)
+
+        shadow = self.shadow_quality_policy.recommend(endpoints, requirements.task_class)
 
         if not eligible_endpoints:
             decision = RoutingDecision(
@@ -144,6 +226,10 @@ class CapabilityRouter:
                 total_considered=total_considered,
                 total_eligible=0,
                 fallback_reason=fallback_reason,
+                shadow_recommended_endpoint=shadow.endpoint_id,
+                shadow_recommended_score=shadow.score,
+                shadow_abstained=shadow.abstained,
+                shadow_reason=shadow.reason,
             )
             return None, decision
 
@@ -189,6 +275,10 @@ class CapabilityRouter:
             total_considered=total_considered,
             total_eligible=total_eligible,
             fallback_reason=fallback_reason,
+            shadow_recommended_endpoint=shadow.endpoint_id,
+            shadow_recommended_score=shadow.score,
+            shadow_abstained=shadow.abstained,
+            shadow_reason=shadow.reason,
         )
 
         return selected_endpoint, decision

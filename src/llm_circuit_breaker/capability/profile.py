@@ -74,6 +74,19 @@ class ModelProfile:
     verification_status: CapabilityVerificationStatus = CapabilityVerificationStatus.UNKNOWN
     last_verified_at: Optional[float] = None
     verification_method: Optional[str] = None
+    # Capability data is an expiring assertion, not a timeless fact copied
+    # from a model catalogue. Requirements can demand a fresh verified claim.
+    capability_provenance: str = "declared"
+    capability_expires_at: Optional[float] = None
+    # Token counting is explicit so routing can report whether a context
+    # decision is based on a provider tokenizer or a conservative fallback.
+    tokenizer_id: str = "approx_chars_v1"
+    tokenizer_revision: Optional[str] = None
+    # Calibrated task quality is optional. It is consumed by the shadow policy
+    # unless a caller explicitly uses it as a quality eligibility threshold.
+    expected_quality_score: Optional[float] = None
+    quality_confidence: float = 0.0
+    quality_provenance: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
@@ -88,6 +101,15 @@ class ModelProfile:
                 self.pricing.is_free = True
             if self.input_price_per_1m > 0:
                 self.pricing.input_price_per_1m = self.input_price_per_1m
+
+    def capabilities_are_current(self, now: Optional[float] = None) -> bool:
+        """Whether this profile has a non-expired verified capability claim."""
+        current_time = time.time() if now is None else now
+        return (
+            self.verification_status == CapabilityVerificationStatus.VERIFIED
+            and self.capability_expires_at is not None
+            and self.capability_expires_at > current_time
+        )
 
 
 @dataclass
@@ -107,6 +129,9 @@ class Endpoint:
     profile: Optional[ModelProfile] = None
     pool: str = "general_agent"
     is_discovered: bool = False
+    # A lane identifies a credential/deployment quota boundary. Endpoints can
+    # share a provider/model while having independently exhausted credentials.
+    resource_lane: Optional[str] = None
 
     @property
     def resource_key(self) -> str:
@@ -114,3 +139,7 @@ class Endpoint:
         dep = self.deployment or "default"
         quota = self.quota_bucket_id or "default"
         return f"{self.provider}:{dep}:{self.model}:{quota}"
+
+    @property
+    def lane_key(self) -> Optional[str]:
+        return self.resource_lane

@@ -61,8 +61,12 @@ from llm_circuit_breaker.providers.base import (
     ProviderStreamError,
     RequestCancellation,
 )
+from llm_circuit_breaker.routing.budget import (
+    BudgetReservationStore,
+)
 from llm_circuit_breaker.routing.decision import RoutingDecision
 from llm_circuit_breaker.routing.requirements import RequirementVector
+from llm_circuit_breaker.routing.resources import ResourceLaneStore
 from llm_circuit_breaker.routing.router import CapabilityRouter
 from llm_circuit_breaker.storage.contracts import AttemptStore
 from llm_circuit_breaker.validation.response import ResponseValidator
@@ -99,6 +103,7 @@ class NativeStreamHandle:
         self.attempt.finish(success=True, status_code=200)
         self.breaker.record_success(self.attempt.latency_ms)
         self.executor.health_store.record_success(self.endpoint.id, self.attempt.latency_ms)
+        self.executor._record_lane_outcome(self.endpoint)
         self.ledger.record_attempt(self.attempt)
         self.executor._emit_attempt(self.attempt)
         self.executor._finish_durable_attempt(self.attempt, "stream_succeeded")
@@ -117,6 +122,7 @@ class NativeStreamHandle:
             latency_ms=self.attempt.latency_ms,
             error_message=classified.message[:160],
         )
+        self.executor._record_lane_outcome(self.endpoint, classified)
         self.ledger.record_attempt(self.attempt)
         self.executor._emit_attempt(self.attempt)
         self.executor._finish_durable_attempt(self.attempt, "stream_interrupted", str(error))
@@ -159,6 +165,8 @@ class GatewayExecutor:
         response_validator: Optional[ResponseValidator] = None,
         router: Optional[CapabilityRouter] = None,
         attempt_store: Optional[AttemptStore] = None,
+        budget_store: Optional[BudgetReservationStore] = None,
+        lane_store: Optional[ResourceLaneStore] = None,
         sleeper: Callable[[float], None] = time.sleep,
         events: Optional[StructuredJsonLogger] = None,
     ):
@@ -172,6 +180,7 @@ class GatewayExecutor:
         self.tool_ledger = tool_ledger or DEFAULT_TOOL_LEDGER
         self.response_validator = response_validator or ResponseValidator(tool_validator=self.tool_validator)
         self.attempt_store = attempt_store
+        self.budget_store = budget_store if budget_store is not None else BudgetReservationStore()
         self._sleep = sleeper
         self.events = events or DEFAULT_STRUCTURED_LOGGER
         # The router must read the same telemetry this executor writes, or scoring never sees it.
@@ -179,6 +188,7 @@ class GatewayExecutor:
             capability_registry=self.capability_registry,
             breaker_registry=self.breaker_registry,
             health_store=self.health_store,
+            lane_store=lane_store,
         )
 
     @staticmethod
@@ -215,6 +225,25 @@ class GatewayExecutor:
                 attempt.attempt_id,
                 status,
                 self._attempt_payload(attempt, status, detail),
+            )
+
+    def _record_lane_outcome(
+        self,
+        endpoint: Endpoint,
+        failure: Optional[FailureClassification] = None,
+    ) -> None:
+        """Keep a rate-limited credential/deployment lane out of new traffic."""
+        if not endpoint.lane_key:
+            return
+        if failure is None:
+            self.router.lane_store.set_available(endpoint.lane_key)
+            return
+        if failure.reason in (FailoverReason.rate_limit, FailoverReason.upstream_rate_limit):
+            self.router.lane_store.set_unavailable(
+                endpoint.lane_key,
+                reason=failure.reason.value,
+                # Omitted Retry-After is not permission to black-hole a lane.
+                retry_after_seconds=failure.retry_after_seconds or 60.0,
             )
 
     @staticmethod
@@ -257,7 +286,7 @@ class GatewayExecutor:
             require_tools=False,
             task_class="coding" if pool == "coding" else "general",
             estimated_input_tokens=estimate_tokens(request),
-            expected_output_tokens=request.max_output_tokens or 0,
+            expected_output_tokens=request.max_output_tokens or 4096,
         )
         excluded_endpoints: List[str] = []
         last_failure_reason: Optional[str] = None
@@ -373,6 +402,7 @@ class GatewayExecutor:
                 error_message=classified.message[:160],
                 cooldown_seconds=classified.retry_after_seconds,
             )
+            self._record_lane_outcome(endpoint, classified)
             ledger.record_attempt(attempt)
             self._emit_attempt(attempt)
             self._finish_durable_attempt(attempt, "stream_open_failed", classified.message)
@@ -390,6 +420,7 @@ class GatewayExecutor:
                 )
                 if backoff_s < deadline.remaining_ms() / 1000.0:
                     self._sleep(backoff_s)
+                    self.router.lane_store.set_available(endpoint.lane_key)
                     continue
             excluded_endpoints.append(endpoint.id)
             ledger.mark_fallback()
@@ -462,16 +493,7 @@ class GatewayExecutor:
                 excluded_endpoints.append(endpoint.id)
                 continue
 
-            # 2. Circuit Breaker Admission
-            breaker = self.breaker_registry.get_or_create(endpoint.resource_key)
-            try:
-                breaker.acquire_permission()
-            except (BreakerOpenError, ProbeAdmissionDeniedError) as b_err:
-                logger.warning("Breaker admission denied for %s: %s", endpoint.id, b_err)
-                excluded_endpoints.append(endpoint.id)
-                continue
-
-            # 3. Context Adaptation (Budget Sizing)
+            # 2. Context Adaptation (Budget Sizing)
             profile = endpoint.profile or self.capability_registry.get_profile(endpoint.provider, endpoint.model)
             shrink = window_shrink.get(endpoint.id, 1.0)
             budget = ContextBudget(
@@ -512,7 +534,7 @@ class GatewayExecutor:
 
             last_endpoint = endpoint
 
-            # 4. Prepare and Execute Request
+            # 3. Prepare and Execute Request
             adapter = self.adapter_registry.get_adapter(endpoint.provider, protocol=endpoint.protocol)
             key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
             prepared = adapter.prepare_request(endpoint, adapted_request, api_key=key_val)
@@ -527,6 +549,37 @@ class GatewayExecutor:
                 fallback_index=ledger.fallback_count,
                 compacted=was_compacted,
             )
+            # Reserve before dispatch using the maximum expected turn cost.
+            # A failed/ambiguous upstream attempt settles this conservative
+            # amount; only a known successful response can settle lower.
+            budget_reservation_id: Optional[str] = None
+            reserved_amount_usd = 0.0
+            if req_vector.budget_limit_usd is not None:
+                budget_reservation_id = "%s:%s" % (request.request_id, attempt_rec.attempt_id)
+                reserved_amount_usd = req_vector.estimated_cost_usd(profile)
+                reservation = self.budget_store.reserve(
+                    reservation_id=budget_reservation_id,
+                    scope=req_vector.budget_scope or request.request_id,
+                    amount_usd=reserved_amount_usd,
+                    limit_usd=req_vector.budget_limit_usd,
+                )
+                if reservation is None:
+                    logger.info("Budget reservation rejected for %s", endpoint.id)
+                    excluded_endpoints.append(endpoint.id)
+                    last_failure_reason = "budget_reservation_denied"
+                    continue
+
+            # Breaker admission happens after all local no-dispatch checks so
+            # a rejected budget cannot consume a half-open probe permit.
+            breaker = self.breaker_registry.get_or_create(endpoint.resource_key)
+            try:
+                breaker.acquire_permission()
+            except (BreakerOpenError, ProbeAdmissionDeniedError) as b_err:
+                logger.warning("Breaker admission denied for %s: %s", endpoint.id, b_err)
+                if budget_reservation_id is not None:
+                    self.budget_store.release(budget_reservation_id)
+                excluded_endpoints.append(endpoint.id)
+                continue
             # Persist dispatch intent before an adapter can send bytes to an
             # upstream provider. A later process can distinguish a request it
             # never issued from one whose outcome is merely unknown.
@@ -536,7 +589,21 @@ class GatewayExecutor:
             try:
                 exec_result = adapter.execute(prepared, timeout_seconds=attempt_timeout_sec)
             except Exception as exec_err:
-                attempt_rec.finish(success=False, status_code=502)
+                classified = classify_failure(exec_err, status_code=502)
+                attempt_rec.finish(success=False, status_code=502, failure=classified)
+                breaker.record_failure(attempt_rec.latency_ms, failure_classification=classified)
+                self.health_store.record_failure(
+                    endpoint_id=endpoint.id,
+                    latency_ms=attempt_rec.latency_ms,
+                    error_message=classified.message[:160],
+                )
+                self._record_lane_outcome(endpoint, classified)
+                ledger.record_attempt(attempt_rec)
+                self._emit_attempt(attempt_rec)
+                if budget_reservation_id is not None:
+                    # The adapter may have sent bytes before reporting a
+                    # transport error, so release would permit an overspend.
+                    self.budget_store.settle(budget_reservation_id, reserved_amount_usd)
                 self._finish_durable_attempt(attempt_rec, "transport_error", str(exec_err))
                 raise
 
@@ -622,6 +689,7 @@ class GatewayExecutor:
                         # Success!
                         breaker.record_success(exec_result.duration_ms)
                         self.health_store.record_success(endpoint.id, exec_result.duration_ms)
+                        self._record_lane_outcome(endpoint)
                         attempt_rec.finish(success=True, status_code=200)
                         ledger.record_attempt(attempt_rec)
                         self._emit_attempt(attempt_rec)
@@ -631,6 +699,8 @@ class GatewayExecutor:
                         out_tokens = estimate_tokens(norm_response.content or "")
                         cost = ((in_tokens / 1_000_000.0) * profile.input_price_per_1m) + ((out_tokens / 1_000_000.0) * profile.output_price_per_1m)
                         ledger.add_cost(cost)
+                        if budget_reservation_id is not None:
+                            self.budget_store.settle(budget_reservation_id, cost)
                         self._finish_durable_attempt(attempt_rec, "succeeded")
 
                         return norm_response, decision, ledger
@@ -658,6 +728,8 @@ class GatewayExecutor:
                         )
                 except IndeterminateToolOperationError:
                     attempt_rec.finish(success=False, status_code=409)
+                    if budget_reservation_id is not None:
+                        self.budget_store.settle(budget_reservation_id, reserved_amount_usd)
                     ledger.record_attempt(attempt_rec)
                     self._emit_attempt(attempt_rec)
                     self._finish_durable_attempt(attempt_rec, "blocked_indeterminate_operation")
@@ -678,10 +750,13 @@ class GatewayExecutor:
                 error_message=classified.message[:160],
                 cooldown_seconds=classified.retry_after_seconds or (60.0 if classified.reason == FailoverReason.rate_limit else None),
             )
+            self._record_lane_outcome(endpoint, classified)
 
             attempt_rec.finish(success=False, status_code=exec_result.status_code, failure=classified)
             ledger.record_attempt(attempt_rec)
             self._emit_attempt(attempt_rec)
+            if budget_reservation_id is not None:
+                self.budget_store.settle(budget_reservation_id, reserved_amount_usd)
             self._finish_durable_attempt(attempt_rec, "failed", classified.message)
 
             last_failure_reason = classified.reason.value
@@ -719,6 +794,10 @@ class GatewayExecutor:
                     fallback_marked = True
                 else:
                     self._sleep(backoff_s)
+                    # The wait is complete for this request. New requests still
+                    # observe lane cooldowns unless their own retry wait passes.
+                    if endpoint.lane_key:
+                        self.router.lane_store.set_available(endpoint.lane_key)
 
         self.events.error(
             "request_exhausted", request_id=request.request_id, pool=pool,
