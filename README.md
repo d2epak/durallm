@@ -20,20 +20,23 @@ An independent adversarial review on 2026-09-06 found the following. Read this b
 - `llm_circuit_breaker.breaker`: six-state circuit breaker FSM with count/time sliding windows and bounded half-open permits. Deterministic, spec-tested, thread-safe.
 - `ToolCallValidator`: fails closed on malformed or unknown tool calls.
 - `ContextManager`: preserves system prompt, first user turn and last K turns; compacts tool results.
-- Zero third-party dependencies.
+- **Agent Continuation Protocol v1 (ACP)**: versioned session IDs, turn checkpoints, and operation lifecycle receipts (`PREPARED`, `SUBMITTED`, `ACKNOWLEDGED`, `INDETERMINATE`).
+- **Durable Persistence**: SQLite WAL store for atomic session resumption, write-ahead attempt intent, and idempotent tool-operation receipts.
+- **Client Compatibility Matrix**: recorded test suites covering Claude Code, OpenCode, Hermes Agent, and OpenClaw (`docs/CLIENT_COMPATIBILITY.md`).
+- **Calibrated Task Selection**: conservative tokenizer preflight, independent credential/deployment resource lane stores, pre-dispatch atomic budget reservations, and shadow quality policy evaluation with confidence calibration.
+- Zero third-party core dependencies.
 - Importing the package makes no network call and reads no dotfiles. OpenRouter discovery and `~/.zshrc`/`.env` key scanning are opt-in (`LLM_BREAKER_AUTO_DISCOVER=1`, `LLM_BREAKER_SCAN_DOTFILES=1`, or `llm-proxy --discover`).
 - The `llm-proxy` HTTP server (`/v1/messages`, `/v1/chat/completions`) serves every request through `GatewayExecutor`: breaker admission, exponential backoff that honours `Retry-After`, classifier-driven retry/fallback, rejection of empty HTTP 200 bodies, fail-closed tool validation, ledger replay of committed tool calls, compact-and-retry on size rejections, and breakers keyed per deployment. Covered by `tests/test_proxy_gateway.py` with mock adapters.
 - Security defaults: upstream URLs that resolve to loopback or RFC 1918 addresses are refused unless `LLM_BREAKER_ALLOW_LOCAL_UPSTREAM=1` (cloud metadata hosts are always refused); request and response bodies above 10 MB are rejected; every upstream attempt and proxy response is emitted as a redacted JSON event on the `llm_circuit_breaker.events` logger.
 
 **Experimental**
-- The proxy and executor have been exercised only against mock adapters. No load or soak test against live providers has been run.
-- `CapabilityRouter` cost/latency constraints, the Gemini codec and Anthropic thinking-signature passthrough are tested with recorded shapes, not live traffic.
+- The proxy and executor have been exercised primarily against mock adapters and recorded contract fixtures. Live upstream validation against real vendor credentials remains opt-in.
+- `CapabilityRouter` cost/latency constraints, the Gemini codec and Anthropic thinking-signature passthrough are tested with recorded shapes.
 
 **Known not yet delivered**
 - 402 and 429 open the breaker (documented in `docs/FAILURE_TAXONOMY.md`); other 4xx never poison health as of `0.2.0`+.
 - Streaming defaults to atomic-buffered SSE replay. Opt-in `X-LCB-Streaming-Mode: true_streaming` relays a compatible provider's native SSE with phase deadlines and cancellation; after any visible bytes it emits an explicit interruption event rather than splicing a fallback model. Tool and ACP turns remain atomic-buffered.
 - Nothing enters the `METRICS_ONLY` breaker state; the state exists in the FSM but no API selects it.
-- Benchmarks in `docs/BENCHMARKS.md` run three in-process baselines inside the same harness, not external systems; treat the numbers as smoke tests, not measurements.
 
 ---
 
@@ -90,18 +93,19 @@ Standard reverse proxies (LiteLLM, Cloudflare AI Gateway, Portkey) treat LLMs as
 
 ## 📊 Benchmark Results (B1–B15 in-process suite)
 
-Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits, timeouts, context overflows, malformed tool syntax, semantic schema violations, tool execution idempotency, mid-stream disconnects, cascades, pool isolation, cost ceilings, tool-reliability routing, and capability mismatches) against 5 in-process baselines. Numbers are copied from `results/v3_benchmark_report.md`, regenerated on 2026-09-06:
+Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits, timeouts, context overflows, malformed tool syntax, semantic schema violations, tool execution idempotency, mid-stream disconnects, cascades, pool isolation, cost ceilings, tool-reliability routing, and capability mismatches) against 6 in-process baselines. Numbers are copied from the multi-run benchmark report (`results/2026-09-06-1943ba8/report.md`), generated with 3 runs and seed 42 on 2026-09-06:
 
 | Baseline / System | Request Completion | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **12.55 ms** | **314.08 ms** | **0.0%** |
-| **Baseline-A-Direct** | 0.0% | 0.0% | 0.03 ms | 0.07 ms | 20.0% |
-| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.03 ms | 0.12 ms | 20.0% |
-| **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.16 ms | 20.0% |
-| **Baseline-D-Breaker-Static-Fallback** | 33.3% | 33.3% | 0.09 ms | 0.27 ms | 20.0% |
-| **Baseline-E-V1-Prototype** | 53.3% | 53.3% | 0.24 ms | 4.60 ms | 20.0% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **12.12 ms** | **313.64 ms** | **0.0%** |
+| **Baseline-A-Direct** | 0.0% | 0.0% | 0.02 ms | 0.40 ms | 20.0% |
+| **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.05 ms | 0.57 ms | 20.0% |
+| **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.03 ms | 0.32 ms | 20.0% |
+| **Baseline-D-Breaker-Static-Fallback** | 33.3% | 33.3% | 0.04 ms | 0.29 ms | 20.0% |
+| **Baseline-E-V1-Prototype** | 53.3% | 53.3% | 0.13 ms | 5.07 ms | 20.0% |
+| **Baseline-F-LiteLLM-Router** | 33.3% | 33.3% | 7.98 ms | 24.68 ms | 20.0% |
 
-> All six rows run in one process against the same mock providers (Baseline D adds V3's breaker to static fallback; Baseline E is the v0.1 router driven through its own dispatch loop), so latencies measure harness overhead, not network. Every row is scored by the same rule (a turn counts only if every delivered tool call passes the schema validator), so the baselines' semantic errors are the invalid tool calls they forward in B6, B7 and B14. Multi-turn scenarios are judged by verify hooks on observable state (which provider served each turn, how often the tool ran, what the secondary received). The V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2; the baselines never wait.
+> All seven rows run in one process against the same mock providers (Baseline D adds V3's breaker to static fallback; Baseline E is the v0.1 router driven through its own dispatch loop; Baseline F drives an in-process `litellm.Router` instance via LiteLLM's `CustomLLM` seam). Every row is scored by the same rule (a turn counts only if every delivered tool call passes the schema validator), so the baselines' semantic errors are the invalid tool calls they forward in B6, B7 and B14. Multi-turn scenarios are judged by verify hooks on observable state (which provider served each turn, how often the tool ran, what the secondary received). The V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2; the baselines never wait.
 > Run the full reproducible benchmark suite: `python -m benchmarks.run`  
 > Complete technical analysis: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 

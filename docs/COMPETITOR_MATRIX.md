@@ -8,7 +8,7 @@ An authoritative, technical comparison between **LLM Circuit Breaker (V3)** and 
 
 | Gateway System | Real FSM Circuit Breaker | Multi-Turn Semantic Failover | Strict Tool Schema Validation | Diagnostic Context Compaction | Tool Idempotency Ledger | Self-Hostable Weight | Primary Focus |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|---|
-| **LLM Circuit Breaker (V3)** | **Yes (Count-based FSM + Bounded Probes)** | **Yes (Full Protocol IR + FailoverPlan)** | **Yes (Fails closed on missing schema)** | **Yes (Structured diagnostic extraction)** | **Yes (Replay suppression receipts)** | **Lightweight (<15ms overhead, zero daemon)** | **Agent Resilience & Semantic Integrity** |
+| **LLM Circuit Breaker (V3)** | **Yes (Count-based FSM + Bounded Probes)** | **Yes (Full Protocol IR + FailoverPlan)** | **Yes (Fails closed on missing schema)** | **Yes (Structured diagnostic extraction)** | **Yes (Replay suppression receipts)** | **Lightweight (Zero core dependencies, in-process or proxy daemon)** | **Agent Resilience & Semantic Integrity** |
 | **LiteLLM** | No (Static cooldown timestamps) | Partial (Cross-provider fallback, loose context) | No (Passthrough parsing) | No (Naive character truncation) | No (Blind replay on 5xx) | Medium (Python proxy server) | Unified API Proxy & Model Breadth |
 | **Cloudflare AI Gateway** | No (Dynamic retries & caching) | No (Basic static fallback) | No (Byte-level passthrough) | No | No | Closed Cloud / Edge Worker | Caching & Rate Limiting at Edge |
 | **Portkey** | Partial (Simple error thresholds) | No (Routing fallbacks only) | No | No | No | Hybrid (Control plane cloud / local agent) | Enterprise Governance & Tracing |

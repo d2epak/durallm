@@ -1,0 +1,4225 @@
+{
+  "environment": {
+    "generated_at": "2026-09-06T20:36:28+00:00",
+    "commit": "1943ba8",
+    "dirty_tree": false,
+    "package_version": "0.2.0",
+    "python": "3.11.15",
+    "platform": "macOS-26.6.2-arm64-arm-64bit",
+    "runs": 3,
+    "seed": 42
+  },
+  "aggregate": {
+    "LLM-Circuit-Breaker-V3": {
+      "completion_rate_pct": {
+        "mean": 100.0,
+        "ci95": 0.0,
+        "min": 100.0,
+        "max": 100.0
+      },
+      "recovery_rate_pct": {
+        "mean": 80.0,
+        "ci95": 0.0,
+        "min": 80.0,
+        "max": 80.0
+      },
+      "median_latency_ms": {
+        "mean": 12.11593032348901,
+        "ci95": 1.352695528526745,
+        "min": 11.496915947645903,
+        "max": 12.520750053226948
+      },
+      "p95_latency_ms": {
+        "mean": 313.636041781864,
+        "ci95": 3.9460320547772647,
+        "min": 312.43812938919183,
+        "max": 315.43776683974903
+      },
+      "avg_attempts_per_request": {
+        "mean": 2.6,
+        "ci95": 0.0,
+        "min": 2.6,
+        "max": 2.6
+      },
+      "semantic_error_rate_pct": {
+        "mean": 0.0,
+        "ci95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      }
+    },
+    "Baseline-A-Direct": {
+      "completion_rate_pct": {
+        "mean": 0.0,
+        "ci95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "recovery_rate_pct": {
+        "mean": 0.0,
+        "ci95": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "median_latency_ms": {
+        "mean": 0.01905567478388548,
+        "ci95": 0.014140141059779269,
+        "min": 0.013082986697554588,
+        "max": 0.024417066015303135
+      },
+      "p95_latency_ms": {
+        "mean": 0.3983443214868503,
+        "ci95": 1.4521451064111388,
+        "min": 0.05309120751917355,
+        "max": 1.0732294991612428
+      },
+      "avg_attempts_per_request": {
+        "mean": 1.2,
+        "ci95": 0.0,
+        "min": 1.2,
+        "max": 1.2
+      },
+      "semantic_error_rate_pct": {
+        "mean": 20.0,
+        "ci95": 0.0,
+        "min": 20.0,
+        "max": 20.0
+      }
+    },
+    "Baseline-B-Same-Provider-Retry": {
+      "completion_rate_pct": {
+        "mean": 20.0,
+        "ci95": 0.0,
+        "min": 20.0,
+        "max": 20.0
+      },
+      "recovery_rate_pct": {
+        "mean": 20.0,
+        "ci95": 0.0,
+        "min": 20.0,
+        "max": 20.0
+      },
+      "median_latency_ms": {
+        "mean": 0.054222337591151394,
+        "ci95": 0.10774201944178331,
+        "min": 0.028416980057954788,
+        "max": 0.10429206304252148
+      },
+      "p95_latency_ms": {
+        "mean": 0.5690669640898699,
+        "ci95": 1.0226347962007565,
+        "min": 0.22538029588758918,
+        "max": 1.0252535226754838
+      },
+      "avg_attempts_per_request": {
+        "mean": 2.3333333333333335,
+        "ci95": 0.0,
+        "min": 2.3333333333333335,
+        "max": 2.3333333333333335
+      },
+      "semantic_error_rate_pct": {
+        "mean": 20.0,
+        "ci95": 0.0,
+        "min": 20.0,
+        "max": 20.0
+      }
+    },
+    "Baseline-C-Static-Fallback": {
+      "completion_rate_pct": {
+        "mean": 33.33333333333333,
+        "ci95": 0.0,
+        "min": 33.33333333333333,
+        "max": 33.33333333333333
+      },
+      "recovery_rate_pct": {
+        "mean": 33.33333333333333,
+        "ci95": 0.0,
+        "min": 33.33333333333333,
+        "max": 33.33333333333333
+      },
+      "median_latency_ms": {
+        "mean": 0.03475028400619825,
+        "ci95": 0.017929465464775994,
+        "min": 0.027333968318998814,
+        "max": 0.041749910451471806
+      },
+      "p95_latency_ms": {
+        "mean": 0.3247638310616211,
+        "ci95": 0.40779130163333177,
+        "min": 0.1897169975563883,
+        "max": 0.5074623040854925
+      },
+      "avg_attempts_per_request": {
+        "mean": 2.2,
+        "ci95": 0.0,
+        "min": 2.2,
+        "max": 2.2
+      },
+      "semantic_error_rate_pct": {
+        "mean": 20.0,
+        "ci95": 0.0,
+        "min": 20.0,
+        "max": 20.0
+      }
+    },
+    "Baseline-D-Breaker-Static-Fallback": {
+      "completion_rate_pct": {
+        "mean": 33.33333333333333,
+        "ci95": 0.0,
+        "min": 33.33333333333333,
+        "max": 33.33333333333333
+      },
+      "recovery_rate_pct": {
+        "mean": 33.33333333333333,
+        "ci95": 0.0,
+        "min": 33.33333333333333,
+        "max": 33.33333333333333
+      },
+      "median_latency_ms": {
+        "mean": 0.03662503634889921,
+        "ci95": 0.030682822833665694,
+        "min": 0.026833033189177513,
+        "max": 0.05050003528594971
+      },
+      "p95_latency_ms": {
+        "mean": 0.2853945867779351,
+        "ci95": 0.21431530806345317,
+        "min": 0.19489970291033343,
+        "max": 0.3666965174488719
+      },
+      "avg_attempts_per_request": {
+        "mean": 2.2,
+        "ci95": 0.0,
+        "min": 2.2,
+        "max": 2.2
+      },
+      "semantic_error_rate_pct": {
+        "mean": 20.0,
+        "ci95": 0.0,
+        "min": 20.0,
+        "max": 20.0
+      }
+    },
+    "Baseline-E-V1-Prototype": {
+      "completion_rate_pct": {
+        "mean": 53.333333333333336,
+        "ci95": 0.0,
+        "min": 53.333333333333336,
+        "max": 53.333333333333336
+      },
+      "recovery_rate_pct": {
+        "mean": 53.333333333333336,
+        "ci95": 0.0,
+        "min": 53.333333333333336,
+        "max": 53.333333333333336
+      },
+      "median_latency_ms": {
+        "mean": 0.13252793966482082,
+        "ci95": 0.0738591712451848,
+        "min": 0.10266690514981747,
+        "max": 0.16212498303502798
+      },
+      "p95_latency_ms": {
+        "mean": 5.065587523858992,
+        "ci95": 2.3730795013367856,
+        "min": 4.028562456369399,
+        "max": 5.909479502588506
+      },
+      "avg_attempts_per_request": {
+        "mean": 2.0,
+        "ci95": 0.0,
+        "min": 2,
+        "max": 2
+      },
+      "semantic_error_rate_pct": {
+        "mean": 20.0,
+        "ci95": 0.0,
+        "min": 20.0,
+        "max": 20.0
+      }
+    },
+    "Baseline-F-LiteLLM-Router": {
+      "completion_rate_pct": {
+        "mean": 33.33333333333333,
+        "ci95": 0.0,
+        "min": 33.33333333333333,
+        "max": 33.33333333333333
+      },
+      "recovery_rate_pct": {
+        "mean": 33.33333333333333,
+        "ci95": 0.0,
+        "min": 33.33333333333333,
+        "max": 33.33333333333333
+      },
+      "median_latency_ms": {
+        "mean": 7.982958302212258,
+        "ci95": 5.885713944403865,
+        "min": 5.946499994024634,
+        "max": 10.583082912489772
+      },
+      "p95_latency_ms": {
+        "mean": 24.683228930613637,
+        "ci95": 19.027169096821666,
+        "min": 19.296049163676795,
+        "max": 33.45067061018197
+      },
+      "avg_attempts_per_request": {
+        "mean": 2.2,
+        "ci95": 0.0,
+        "min": 2.2,
+        "max": 2.2
+      },
+      "semantic_error_rate_pct": {
+        "mean": 20.0,
+        "ci95": 0.0,
+        "min": 20.0,
+        "max": 20.0
+      }
+    }
+  },
+  "scenario_passes": {
+    "LLM-Circuit-Breaker-V3": {
+      "B1": 3,
+      "B2": 3,
+      "B3": 3,
+      "B4": 3,
+      "B5": 3,
+      "B6": 3,
+      "B7": 3,
+      "B8": 3,
+      "B9": 3,
+      "B10": 3,
+      "B11": 3,
+      "B12": 3,
+      "B13": 3,
+      "B14": 3,
+      "B15": 3
+    },
+    "Baseline-A-Direct": {
+      "B1": 0,
+      "B2": 0,
+      "B3": 0,
+      "B4": 0,
+      "B5": 0,
+      "B6": 0,
+      "B7": 0,
+      "B8": 0,
+      "B9": 0,
+      "B10": 0,
+      "B11": 0,
+      "B12": 0,
+      "B13": 0,
+      "B14": 0,
+      "B15": 0
+    },
+    "Baseline-B-Same-Provider-Retry": {
+      "B1": 0,
+      "B2": 3,
+      "B3": 3,
+      "B4": 0,
+      "B5": 0,
+      "B6": 0,
+      "B7": 0,
+      "B8": 0,
+      "B9": 0,
+      "B10": 0,
+      "B11": 3,
+      "B12": 0,
+      "B13": 0,
+      "B14": 0,
+      "B15": 0
+    },
+    "Baseline-C-Static-Fallback": {
+      "B1": 3,
+      "B2": 3,
+      "B3": 3,
+      "B4": 0,
+      "B5": 0,
+      "B6": 0,
+      "B7": 0,
+      "B8": 0,
+      "B9": 3,
+      "B10": 0,
+      "B11": 3,
+      "B12": 0,
+      "B13": 0,
+      "B14": 0,
+      "B15": 0
+    },
+    "Baseline-D-Breaker-Static-Fallback": {
+      "B1": 3,
+      "B2": 3,
+      "B3": 3,
+      "B4": 0,
+      "B5": 0,
+      "B6": 0,
+      "B7": 0,
+      "B8": 0,
+      "B9": 3,
+      "B10": 0,
+      "B11": 3,
+      "B12": 0,
+      "B13": 0,
+      "B14": 0,
+      "B15": 0
+    },
+    "Baseline-E-V1-Prototype": {
+      "B1": 3,
+      "B2": 3,
+      "B3": 3,
+      "B4": 3,
+      "B5": 3,
+      "B6": 0,
+      "B7": 0,
+      "B8": 0,
+      "B9": 3,
+      "B10": 0,
+      "B11": 3,
+      "B12": 3,
+      "B13": 0,
+      "B14": 0,
+      "B15": 0
+    },
+    "Baseline-F-LiteLLM-Router": {
+      "B1": 3,
+      "B2": 3,
+      "B3": 3,
+      "B4": 0,
+      "B5": 0,
+      "B6": 0,
+      "B7": 0,
+      "B8": 0,
+      "B9": 3,
+      "B10": 0,
+      "B11": 3,
+      "B12": 0,
+      "B13": 0,
+      "B14": 0,
+      "B15": 0
+    }
+  },
+  "runs": [
+    {
+      "system_summaries": {
+        "LLM-Circuit-Breaker-V3": {
+          "system_name": "LLM-Circuit-Breaker-V3",
+          "total_scenarios": 15,
+          "successful_scenarios": 15,
+          "completion_rate_pct": 100.0,
+          "recovery_rate_pct": 80.0,
+          "median_latency_ms": 12.520750053226948,
+          "p95_latency_ms": 315.43776683974903,
+          "avg_attempts_per_request": 2.6,
+          "avg_fallback_depth": 0.6,
+          "semantic_error_rate_pct": 0.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 16.8355000205338,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 1008.7284999899566,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Primary recovered"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 15.255833975970745,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 12.520750053226948,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Compacted context processed successfully by Secondary"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 11.94587501231581,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Retrieved and processed with secret intact"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 11.477708001621068,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.481792027130723,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.2560000866651535,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.261790969409049,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 15.16683294903487,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Provider recovered and healthy"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.77591595519334,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 18.313166918233037,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "General agent turn via C"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 1.4479579403996468,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Cost-efficient candidate output"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 5.091458093374968,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.6677920464426279,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Text only"
+            }
+          ]
+        },
+        "Baseline-A-Direct": {
+          "system_name": "Baseline-A-Direct",
+          "total_scenarios": 15,
+          "successful_scenarios": 0,
+          "completion_rate_pct": 0.0,
+          "recovery_rate_pct": 0.0,
+          "median_latency_ms": 0.024417066015303135,
+          "p95_latency_ms": 1.0732294991612428,
+          "avg_attempts_per_request": 1.2,
+          "avg_fallback_depth": 0,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.029583927243947983,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.024417066015303135,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 429"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.15983404591679573,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 504"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.014750054106116295,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.035917037166655064,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.3607079852372408,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.9125419892370701,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 1.448167022317648,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.008541974239051342,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 502"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.004958012141287327,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.004167086444795132,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 500"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.005208072252571583,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.01454097218811512,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.025167129933834076,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.01916696783155203,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-B-Same-Provider-Retry": {
+          "system_name": "Baseline-B-Same-Provider-Retry",
+          "total_scenarios": 15,
+          "successful_scenarios": 3,
+          "completion_rate_pct": 20.0,
+          "recovery_rate_pct": 20.0,
+          "median_latency_ms": 0.10429206304252148,
+          "p95_latency_ms": 1.0252535226754838,
+          "avg_attempts_per_request": 2.3333333333333335,
+          "avg_fallback_depth": 0,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.10429206304252148,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.030916999094188213,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Primary recovered"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.018583028577268124,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.024041044525802135,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.18254201859235764,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.02454104833304882,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.014083110727369785,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.028500915504992008,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.011708005331456661,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 502"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 1.48191605694592,
+              "attempts_count": 5,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.2982089063152671,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.1865000231191516,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.15125004574656487,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.3770010080188513,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.8295410079881549,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-C-Static-Fallback": {
+          "system_name": "Baseline-C-Static-Fallback",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 0.03516697324812412,
+          "p95_latency_ms": 0.2771121915429825,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.09616604074835777,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.02770894207060337,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.016249949112534523,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03875000402331352,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.017332960851490498,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.0625409884378314,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.028708018362522125,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.04270789213478565,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.03516697324812412,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.643999082967639,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.06433296948671341,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03295810893177986,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.01233397051692009,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.02912490162998438,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.11987495236098766,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-D-Breaker-Static-Fallback": {
+          "system_name": "Baseline-D-Breaker-Static-Fallback",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 0.032542040571570396,
+          "p95_latency_ms": 0.2945875399746001,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.07587508298456669,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.024417066015303135,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.022500054910779,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.031125033274292946,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.023458036594092846,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.023957923986017704,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.017874990589916706,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.032542040571570396,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.020666979253292084,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.3122921334579587,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.04724995233118534,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.28699985705316067,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.04795799031853676,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.11583301238715649,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.05295791197568178,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-E-V1-Prototype": {
+          "system_name": "Baseline-E-V1-Prototype",
+          "total_scenarios": 15,
+          "successful_scenarios": 8,
+          "completion_rate_pct": 53.333333333333336,
+          "recovery_rate_pct": 53.333333333333336,
+          "median_latency_ms": 0.16212498303502798,
+          "p95_latency_ms": 4.028562456369399,
+          "avg_attempts_per_request": 2,
+          "avg_fallback_depth": 0.6,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 1.2272919993847609,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.14208292122930288,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.12450001668184996,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 4.469124949537218,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Compacted context processed successfully by Secondary"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 3.839749959297478,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Retrieved and processed with secret intact"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.10945799294859171,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.05108292680233717,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.12400001287460327,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.16212498303502798,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.394041882827878,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 3 calls were ['provider_b'], expected ['provider_a']"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.40862499736249447,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.3898739814758301,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "General agent turn via C"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.10291696526110172,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.38800109177827835,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.10312406811863184,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-F-LiteLLM-Router": {
+          "system_name": "Baseline-F-LiteLLM-Router",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 10.583082912489772,
+          "p95_latency_ms": 33.45067061018197,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 45.356125105172396,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 7.624707999639213,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 10.583082912489772,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 23.23495806194842,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "InternalServerError: litellm.InternalServerError: mock HTTP 503: {\"error\": {\"message\": \"Context Outage\", \"code\": 503}}. Received Model Group=lcb-router-provider_a\nAvailable Model Group Fallbacks=['lcb-router-provider_b']\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]. Received Model Group=lcb-router-provider_b\nAvailable Model Group Fallbacks=None\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 28.348332969471812,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "InternalServerError: litellm.InternalServerError: mock HTTP 503: {\"error\": {\"message\": \"Unavailable\", \"code\": 503}}. Received Model Group=lcb-router-provider_a\nAvailable Model Group Fallbacks=['lcb-router-provider_b']\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]. Received Model Group=lcb-router-provider_b\nAvailable Model Group Fallbacks=None\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 14.828041079454124,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 2.423624973744154,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 7.812958094291389,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 9.673833032138646,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 18.476499943062663,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 15.980249969288707,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 15.637916047126055,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 4.047792055644095,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 5.917832953855395,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 3.032707842066884,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        }
+      },
+      "primary_research_benchmark": {
+        "task_completed": true,
+        "critical_state_preserved": true,
+        "tool_correctness": true,
+        "tool_executions": 1,
+        "duplicate_tool_execution": 0,
+        "receipt_replayed": true,
+        "semantic_error_rate_pct": 0.0,
+        "fallback_count": 2,
+        "total_attempts": 3,
+        "recovery_latency_ms": 2.1137079456821084,
+        "context_tokens_initial": 36071,
+        "context_tokens_final": 21661,
+        "context_reduction_pct": 39.94898949294447,
+        "failover_plans_generated": 2,
+        "receipt_cached": true
+      }
+    },
+    {
+      "system_summaries": {
+        "LLM-Circuit-Breaker-V3": {
+          "system_name": "LLM-Circuit-Breaker-V3",
+          "total_scenarios": 15,
+          "successful_scenarios": 15,
+          "completion_rate_pct": 100.0,
+          "recovery_rate_pct": 80.0,
+          "median_latency_ms": 12.33012496959418,
+          "p95_latency_ms": 313.0322291166511,
+          "avg_attempts_per_request": 2.6,
+          "avg_fallback_depth": 0.6,
+          "semantic_error_rate_pct": 0.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 11.705541983246803,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 1007.8036659397185,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Primary recovered"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 12.33012496959418,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 15.273041906766593,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Compacted context processed successfully by Secondary"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.743791962042451,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Retrieved and processed with secret intact"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 2.217249944806099,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.6719579687342048,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.3127909731119871,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.845500070601702,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 14.199042110703886,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Provider recovered and healthy"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.411083025857806,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.028457993641496,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "General agent turn via C"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.10516692418605089,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Cost-efficient candidate output"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.4078751662746072,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.33950014039874077,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Text only"
+            }
+          ]
+        },
+        "Baseline-A-Direct": {
+          "system_name": "Baseline-A-Direct",
+          "total_scenarios": 15,
+          "successful_scenarios": 0,
+          "completion_rate_pct": 0.0,
+          "recovery_rate_pct": 0.0,
+          "median_latency_ms": 0.019666971638798714,
+          "p95_latency_ms": 0.06871225778013462,
+          "avg_attempts_per_request": 1.2,
+          "avg_fallback_depth": 0,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.10741595178842545,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.019666971638798714,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 429"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.013792072422802448,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 504"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.020542065612971783,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.010916031897068024,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.05212496034801006,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.02062495332211256,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.0350830378010869,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.011832918971776962,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 502"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.006249989382922649,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.007209018804132938,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 500"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.00466697383671999,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.01283304300159216,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.02595805563032627,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.020749983377754688,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-B-Same-Provider-Retry": {
+          "system_name": "Baseline-B-Same-Provider-Retry",
+          "total_scenarios": 15,
+          "successful_scenarios": 3,
+          "completion_rate_pct": 20.0,
+          "recovery_rate_pct": 20.0,
+          "median_latency_ms": 0.028416980057954788,
+          "p95_latency_ms": 0.4565670737065368,
+          "avg_attempts_per_request": 2.3333333333333335,
+          "avg_fallback_depth": 0,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.025999965146183968,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.0262079993262887,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Primary recovered"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.0978340394794941,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.023583066649734974,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03300001844763756,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.022000051103532314,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.012584030628204346,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.024250010028481483,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.011208001524209976,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 502"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.8824588730931282,
+              "attempts_count": 5,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.27404201682657003,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03020802978426218,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.028416980057954788,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.06633298471570015,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.0410410575568676,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-C-Static-Fallback": {
+          "system_name": "Baseline-C-Static-Fallback",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 0.027333968318998814,
+          "p95_latency_ms": 0.5074623040854925,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.026791938580572605,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.01579197123646736,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.014666933566331863,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.8970409398898482,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.02462498378008604,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.027415924705564976,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.019417027942836285,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.027333968318998814,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.02316699828952551,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.3405000315979123,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.029249931685626507,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.031291041523218155,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.014457968063652515,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03075005952268839,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.16200006939470768,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-D-Breaker-Static-Fallback": {
+          "system_name": "Baseline-D-Breaker-Static-Fallback",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 0.026833033189177513,
+          "p95_latency_ms": 0.19489970291033343,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.040458980947732925,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.022000051103532314,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.022583059035241604,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.04095898475497961,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.025374931283295155,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.02637505531311035,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.017249956727027893,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.036334036849439144,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.021416926756501198,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.4892490105703473,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.06874999962747097,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.06416707765311003,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.014874967746436596,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.0401671277359128,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.026833033189177513,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-E-V1-Prototype": {
+          "system_name": "Baseline-E-V1-Prototype",
+          "total_scenarios": 15,
+          "successful_scenarios": 8,
+          "completion_rate_pct": 53.333333333333336,
+          "recovery_rate_pct": 53.333333333333336,
+          "median_latency_ms": 0.10266690514981747,
+          "p95_latency_ms": 5.909479502588506,
+          "avg_attempts_per_request": 2,
+          "avg_fallback_depth": 0.6,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 4.600542015396059,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.16187503933906555,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.0877090496942401,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 8.963666972704232,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Compacted context processed successfully by Secondary"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 3.023583092726767,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Retrieved and processed with secret intact"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.0926250359043479,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.04533305764198303,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.07637497037649155,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.10479206684976816,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.30016805976629257,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 3 calls were ['provider_b'], expected ['provider_a']"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.14295801520347595,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.10266690514981747,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "General agent turn via C"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.033041927963495255,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.0877920538187027,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.06054097320884466,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-F-LiteLLM-Router": {
+          "system_name": "Baseline-F-LiteLLM-Router",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 5.946499994024634,
+          "p95_latency_ms": 21.30296701798214,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 31.775666982866824,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 5.696707987226546,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 6.001082947477698,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 15.167832956649363,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "InternalServerError: litellm.InternalServerError: mock HTTP 503: {\"error\": {\"message\": \"Context Outage\", \"code\": 503}}. Received Model Group=lcb-router-provider_a\nAvailable Model Group Fallbacks=['lcb-router-provider_b']\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]. Received Model Group=lcb-router-provider_b\nAvailable Model Group Fallbacks=None\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 13.51304107811302,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "InternalServerError: litellm.InternalServerError: mock HTTP 503: {\"error\": {\"message\": \"Unavailable\", \"code\": 503}}. Received Model Group=lcb-router-provider_a\nAvailable Model Group Fallbacks=['lcb-router-provider_b']\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]. Received Model Group=lcb-router-provider_b\nAvailable Model Group Fallbacks=None\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 3.858207957819104,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 2.474582986906171,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 4.771542036905885,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 5.946499994024634,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 16.626207972876728,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 16.814667033031583,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 13.226458104327321,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 1.448625000193715,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 2.9289580415934324,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 4.340376006439328,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        }
+      },
+      "primary_research_benchmark": {
+        "task_completed": true,
+        "critical_state_preserved": true,
+        "tool_correctness": true,
+        "tool_executions": 1,
+        "duplicate_tool_execution": 0,
+        "receipt_replayed": true,
+        "semantic_error_rate_pct": 0.0,
+        "fallback_count": 2,
+        "total_attempts": 3,
+        "recovery_latency_ms": 0.7364579942077398,
+        "context_tokens_initial": 36071,
+        "context_tokens_final": 21661,
+        "context_reduction_pct": 39.94898949294447,
+        "failover_plans_generated": 2,
+        "receipt_cached": true
+      }
+    },
+    {
+      "system_summaries": {
+        "LLM-Circuit-Breaker-V3": {
+          "system_name": "LLM-Circuit-Breaker-V3",
+          "total_scenarios": 15,
+          "successful_scenarios": 15,
+          "completion_rate_pct": 100.0,
+          "recovery_rate_pct": 80.0,
+          "median_latency_ms": 11.496915947645903,
+          "p95_latency_ms": 312.43812938919183,
+          "avg_attempts_per_request": 2.6,
+          "avg_fallback_depth": 0.6,
+          "semantic_error_rate_pct": 0.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 12.386540998704731,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 1007.3951249942183,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Primary recovered"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.42229195870459,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.161416980437934,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Compacted context processed successfully by Secondary"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 14.599416987039149,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Retrieved and processed with secret intact"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.8754170266911387,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.4189159953966737,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.3181248903274536,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 12.435416923835874,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 11.496915947645903,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Provider recovered and healthy"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 12.944292044267058,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 10.90716605540365,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "General agent turn via C"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.5864580161869526,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Cost-efficient candidate output"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 1.10204191878438,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "tool_call"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "LLM-Circuit-Breaker-V3",
+              "success": true,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.27270789723843336,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Text only"
+            }
+          ]
+        },
+        "Baseline-A-Direct": {
+          "system_name": "Baseline-A-Direct",
+          "total_scenarios": 15,
+          "successful_scenarios": 0,
+          "completion_rate_pct": 0.0,
+          "recovery_rate_pct": 0.0,
+          "median_latency_ms": 0.013082986697554588,
+          "p95_latency_ms": 0.05309120751917355,
+          "avg_attempts_per_request": 1.2,
+          "avg_fallback_depth": 0,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.09987503290176392,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.010167015716433525,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 429"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.00666698906570673,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 504"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.014125020243227482,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.011041993275284767,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03304099664092064,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.0160830095410347,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03041699528694153,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.006500049494206905,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 502"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.005124951712787151,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.005415990017354488,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 500"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.005375011824071407,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.013082986697554588,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.027708010748028755,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-A-Direct",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.022666994482278824,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-B-Same-Provider-Retry": {
+          "system_name": "Baseline-B-Same-Provider-Retry",
+          "total_scenarios": 15,
+          "successful_scenarios": 3,
+          "completion_rate_pct": 20.0,
+          "recovery_rate_pct": 20.0,
+          "median_latency_ms": 0.029957969672977924,
+          "p95_latency_ms": 0.22538029588758918,
+          "avg_attempts_per_request": 2.3333333333333335,
+          "avg_fallback_depth": 0,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.04516600165516138,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.03766699228435755,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Primary recovered"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.021208077669143677,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.02587493509054184,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.028082984499633312,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.025416957214474678,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.016750069335103035,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03474997356534004,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.014165998436510563,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 502"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.14991802163422108,
+              "attempts_count": 5,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.04133395850658417,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "Success"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.40145893581211567,
+              "attempts_count": 3,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 503"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.028749927878379822,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.04591606557369232,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-B-Same-Provider-Retry",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.029957969672977924,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-C-Static-Fallback": {
+          "system_name": "Baseline-C-Static-Fallback",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 0.041749910451471806,
+          "p95_latency_ms": 0.1897169975563883,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.041749910451471806,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.022875028662383556,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.020875013433396816,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.11891697067767382,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.0315000070258975,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.05158304702490568,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.038958038203418255,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.048958929255604744,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.024250010028481483,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.16354199033230543,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.044749933294951916,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.050292001105844975,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.01954101026058197,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.2507920144125819,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-C-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03687490243464708,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-D-Breaker-Static-Fallback": {
+          "system_name": "Baseline-D-Breaker-Static-Fallback",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 0.05050003528594971,
+          "p95_latency_ms": 0.3666965174488719,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.056416960433125496,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.04054198507219553,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.038499943912029266,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.049166963435709476,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.04062510561197996,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "UpstreamError: HTTP 400"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03925000783056021,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.029416987672448158,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.05420902743935585,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.03529200330376625,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.6743759149685502,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.15137495938688517,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.23483391851186752,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.05050003528594971,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.11904211714863777,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-D-Breaker-Static-Fallback",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.09041582234203815,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-E-V1-Prototype": {
+          "system_name": "Baseline-E-V1-Prototype",
+          "total_scenarios": 15,
+          "successful_scenarios": 8,
+          "completion_rate_pct": 53.333333333333336,
+          "recovery_rate_pct": 53.333333333333336,
+          "median_latency_ms": 0.13279193080961704,
+          "p95_latency_ms": 5.25872061261907,
+          "avg_attempts_per_request": 2,
+          "avg_fallback_depth": 0.6,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.9352919878438115,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.15366706065833569,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.13279193080961704,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 6.46624993532896,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Compacted context processed successfully by Secondary"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 4.741208045743406,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Retrieved and processed with secret intact"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.09562494233250618,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.058582983911037445,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.1018760958686471,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.13475003652274609,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.38154085632413626,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 3 calls were ['provider_b'], expected ['provider_a']"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.14450005255639553,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 0.10875007137656212,
+              "attempts_count": 3,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "General agent turn via C"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.03270898014307022,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.09566603694111109,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-E-V1-Prototype",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 0.057459110394120216,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        },
+        "Baseline-F-LiteLLM-Router": {
+          "system_name": "Baseline-F-LiteLLM-Router",
+          "total_scenarios": 15,
+          "successful_scenarios": 5,
+          "completion_rate_pct": 33.33333333333333,
+          "recovery_rate_pct": 33.33333333333333,
+          "median_latency_ms": 7.419292000122368,
+          "p95_latency_ms": 19.296049163676795,
+          "avg_attempts_per_request": 2.2,
+          "avg_fallback_depth": 0.6666666666666666,
+          "semantic_error_rate_pct": 20.0,
+          "scenario_results": [
+            {
+              "scenario_id": "B1",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 16.88254193868488,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Build successful via Provider B"
+            },
+            {
+              "scenario_id": "B2",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 8.322499925270677,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Secondary fallback"
+            },
+            {
+              "scenario_id": "B3",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 6.1095410492271185,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Quick response from secondary"
+            },
+            {
+              "scenario_id": "B4",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 15.594208962284029,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "InternalServerError: litellm.InternalServerError: mock HTTP 503: {\"error\": {\"message\": \"Context Outage\", \"code\": 503}}. Received Model Group=lcb-router-provider_a\nAvailable Model Group Fallbacks=['lcb-router-provider_b']\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]. Received Model Group=lcb-router-provider_b\nAvailable Model Group Fallbacks=None\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]"
+            },
+            {
+              "scenario_id": "B5",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 21.73420798499137,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "InternalServerError: litellm.InternalServerError: mock HTTP 503: {\"error\": {\"message\": \"Unavailable\", \"code\": 503}}. Received Model Group=lcb-router-provider_a\nAvailable Model Group Fallbacks=['lcb-router-provider_b']\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]. Received Model Group=lcb-router-provider_b\nAvailable Model Group Fallbacks=None\nError doing the fallback: litellm.InternalServerError: mock HTTP 400: {\"error\": {\"message\": \"context_length_exceeded: maximum context length is 32768 tokens\", \"code\": 400}}No fallback model group found for original model_group=lcb-router-provider_b. Fallbacks=[{'lcb-router-provider_a': ['lcb-router-provider_b']}]"
+            },
+            {
+              "scenario_id": "B6",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 2.407207968644798,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B7",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 2.4141670437529683,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B8",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 3.0356660718098283,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: tool executed 2 times for one logical operation"
+            },
+            {
+              "scenario_id": "B9",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 7.419292000122368,
+              "attempts_count": 2,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "Complete atomic report successfully recovered"
+            },
+            {
+              "scenario_id": "B10",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 15.59245795942843,
+              "attempts_count": 5,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: provider_a was called in turn 2"
+            },
+            {
+              "scenario_id": "B11",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": true,
+              "recovery_occurred": true,
+              "total_latency_ms": 13.608374982140958,
+              "attempts_count": 3,
+              "fallback_depth": 2,
+              "semantic_error": false,
+              "final_output": "Cascade resolved at Provider C"
+            },
+            {
+              "scenario_id": "B12",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 18.25112395454198,
+              "attempts_count": 4,
+              "fallback_depth": 1,
+              "semantic_error": false,
+              "final_output": "verify: turn 2 calls were ['provider_a', 'provider_b'], expected ['provider_c']"
+            },
+            {
+              "scenario_id": "B13",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 1.9701669225469232,
+              "attempts_count": 1,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            },
+            {
+              "scenario_id": "B14",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 3.573334193788469,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": true,
+              "final_output": "invalid tool call delivered"
+            },
+            {
+              "scenario_id": "B15",
+              "system_name": "Baseline-F-LiteLLM-Router",
+              "success": false,
+              "recovery_occurred": false,
+              "total_latency_ms": 3.8824579678475857,
+              "attempts_count": 2,
+              "fallback_depth": 0,
+              "semantic_error": false,
+              "final_output": "verify: turn 1 calls were ['provider_a'], expected ['provider_b']"
+            }
+          ]
+        }
+      },
+      "primary_research_benchmark": {
+        "task_completed": true,
+        "critical_state_preserved": true,
+        "tool_correctness": true,
+        "tool_executions": 1,
+        "duplicate_tool_execution": 0,
+        "receipt_replayed": true,
+        "semantic_error_rate_pct": 0.0,
+        "fallback_count": 2,
+        "total_attempts": 3,
+        "recovery_latency_ms": 0.9591670241206884,
+        "context_tokens_initial": 36071,
+        "context_tokens_final": 21661,
+        "context_reduction_pct": 39.94898949294447,
+        "failover_plans_generated": 2,
+        "receipt_cached": true
+      }
+    }
+  ]
+}
