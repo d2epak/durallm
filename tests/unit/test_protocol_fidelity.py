@@ -4,8 +4,10 @@ import time
 import unittest
 
 from llm_circuit_breaker.protocol.anthropic import anthropic_request_to_ir, ir_to_anthropic_request, ir_to_anthropic_response
-from llm_circuit_breaker.protocol.gemini import ir_to_gemini_request
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedResponse, NormalizedToolDefinition
+from llm_circuit_breaker.protocol.gemini import clean_gemini_schema, gemini_response_to_ir, ir_to_gemini_request
+from llm_circuit_breaker.protocol.ir import (
+    NormalizedMessage, NormalizedRequest, NormalizedResponse, NormalizedToolDefinition, NormalizedToolResult,
+)
 from llm_circuit_breaker.protocol.openai import ir_to_openai_request, ir_to_openai_response, openai_request_to_ir
 
 TOOL = NormalizedToolDefinition(name="bash", description="run", parameters={"type": "object", "properties": {}})
@@ -96,6 +98,63 @@ class TestThinkingBlocks(unittest.TestCase):
         resp = ir_to_anthropic_response(
             NormalizedResponse(content="ok", reasoning_content="plan", reasoning_signature="s"), "m")
         self.assertEqual(resp["content"][0], {"type": "thinking", "thinking": "plan", "signature": "s"})
+
+
+class TestGeminiCodec(unittest.TestCase):
+
+    def test_function_responses_are_sent_in_a_user_turn(self):
+        ir = NormalizedRequest(messages=[
+            NormalizedMessage(role="user", content="ls"),
+            NormalizedMessage(role="tool", tool_results=[NormalizedToolResult(tool_call_id="c1", tool_name="ls", content="a.py")]),
+            NormalizedMessage(role="tool", name="ls", content="b.py"),
+        ])
+        contents = ir_to_gemini_request(ir, "gemini-2.5-flash")["contents"]
+        self.assertEqual([c["role"] for c in contents], ["user", "user", "user"])
+        self.assertIn("functionResponse", contents[1]["parts"][0])
+        self.assertIn("functionResponse", contents[2]["parts"][0])
+
+    def test_tool_call_ids_are_stable_across_decodes(self):
+        raw = {
+            "responseId": "abc123",
+            "candidates": [{"content": {"parts": [
+                {"text": "ok"},
+                {"functionCall": {"name": "ls", "args": {"dir": "."}}},
+                {"functionCall": {"name": "cat", "args": {"path": "x"}}},
+            ]}}],
+        }
+        first = gemini_response_to_ir(raw, "g")
+        second = gemini_response_to_ir(raw, "g")
+        self.assertEqual([tc.id for tc in first.tool_calls], ["call_abc123_1", "call_abc123_2"])
+        self.assertEqual([tc.id for tc in first.tool_calls], [tc.id for tc in second.tool_calls])
+        self.assertEqual(first.response_id, "abc123")
+
+    def test_response_without_response_id_still_gets_a_deterministic_id(self):
+        raw = {"candidates": [{"content": {"parts": [{"functionCall": {"name": "ls", "args": {}}}]}}]}
+        self.assertEqual(gemini_response_to_ir(raw, "g").response_id, gemini_response_to_ir(dict(raw), "g").response_id)
+        self.assertTrue(gemini_response_to_ir(raw, "g").tool_calls[0].id.startswith("call_gemini_"))
+
+    def test_schema_local_refs_are_inlined_instead_of_dropped(self):
+        schema = {
+            "type": "object",
+            "$defs": {"Target": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
+            "properties": {"target": {"$ref": "#/$defs/Target", "description": "where"}},
+        }
+        cleaned = clean_gemini_schema(schema)
+        self.assertNotIn("$defs", cleaned)
+        target = cleaned["properties"]["target"]
+        self.assertEqual(target["type"], "OBJECT")
+        self.assertEqual(target["properties"]["path"]["type"], "STRING")
+        self.assertEqual(target["required"], ["path"])
+        self.assertEqual(target["description"], "where")
+
+    def test_cyclic_refs_terminate(self):
+        schema = {
+            "type": "object",
+            "$defs": {"Node": {"type": "object", "properties": {"child": {"$ref": "#/$defs/Node"}}}},
+            "properties": {"root": {"$ref": "#/$defs/Node"}},
+        }
+        cleaned = clean_gemini_schema(schema)  # must not recurse forever
+        self.assertEqual(cleaned["properties"]["root"]["type"], "OBJECT")
 
 
 if __name__ == "__main__":

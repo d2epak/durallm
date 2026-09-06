@@ -6,8 +6,8 @@ between Normalized IR and Google AI Studio `/v1beta/models/...:generateContent`.
 
 from __future__ import annotations
 
+import hashlib
 import json
-import uuid
 from typing import Any, Dict, List, Optional
 
 from llm_circuit_breaker.protocol.ir import (
@@ -17,7 +17,91 @@ from llm_circuit_breaker.protocol.ir import (
     NormalizedToolCall,
     NormalizedToolDefinition,
 )
-from llm_circuit_breaker.translators import clean_gemini_schema
+
+_GEMINI_TYPE_MAP = {
+    "object": "OBJECT",
+    "string": "STRING",
+    "integer": "INTEGER",
+    "number": "NUMBER",
+    "boolean": "BOOLEAN",
+    "array": "ARRAY",
+}
+_GEMINI_PROHIBITED_KEYS = {
+    "$schema", "additionalProperties", "default", "title",
+    "$id", "$comment", "examples", "definitions", "$defs",
+}
+_MAX_REF_DEPTH = 8
+
+
+def _resolve_local_ref(ref: str, definitions: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    parts = ref.split("/")
+    if len(parts) == 3 and parts[0] == "#" and parts[1] in ("$defs", "definitions"):
+        target = definitions.get(parts[2])
+        return target if isinstance(target, dict) else None
+    return None
+
+
+def clean_gemini_schema(schema: Any, _definitions: Optional[Dict[str, Any]] = None, _depth: int = 0) -> Any:
+    """Sanitize a JSON schema for a Gemini FunctionDeclaration.
+
+    Gemini's Schema proto has no `$defs`/`$ref`, so local references are inlined
+    (bounded depth; cycles collapse to a bare OBJECT) instead of being dropped.
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    if _definitions is None:
+        _definitions = {**schema.get("definitions", {}), **schema.get("$defs", {})}
+
+    ref = schema.get("$ref")
+    if isinstance(ref, str):
+        target = _resolve_local_ref(ref, _definitions)
+        if target is None or _depth >= _MAX_REF_DEPTH:
+            return {"type": "OBJECT"}
+        merged = {**target, **{k: v for k, v in schema.items() if k != "$ref"}}
+        return clean_gemini_schema(merged, _definitions, _depth + 1)
+
+    cleaned: Dict[str, Any] = {}
+    for k, v in schema.items():
+        if k in _GEMINI_PROHIBITED_KEYS:
+            continue
+
+        if k == "type":
+            if isinstance(v, str):
+                cleaned["type"] = _GEMINI_TYPE_MAP.get(v.lower(), v.upper())
+            elif isinstance(v, list):
+                non_null = [x for x in v if x != "null"]
+                first_type = non_null[0] if non_null else "string"
+                cleaned["type"] = _GEMINI_TYPE_MAP.get(first_type.lower(), "STRING")
+            else:
+                cleaned["type"] = "OBJECT"
+        elif k == "properties" and isinstance(v, dict):
+            cleaned["properties"] = {
+                prop_k: clean_gemini_schema(prop_v, _definitions, _depth + 1)
+                for prop_k, prop_v in v.items()
+            }
+        elif k == "items" and isinstance(v, dict):
+            cleaned["items"] = clean_gemini_schema(v, _definitions, _depth + 1)
+        elif k == "required" and isinstance(v, list):
+            cleaned["required"] = [str(x) for x in v]
+        elif k == "description" and isinstance(v, str):
+            cleaned["description"] = v
+        elif k == "enum" and isinstance(v, list):
+            cleaned["enum"] = [str(x) for x in v]
+
+    if "type" not in cleaned:
+        cleaned["type"] = "OBJECT"
+
+    return cleaned
+
+
+def _gemini_response_id(gemini_resp: Dict[str, Any]) -> str:
+    """Stable id for a response: the API's responseId, else a digest of the body."""
+    rid = gemini_resp.get("responseId")
+    if isinstance(rid, str) and rid:
+        return rid
+    body = json.dumps(gemini_resp, sort_keys=True, default=str).encode("utf-8")
+    return f"gemini_{hashlib.sha1(body).hexdigest()[:12]}"
 
 
 def tool_choice_to_gemini(tool_choice: Any) -> Optional[Dict[str, Any]]:
@@ -84,9 +168,10 @@ def ir_to_gemini_request(req: NormalizedRequest, target_model: str) -> Dict[str,
             contents.append({"role": "model", "parts": parts or [{"text": ""}]})
 
         elif m.role == "tool":
+            # Gemini expects functionResponse parts in a "user" turn; "function" is rejected.
             for tr in m.tool_results:
                 contents.append({
-                    "role": "function",
+                    "role": "user",
                     "parts": [
                         {
                             "functionResponse": {
@@ -98,7 +183,7 @@ def ir_to_gemini_request(req: NormalizedRequest, target_model: str) -> Dict[str,
                 })
             if not m.tool_results and m.content:
                 contents.append({
-                    "role": "function",
+                    "role": "user",
                     "parts": [{"functionResponse": {"name": m.name or "tool", "response": {"output": m.content}}}],
                 })
 
@@ -136,9 +221,10 @@ def ir_to_gemini_request(req: NormalizedRequest, target_model: str) -> Dict[str,
 def gemini_response_to_ir(gemini_resp: Dict[str, Any], model_name: str) -> NormalizedResponse:
     """Convert Gemini generateContent response into NormalizedResponse IR."""
     candidates = gemini_resp.get("candidates", [])
+    response_id = _gemini_response_id(gemini_resp)
     if not candidates:
         return NormalizedResponse(
-            response_id=f"gemini_{uuid.uuid4().hex[:8]}",
+            response_id=response_id,
             model=model_name,
             content="",
             finish_reason="stop",
@@ -152,7 +238,7 @@ def gemini_response_to_ir(gemini_resp: Dict[str, Any], model_name: str) -> Norma
     text_pieces: List[str] = []
     tool_calls: List[NormalizedToolCall] = []
 
-    for p in parts:
+    for index, p in enumerate(parts):
         if "text" in p:
             text_pieces.append(p["text"])
         elif "functionCall" in p:
@@ -160,7 +246,9 @@ def gemini_response_to_ir(gemini_resp: Dict[str, Any], model_name: str) -> Norma
             args = fc.get("args", {})
             tool_calls.append(
                 NormalizedToolCall(
-                    id=f"call_{uuid.uuid4().hex[:8]}",
+                    # Gemini gives functionCall parts no id; derive one that is identical on
+                    # a retry so the tool ledger can recognise the same call.
+                    id=f"call_{response_id}_{index}",
                     name=fc.get("name", ""),
                     arguments=args if isinstance(args, dict) else {},
                     raw_arguments=json.dumps(args, ensure_ascii=False) if isinstance(args, dict) else str(args),
@@ -171,7 +259,7 @@ def gemini_response_to_ir(gemini_resp: Dict[str, Any], model_name: str) -> Norma
     finish_reason = "tool_calls" if tool_calls else "stop"
 
     return NormalizedResponse(
-        response_id=f"gemini_{uuid.uuid4().hex[:8]}",
+        response_id=response_id,
         model=model_name,
         content="".join(text_pieces) if text_pieces else None,
         tool_calls=tool_calls,

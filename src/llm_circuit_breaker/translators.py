@@ -12,6 +12,8 @@ import time
 import uuid
 from typing import Any, Dict, List, Optional
 
+from llm_circuit_breaker.protocol.gemini import clean_gemini_schema  # noqa: F401  (re-exported)
+
 
 def repair_json_string(raw: str) -> Optional[str]:
     """Repair minor JSON formatting anomalies from open-weights models.
@@ -34,59 +36,6 @@ def repair_json_string(raw: str) -> Optional[str]:
     except Exception:
         return None
     return cleaned if isinstance(parsed, dict) else None
-
-
-def clean_gemini_schema(schema: Any) -> Any:
-    """Recursively sanitize JSON schema to be 100% compatible with Gemini FunctionDeclaration protobuf."""
-    if not isinstance(schema, dict):
-        return schema
-
-    cleaned: Dict[str, Any] = {}
-    type_map = {
-        "object": "OBJECT",
-        "string": "STRING",
-        "integer": "INTEGER",
-        "number": "NUMBER",
-        "boolean": "BOOLEAN",
-        "array": "ARRAY",
-    }
-
-    prohibited_keys = {
-        "$schema", "additionalProperties", "default", "title",
-        "$id", "$comment", "examples", "definitions", "$defs"
-    }
-
-    for k, v in schema.items():
-        if k in prohibited_keys:
-            continue
-
-        if k == "type":
-            if isinstance(v, str):
-                cleaned["type"] = type_map.get(v.lower(), v.upper())
-            elif isinstance(v, list):
-                non_null = [x for x in v if x != "null"]
-                first_type = non_null[0] if non_null else "string"
-                cleaned["type"] = type_map.get(first_type.lower(), "STRING")
-            else:
-                cleaned["type"] = "OBJECT"
-        elif k == "properties" and isinstance(v, dict):
-            cleaned["properties"] = {
-                prop_k: clean_gemini_schema(prop_v)
-                for prop_k, prop_v in v.items()
-            }
-        elif k == "items" and isinstance(v, dict):
-            cleaned["items"] = clean_gemini_schema(v)
-        elif k == "required" and isinstance(v, list):
-            cleaned["required"] = [str(x) for x in v]
-        elif k == "description" and isinstance(v, str):
-            cleaned["description"] = v
-        elif k == "enum" and isinstance(v, list):
-            cleaned["enum"] = [str(x) for x in v]
-
-    if "type" not in cleaned:
-        cleaned["type"] = "OBJECT"
-
-    return cleaned
 
 
 def convert_openai_to_gemini_payload(openai_req: Dict[str, Any]) -> Dict[str, Any]:
