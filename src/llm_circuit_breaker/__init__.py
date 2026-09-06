@@ -40,6 +40,15 @@ from llm_circuit_breaker.classifier import (
     parse_retry_after,
 )
 from llm_circuit_breaker.config import GatewayConfig
+from llm_circuit_breaker.continuation import (
+    ACP_VERSION,
+    Checkpoint,
+    ContinuationEvent,
+    ContinuationRequest,
+    ContinuationStore,
+    ContinuationTurn,
+    InMemoryContinuationStore,
+)
 from llm_circuit_breaker.discovery import (
     discover_free_models,
     is_model_free,
@@ -49,6 +58,7 @@ from llm_circuit_breaker.errors import (
     BreakerOpenError,
     CircuitBreakerError,
     ContextOverflowError,
+    ContinuationProtocolError,
     CycleDetectedError,
     DeadlineExceededError,
     GatewayError,
@@ -162,6 +172,14 @@ __all__ = [
     "ToolValidationReport",
     "ContextManager",
     "ContextBudget",
+    # Agent Continuation Protocol
+    "ACP_VERSION",
+    "Checkpoint",
+    "ContinuationEvent",
+    "ContinuationRequest",
+    "ContinuationStore",
+    "ContinuationTurn",
+    "InMemoryContinuationStore",
     # Protocol IR
     "NormalizedRequest",
     "NormalizedResponse",
@@ -203,6 +221,7 @@ __all__ = [
     "DeadlineExceededError",
     "NoHealthyRouteError",
     "UnsafeToolCallError",
+    "ContinuationProtocolError",
     "ContextOverflowError",
     "CycleDetectedError",
     # Configuration

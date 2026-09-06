@@ -17,9 +17,10 @@ import logging
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
-from llm_circuit_breaker.errors import CircuitBreakerGatewayError
+from llm_circuit_breaker.continuation import ContinuationEvent, ContinuationRequest
+from llm_circuit_breaker.errors import CircuitBreakerGatewayError, ContinuationProtocolError
 from llm_circuit_breaker.gateway import ProxyGateway, http_error_for
 from llm_circuit_breaker.observability.logger import DEFAULT_STRUCTURED_LOGGER
 from llm_circuit_breaker.pools import POOL_MANAGER
@@ -43,26 +44,68 @@ def pool_for_model(requested_model: str) -> str:
     return "coding" if any(k in requested_model.lower() for k in ["code", "claude", "coder"]) else "general_agent"
 
 
-def serve_messages(body: Dict[str, Any]):
+def serve_messages(body: Dict[str, Any], continuation: Optional[ContinuationRequest] = None):
     """Anthropic /v1/messages body -> (status, response dict, selected endpoint)."""
     requested_model = body.get("model", "auto-coding-agent")
     try:
-        response, decision, _ = GATEWAY.complete(anthropic_request_to_ir(body), pool="coding")
+        response, decision, _, event = GATEWAY.complete_turn(
+            anthropic_request_to_ir(body), pool="coding", continuation=continuation
+        )
     except CircuitBreakerGatewayError as exc:
         status, kind = http_error_for(exc)
-        return status, {"type": "error", "error": {"type": kind, "message": str(exc)}}, None
-    return 200, ir_to_anthropic_response(response, requested_model), decision.selected_endpoint
+        return status, {"type": "error", "error": {"type": kind, "message": str(exc)}}, None, None
+    return 200, ir_to_anthropic_response(response, requested_model), decision.selected_endpoint, event
 
 
-def serve_chat_completions(body: Dict[str, Any]):
+def serve_chat_completions(body: Dict[str, Any], continuation: Optional[ContinuationRequest] = None):
     """OpenAI /v1/chat/completions body -> (status, response dict, selected endpoint)."""
     requested_model = body.get("model", "hermes-default")
     try:
-        response, decision, _ = GATEWAY.complete(openai_request_to_ir(body), pool=pool_for_model(requested_model))
+        response, decision, _, event = GATEWAY.complete_turn(
+            openai_request_to_ir(body), pool=pool_for_model(requested_model), continuation=continuation
+        )
     except CircuitBreakerGatewayError as exc:
         status, kind = http_error_for(exc)
-        return status, {"error": {"type": kind, "message": str(exc)}}, None
-    return 200, ir_to_openai_response(response, requested_model), decision.selected_endpoint
+        return status, {"error": {"type": kind, "message": str(exc)}}, None, None
+    return 200, ir_to_openai_response(response, requested_model), decision.selected_endpoint, event
+
+
+def continuation_request_from_headers(headers: Any) -> Optional[ContinuationRequest]:
+    """Decode an opt-in ACP request; normal OpenAI/Anthropic calls stay best-effort."""
+    version = headers.get("X-LCB-ACP-Version")
+    acp_values = (
+        "X-LCB-Session-Id",
+        "X-LCB-Parent-Checkpoint-Digest",
+        "X-LCB-State-Digest",
+    )
+    if version is None:
+        if any(headers.get(name) for name in acp_values):
+            raise ContinuationProtocolError("ACP headers require X-LCB-ACP-Version", status_code=400)
+        return None
+    return ContinuationRequest(
+        protocol_version=version,
+        session_id=headers.get("X-LCB-Session-Id") or None,
+        parent_checkpoint_digest=headers.get("X-LCB-Parent-Checkpoint-Digest") or None,
+        state_digest=headers.get("X-LCB-State-Digest") or "",
+    )
+
+
+def continuation_headers(event: Optional[ContinuationEvent]) -> Dict[str, str]:
+    """Expose ACP metadata in headers without changing provider-native bodies."""
+    if event is None:
+        return {}
+    result = {
+        "X-LCB-ACP-Version": event.protocol_version,
+        "X-LCB-Continuation-Event": event.event_type,
+        "X-LCB-Session-Id": event.session_id,
+        "X-LCB-Turn-Id": event.turn_id,
+        "X-LCB-Epoch": str(event.epoch),
+        "X-LCB-Ack-Required": "true" if event.ack_required else "false",
+    }
+    if event.checkpoint is not None:
+        result["X-LCB-Checkpoint-Id"] = event.checkpoint.checkpoint_id
+        result["X-LCB-Checkpoint-Digest"] = event.checkpoint.gateway_digest
+    return result
 
 
 class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
@@ -91,12 +134,14 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             model=route.model if route else None,
         )
 
-    def _send_json(self, status: int, data: Any) -> None:
+    def _send_json(self, status: int, data: Any, extra_headers: Optional[Dict[str, str]] = None) -> None:
         encoded = json.dumps(data, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(encoded)))
         self.send_header("Connection", "close")
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(encoded)
 
@@ -182,6 +227,31 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(400, {"error": {"message": f"Malformed JSON body: {e}"}})
             return
 
+        if path == "/v1/continuations/ack":
+            try:
+                event = GATEWAY.acknowledge_continuation(
+                    session_id=str(body.get("session_id", "")),
+                    turn_id=str(body.get("turn_id", "")),
+                    epoch=int(body.get("epoch")),
+                    checkpoint_digest=str(body.get("checkpoint_digest", "")),
+                )
+            except (TypeError, ValueError, CircuitBreakerGatewayError) as exc:
+                if isinstance(exc, CircuitBreakerGatewayError):
+                    status, kind = http_error_for(exc)
+                else:
+                    status, kind = 400, "continuation_protocol_error"
+                self._send_json(status, {"error": {"type": kind, "message": str(exc)}})
+                return
+            self._send_json(200, {"continuation": event.to_dict()}, continuation_headers(event))
+            return
+
+        try:
+            continuation = continuation_request_from_headers(self.headers)
+        except CircuitBreakerGatewayError as exc:
+            status, kind = http_error_for(exc)
+            self._send_json(status, {"error": {"type": kind, "message": str(exc)}})
+            return
+
         # ------------------------------------------------------------------
         # 1. ANTHROPIC TOKEN COUNTING
         # ------------------------------------------------------------------
@@ -194,34 +264,40 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         # 2. ANTHROPIC MESSAGES (Claude Code)
         # ------------------------------------------------------------------
         if path in ("/v1/messages", "/messages"):
-            status, anthropic_resp, self._route = serve_messages(body)
+            status, anthropic_resp, self._route, event = serve_messages(body, continuation)
+            headers = continuation_headers(event)
             if status != 200:
-                self._send_json(status, anthropic_resp)
+                self._send_json(status, anthropic_resp, headers)
             elif body.get("stream", False):
-                self._emit_synthetic_anthropic_stream(anthropic_resp)
+                self._emit_synthetic_anthropic_stream(anthropic_resp, headers)
             else:
-                self._send_json(200, anthropic_resp)
+                self._send_json(200, anthropic_resp, headers)
             return
 
         # ------------------------------------------------------------------
         # 3. OPENAI CHAT COMPLETIONS (Hermes Agent, OpenClaw, Cursor)
         # ------------------------------------------------------------------
         if path in ("/v1/chat/completions", "/chat/completions"):
-            status, openai_resp, self._route = serve_chat_completions(body)
+            status, openai_resp, self._route, event = serve_chat_completions(body, continuation)
+            headers = continuation_headers(event)
             if status == 200 and body.get("stream", False):
-                self._emit_synthetic_openai_stream(openai_resp, body.get("model", "hermes-default"))
+                self._emit_synthetic_openai_stream(openai_resp, body.get("model", "hermes-default"), headers)
             else:
-                self._send_json(status, openai_resp)
+                self._send_json(status, openai_resp, headers)
             return
 
         self._send_json(404, {"error": {"message": f"POST endpoint {path} not found"}})
 
-    def _emit_synthetic_anthropic_stream(self, anthropic_resp: Dict[str, Any]) -> None:
+    def _emit_synthetic_anthropic_stream(
+        self, anthropic_resp: Dict[str, Any], extra_headers: Optional[Dict[str, str]] = None
+    ) -> None:
         """Deliver clean synthetic Anthropic SSE events to Claude Code."""
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "close")
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
 
         def send_event(event_type: str, data: Dict[str, Any]) -> None:
@@ -281,12 +357,16 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         })
         send_event("message_stop", {"type": "message_stop"})
 
-    def _emit_synthetic_openai_stream(self, openai_resp: Dict[str, Any], model: str) -> None:
+    def _emit_synthetic_openai_stream(
+        self, openai_resp: Dict[str, Any], model: str, extra_headers: Optional[Dict[str, str]] = None
+    ) -> None:
         """Deliver standard OpenAI SSE chunks."""
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
         self.send_header("Cache-Control", "no-cache")
         self.send_header("Connection", "close")
+        for name, value in (extra_headers or {}).items():
+            self.send_header(name, value)
         self.end_headers()
 
         choices = openai_resp.get("choices", [])
@@ -349,14 +429,69 @@ def create_proxy_app():
     @app.post("/v1/messages")
     async def messages(req: Request):
         body = await req.json()
-        status, anthropic_resp, _ = serve_messages(body)
-        return Response(content=json.dumps(anthropic_resp), status_code=status, media_type="application/json")
+        try:
+            continuation = continuation_request_from_headers(req.headers)
+        except CircuitBreakerGatewayError as exc:
+            status, kind = http_error_for(exc)
+            return Response(
+                content=json.dumps({"type": "error", "error": {"type": kind, "message": str(exc)}}),
+                status_code=status,
+                media_type="application/json",
+            )
+        status, anthropic_resp, _, event = serve_messages(body, continuation)
+        return Response(
+            content=json.dumps(anthropic_resp),
+            status_code=status,
+            media_type="application/json",
+            headers=continuation_headers(event),
+        )
 
     @app.post("/v1/chat/completions")
     async def completions(req: Request):
         body = await req.json()
-        status, openai_resp, _ = serve_chat_completions(body)
-        return Response(content=json.dumps(openai_resp), status_code=status, media_type="application/json")
+        try:
+            continuation = continuation_request_from_headers(req.headers)
+        except CircuitBreakerGatewayError as exc:
+            status, kind = http_error_for(exc)
+            return Response(
+                content=json.dumps({"error": {"type": kind, "message": str(exc)}}),
+                status_code=status,
+                media_type="application/json",
+            )
+        status, openai_resp, _, event = serve_chat_completions(body, continuation)
+        return Response(
+            content=json.dumps(openai_resp),
+            status_code=status,
+            media_type="application/json",
+            headers=continuation_headers(event),
+        )
+
+    @app.post("/v1/continuations/ack")
+    async def acknowledge_continuation(req: Request):
+        body = await req.json()
+        try:
+            event = GATEWAY.acknowledge_continuation(
+                session_id=str(body.get("session_id", "")),
+                turn_id=str(body.get("turn_id", "")),
+                epoch=int(body.get("epoch")),
+                checkpoint_digest=str(body.get("checkpoint_digest", "")),
+            )
+        except (TypeError, ValueError, CircuitBreakerGatewayError) as exc:
+            if isinstance(exc, CircuitBreakerGatewayError):
+                status, kind = http_error_for(exc)
+            else:
+                status, kind = 400, "continuation_protocol_error"
+            return Response(
+                content=json.dumps({"error": {"type": kind, "message": str(exc)}}),
+                status_code=status,
+                media_type="application/json",
+            )
+        return Response(
+            content=json.dumps({"continuation": event.to_dict()}),
+            status_code=200,
+            media_type="application/json",
+            headers=continuation_headers(event),
+        )
 
     return app
 

@@ -125,3 +125,11 @@ class ProtocolTranslationError(CircuitBreakerGatewayError):
 
 class ConfigurationError(CircuitBreakerGatewayError):
     """Raised on invalid gateway configuration."""
+
+
+class ContinuationProtocolError(CircuitBreakerGatewayError):
+    """Raised when an Agent Continuation Protocol request is invalid or stale."""
+
+    def __init__(self, message: str, status_code: int = 400, details: Optional[Dict[str, Any]] = None):
+        super().__init__(message, details=details)
+        self.status_code = status_code

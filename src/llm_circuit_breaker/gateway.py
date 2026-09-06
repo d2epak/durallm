@@ -12,10 +12,17 @@ import threading
 from typing import Optional, Tuple
 
 from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
+from llm_circuit_breaker.continuation import (
+    ContinuationEvent,
+    ContinuationRequest,
+    ContinuationStore,
+    InMemoryContinuationStore,
+)
 from llm_circuit_breaker.errors import (
     CircuitBreakerGatewayError,
     ConfigurationError,
     ContextOverflowError,
+    ContinuationProtocolError,
     DeadlineExceededError,
     NoHealthyRouteError,
     NonRecoverableFailureError,
@@ -60,17 +67,27 @@ def http_error_for(exc: CircuitBreakerGatewayError) -> Tuple[int, str]:
         return (code if isinstance(code, int) and 400 <= code < 500 else 502), "upstream_failure"
     if isinstance(exc, ConfigurationError):
         return 500, "configuration_error"
+    if isinstance(exc, ContinuationProtocolError):
+        return exc.status_code, "continuation_protocol_error"
     return 502, "gateway_error"
 
 
 class ProxyGateway:
     """Serves proxy requests from GatewayExecutor, fed by the pool manager's routes and keys."""
 
-    def __init__(self, pool_manager: Optional[IsolatedPoolManager] = None, executor: Optional[GatewayExecutor] = None):
+    def __init__(
+        self,
+        pool_manager: Optional[IsolatedPoolManager] = None,
+        executor: Optional[GatewayExecutor] = None,
+        continuation_store: Optional[ContinuationStore] = None,
+    ):
         self.pool_manager = pool_manager or POOL_MANAGER
         self.executor = executor or GatewayExecutor()
         self._lock = threading.Lock()
         self._synced: set = set()
+        # Process-local by default. A durable store is intentionally injected by
+        # the next persistence milestone; ACP headers never imply crash recovery.
+        self.continuation_store = continuation_store or InMemoryContinuationStore()
 
     def sync_endpoints(self) -> None:
         """Register every usable pool route once; called per request so `--discover` additions are picked up."""
@@ -94,3 +111,30 @@ class ProxyGateway:
     def complete(self, request: NormalizedRequest, pool: str) -> Tuple[NormalizedResponse, RoutingDecision, AttemptLedger]:
         self.sync_endpoints()
         return self.executor.execute(request, pool=pool, strategy="priority", api_keys=self.pool_manager.keys)
+
+    def complete_turn(
+        self,
+        request: NormalizedRequest,
+        pool: str,
+        continuation: Optional[ContinuationRequest] = None,
+    ) -> Tuple[NormalizedResponse, RoutingDecision, AttemptLedger, Optional[ContinuationEvent]]:
+        """Execute a request and emit an ACP event only for an opted-in client."""
+        if continuation is None:
+            response, decision, ledger = self.complete(request, pool)
+            return response, decision, ledger, None
+
+        turn = self.continuation_store.begin_turn(continuation)
+        try:
+            response, decision, ledger = self.complete(request, pool)
+        except Exception as exc:
+            self.continuation_store.interrupt_turn(turn, detail=str(exc))
+            raise
+        endpoint = decision.selected_endpoint.id if decision.selected_endpoint else "unknown"
+        event = self.continuation_store.complete_turn(turn, request, response, endpoint)
+        return response, decision, ledger, event
+
+    def acknowledge_continuation(
+        self, session_id: str, turn_id: str, epoch: int, checkpoint_digest: str
+    ) -> ContinuationEvent:
+        """Record the client acknowledgement required before its next ACP turn."""
+        return self.continuation_store.acknowledge(session_id, turn_id, epoch, checkpoint_digest)

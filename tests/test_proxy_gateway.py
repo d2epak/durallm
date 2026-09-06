@@ -155,6 +155,70 @@ class TestProxyServedByExecutor(unittest.TestCase):
         ids = {e.id for e in self.gateway.executor.capability_registry.endpoints_for_pool("general_agent")}
         self.assertIn("general_agent:late", ids)
 
+    def test_acp_http_sequence_requires_a_checkpoint_acknowledgement(self):
+        self.mock_a.set_sequence([MockFaultAction.success("first turn"), MockFaultAction.success("second turn")])
+        first_state = "a" * 64
+        status, headers, raw = self._post(
+            "/v1/chat/completions",
+            {"model": "hermes-default", "messages": [{"role": "user", "content": "first"}]},
+            headers={"X-LCB-ACP-Version": "lcb-acp/1", "X-LCB-State-Digest": first_state},
+        )
+
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)["choices"][0]["message"]["content"], "first turn")
+        self.assertEqual(headers["X-LCB-ACP-Version"], "lcb-acp/1")
+        self.assertEqual(headers["X-LCB-Continuation-Event"], "turn_completed")
+        self.assertEqual(headers["X-LCB-Epoch"], "0")
+        self.assertEqual(headers["X-LCB-Ack-Required"], "true")
+
+        session_id = headers["X-LCB-Session-Id"]
+        turn_id = headers["X-LCB-Turn-Id"]
+        checkpoint = headers["X-LCB-Checkpoint-Digest"]
+        status, ack_headers, raw = self._post(
+            "/v1/continuations/ack",
+            {"session_id": session_id, "turn_id": turn_id, "epoch": 0, "checkpoint_digest": checkpoint},
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(json.loads(raw)["continuation"]["event_type"], "checkpoint_acknowledged")
+        self.assertEqual(ack_headers["X-LCB-Ack-Required"], "false")
+
+        status, headers, _ = self._post(
+            "/v1/chat/completions",
+            {"model": "hermes-default", "messages": [{"role": "user", "content": "second"}]},
+            headers={
+                "X-LCB-ACP-Version": "lcb-acp/1",
+                "X-LCB-Session-Id": session_id,
+                "X-LCB-Parent-Checkpoint-Digest": checkpoint,
+                "X-LCB-State-Digest": "b" * 64,
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["X-LCB-Epoch"], "1")
+
+        status, _, raw = self._post(
+            "/v1/chat/completions",
+            {"model": "hermes-default", "messages": [{"role": "user", "content": "must not run"}]},
+            headers={
+                "X-LCB-ACP-Version": "lcb-acp/1",
+                "X-LCB-Session-Id": session_id,
+                "X-LCB-Parent-Checkpoint-Digest": headers["X-LCB-Checkpoint-Digest"],
+                "X-LCB-State-Digest": "c" * 64,
+            },
+        )
+        self.assertEqual(status, 409)
+        self.assertEqual(json.loads(raw)["error"]["type"], "continuation_protocol_error")
+        self.assertEqual(len(self.mock_a.call_history), 2)
+
+    def test_acp_data_without_its_version_is_rejected_before_dispatch(self):
+        status, _, raw = self._post(
+            "/v1/chat/completions",
+            {"model": "hermes-default", "messages": [{"role": "user", "content": "no ACP version"}]},
+            headers={"X-LCB-State-Digest": "a" * 64},
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(json.loads(raw)["error"]["type"], "continuation_protocol_error")
+        self.assertEqual(len(self.mock_a.call_history), 0)
+
 
 if __name__ == "__main__":
     unittest.main()
