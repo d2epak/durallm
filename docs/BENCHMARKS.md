@@ -1,6 +1,6 @@
 # Reproducible Benchmarks & Empirical Evaluation
 
-This document details the design, implementation, and results of the **B1 through B15 Benchmark Suite**, the **6 Comparative Baselines**, and the **Primary Research Benchmark** in **LLM Circuit Breaker (V3)**.
+This document details the design, implementation, and results of the **B1 through B15 Benchmark Suite**, the **3 Comparative Baselines**, and the **Primary Research Benchmark** in **LLM Circuit Breaker (V3)**.
 
 ---
 
@@ -28,12 +28,12 @@ This document details the design, implementation, and results of the **B1 throug
 
 | Baseline / System | Completion Rate | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **0.12 ms** | **1.04 ms** | **0.0%** |
-| **Baseline-A-Direct** | 53.3% | 0.0% | 0.02 ms | 0.04 ms | 6.7% |
-| **Baseline-B-Same-Provider-Retry** | 93.3% | 40.0% | 0.03 ms | 0.05 ms | 6.7% |
-| **Baseline-C-Static-Fallback** | 93.3% | 46.7% | 0.04 ms | 0.06 ms | 6.7% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **1.34 ms** | **1003.65 ms** | **0.0%** |
+| **Baseline-A-Direct** | 53.3% | 0.0% | 0.00 ms | 0.01 ms | 0.0% |
+| **Baseline-B-Same-Provider-Retry** | 93.3% | 40.0% | 0.00 ms | 0.01 ms | 0.0% |
+| **Baseline-C-Static-Fallback** | 93.3% | 46.7% | 0.00 ms | 0.01 ms | 6.7% |
 
-*Takeaway:* While basic retry and fallback catch common HTTP 5xx errors, **only V3 achieves 100% completion while maintaining 0.0% semantic error rate** by catching malformed tool schemas and adapting context windows.
+*Takeaway:* Retry and static fallback catch the common HTTP 5xx cases, but **only V3 completes all 15 scenarios**; the static-fallback baseline forwards one malformed tool call (6.7% semantic error rate). All rows run in one process against the same mock providers, so latencies measure harness overhead; the V3 P95 is the `Retry-After` wait honoured in B2.
 
 ---
 

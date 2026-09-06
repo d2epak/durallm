@@ -1,9 +1,9 @@
-# ⚡ LLM Circuit Breaker (V3)
+# ⚡ LLM Circuit Breaker
 
 [![CI](https://github.com/d2epak/llm-circuit-breaker/actions/workflows/ci.yml/badge.svg)](https://github.com/d2epak/llm-circuit-breaker/actions/workflows/ci.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Parity: Resilience4j](https://img.shields.io/badge/Circuit%20Breaker-Resilience4j%20Parity-brightgreen.svg)]()
+[![Circuit Breaker: 6-state FSM](https://img.shields.io/badge/Circuit%20Breaker-6--state%20FSM-brightgreen.svg)]()
 [![Zero Core Dependencies](https://img.shields.io/badge/Core%20Dependencies-Zero-success.svg)]()
 
 A lightweight, self-hostable **agent-resilience gateway** engineered for autonomous AI agents (**Claude Code**, **Hermes Agent**, **OpenClaw**, **Cursor**, **Aider**). 
@@ -22,15 +22,18 @@ An independent adversarial review on 2026-09-06 found the following. Read this b
 - `ContextManager`: preserves system prompt, first user turn and last K turns; compacts tool results.
 - Zero third-party dependencies.
 - Importing the package makes no network call and reads no dotfiles. OpenRouter discovery and `~/.zshrc`/`.env` key scanning are opt-in (`LLM_BREAKER_AUTO_DISCOVER=1`, `LLM_BREAKER_SCAN_DOTFILES=1`, or `llm-proxy --discover`).
+- The `llm-proxy` HTTP server (`/v1/messages`, `/v1/chat/completions`) serves every request through `GatewayExecutor`: breaker admission, exponential backoff that honours `Retry-After`, classifier-driven retry/fallback, rejection of empty HTTP 200 bodies, fail-closed tool validation, ledger replay of committed tool calls, compact-and-retry on size rejections, and breakers keyed per deployment. Covered by `tests/test_proxy_gateway.py` with mock adapters.
+- Security defaults: upstream URLs that resolve to loopback or RFC 1918 addresses are refused unless `LLM_BREAKER_ALLOW_LOCAL_UPSTREAM=1` (cloud metadata hosts are always refused); request and response bodies above 10 MB are rejected; every upstream attempt and proxy response is emitted as a redacted JSON event on the `llm_circuit_breaker.events` logger.
 
-**Experimental (Python API only)**
-- The V3 engine (`GatewayExecutor`, `CapabilityRouter`, protocol IR, `FailoverPlan`, tool ledger) is reachable only from Python. **The HTTP proxy started by `llm-proxy` still runs the legacy V1 router** and does not use any of it.
-- Since the 2026-09-06 review the V3 executor applies exponential backoff and honours `Retry-After`, follows the classifier's retry/fallback flags, rejects HTTP 200 responses with empty bodies, replays committed tool calls from the ledger instead of re-issuing them, compacts and retries the same candidate on a size rejection, enforces `maximum_cost_usd`/`latency_budget_ms`, and keys breakers per deployment. Each is covered by tests in `tests/`, but none of it is reachable through the HTTP proxy yet.
+**Experimental**
+- The proxy and executor have been exercised only against mock adapters. No load or soak test against live providers has been run.
+- `CapabilityRouter` cost/latency constraints, the Gemini codec and Anthropic thinking-signature passthrough are tested with recorded shapes, not live traffic.
 
 **Known not yet delivered**
 - 402 and 429 open the breaker (documented in `docs/FAILURE_TAXONOMY.md`); other 4xx never poison health as of `0.2.0`+.
 - Streaming is synthetic (buffered response re-emitted as SSE); there is no mid-stream failover.
-- Benchmarks in `docs/BENCHMARKS.md` compare against in-process baselines inside the same harness, not against external systems; treat the numbers as smoke tests, not measurements.
+- Nothing enters the `METRICS_ONLY` breaker state; the state exists in the FSM but no API selects it.
+- Benchmarks in `docs/BENCHMARKS.md` run three in-process baselines inside the same harness, not external systems; treat the numbers as smoke tests, not measurements.
 
 ---
 
@@ -76,8 +79,8 @@ Standard reverse proxies (LiteLLM, Cloudflare AI Gateway, Portkey) treat LLMs as
 2. **Context Window Clipping:** Failing over from a 128k context provider to a 32k provider causes HTTP 400 `context_length_exceeded`. Standard proxies truncate characters from the head of the prompt, discarding critical system instructions and root goals.
 3. **Ghost Side-Effects (Replay Hazard):** If an agent executes a destructive tool (`execute_bash("rm -rf ...")`), and the connection drops before completion, standard proxies blindly retry. The agent executes the deletion a second time.
 
-**LLM Circuit Breaker V3 solves these modes with 5 core systems:**
-- 🛡️ **Formal 6-State Circuit Breaker**: Resilience4j-grade finite state machine (`CLOSED`, `OPEN`, `HALF_OPEN`, `FORCED_OPEN`, `DISABLED`, `METRICS_ONLY`) with count-based sliding windows and strictly bounded half-open probe permits (`half_open_active <= half_open_max_calls`).
+**LLM Circuit Breaker addresses these modes with 5 core systems:**
+- 🛡️ **Formal 6-State Circuit Breaker**: Finite state machine (`CLOSED`, `OPEN`, `HALF_OPEN`, `FORCED_OPEN`, `DISABLED`, `METRICS_ONLY`) with count-based sliding windows and strictly bounded half-open probe permits (`half_open_active <= half_open_max_calls`).
 - 🧠 **Observable `FailoverPlan`**: Every candidate migration records source/target endpoints, token count deltas, compaction flags, and schema adaptations in an explainable audit record.
 - 🗜️ **Hierarchical Context Compaction**: Preserves root user goals, system instructions, and extracts structured diagnostics from tool logs (exit codes, error diagnostics) rather than blind character slicing.
 - 📜 **Tool Execution Idempotency Ledger**: Tracks tool calls through `PROPOSED` $\to$ `VALIDATED` $\to$ `SUBMITTED` $\to$ `COMMITTED`. Cached receipts suppress duplicate side-effects during retries.
@@ -85,17 +88,18 @@ Standard reverse proxies (LiteLLM, Cloudflare AI Gateway, Portkey) treat LLMs as
 
 ---
 
-## 📊 Benchmark Results (Authoritative B1–B15 Suite)
+## 📊 Benchmark Results (B1–B15 in-process suite)
 
-Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits, timeouts, context overflows, malformed tool syntax, semantic schema violations, tool execution ambiguity, mid-stream disconnects, cascades, contention, and capability mismatches) against 4 distinct baselines:
+Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits, timeouts, context overflows, malformed tool syntax, semantic schema violations, tool execution ambiguity, mid-stream disconnects, cascades, contention, and capability mismatches) against 3 in-process baselines. Numbers are copied from `results/v3_benchmark_report.md`, regenerated on 2026-09-06:
 
 | Baseline / System | Request Completion | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **0.12 ms** | **1.04 ms** | **0.0%** |
-| **Baseline-A-Direct** | 53.3% | 0.0% | 0.02 ms | 0.04 ms | 6.7% |
-| **Baseline-B-Same-Provider-Retry** | 93.3% | 40.0% | 0.03 ms | 0.05 ms | 6.7% |
-| **Baseline-C-Static-Fallback** | 93.3% | 46.7% | 0.04 ms | 0.06 ms | 6.7% |
+| **LLM-Circuit-Breaker-V3** | **100.0%** | **60.0%** | **1.34 ms** | **1003.65 ms** | **0.0%** |
+| **Baseline-A-Direct** | 53.3% | 0.0% | 0.00 ms | 0.01 ms | 0.0% |
+| **Baseline-B-Same-Provider-Retry** | 93.3% | 40.0% | 0.00 ms | 0.01 ms | 0.0% |
+| **Baseline-C-Static-Fallback** | 93.3% | 46.7% | 0.00 ms | 0.01 ms | 6.7% |
 
+> All four rows run in one process against the same mock providers, so latencies measure harness overhead, not network. The V3 P95 is the `Retry-After` wait honoured in B2; the baselines never wait.
 > Run the full reproducible benchmark suite: `python -m benchmarks.run`  
 > Complete technical analysis: [docs/BENCHMARKS.md](docs/BENCHMARKS.md)
 
@@ -103,16 +107,17 @@ Evaluated across 15 deterministic scenarios (permanent outages, 429 rate limits,
 
 ## 🥊 Competitive Architectural Comparison
 
-| Capability / Dimension | **LLM Circuit Breaker V3** | **LiteLLM Proxy** | **Cloudflare AI Gateway** | **Portkey Gateway** | **OpenRouter** |
+| Capability / Dimension | **LLM Circuit Breaker** | **LiteLLM Proxy** | **Cloudflare AI Gateway** | **Portkey Gateway** | **OpenRouter** |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **Circuit Breaker Engine** | **Resilience4j Parity** (6-state FSM, sliding windows, bounded probe permits) | Cooldown timer (`time + 60s`), no permit bounds | Dynamic retries only | Proprietary cloud breaker (enterprise tier) | Static server-side retry |
+| **Circuit Breaker Engine** | **6-state FSM**, count/time sliding windows, bounded probe permits | Cooldown timer (`time + 60s`), no permit bounds | Dynamic retries only | Proprietary cloud breaker (enterprise tier) | Static server-side retry |
 | **Multi-Turn Semantic Failover** | **Yes (Protocol IR + FailoverPlan)** | No (Raw payload forwarding) | No | No | No |
 | **Strict Tool Schema Validation** | **Yes (Fails closed on missing required args)** | No (Passthrough parsing) | No | No | No |
 | **Diagnostic Context Compaction** | **Yes (Extracts exit codes, preserves planted facts)** | No (Naive truncation) | No | No | No |
 | **Tool Execution Idempotency** | **Yes (Replay suppression via cached receipts)** | No (Blind replay on 5xx) | No | No | No |
-| **Deployment Footprint** | **Zero Mandatory Dependencies** (<15ms overhead, SQLite persistence) | Requires external Postgres & Redis | Cloudflare Edge Worker (Cloud only) | SaaS cloud or enterprise container | Cloud-only API broker |
+| **Deployment Footprint** | **Zero mandatory dependencies**; optional SQLite persistence | Requires external Postgres & Redis | Cloudflare Edge Worker (Cloud only) | SaaS cloud or enterprise container | Cloud-only API broker |
 | **Security Hardening** | **SSRF defense, CRLF sanitization, credential redaction** | Telemetry enabled by default | Cloud control plane | Cloud control plane | Third-party proxy |
 
+> Competitor columns summarise public documentation as of 2026-09-06 and were not tested by this project.
 > Detailed architectural deep-dive: [docs/COMPETITOR_MATRIX.md](docs/COMPETITOR_MATRIX.md)
 
 ---

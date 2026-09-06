@@ -7,6 +7,7 @@ import os
 import sys
 import time
 from dataclasses import asdict
+from datetime import date
 from pathlib import Path
 
 from benchmarks.harness import BenchmarkHarness
@@ -76,7 +77,7 @@ def main():
     lines = [
         "# LLM Circuit Breaker V3 — Authoritative Benchmark Report",
         "",
-        "**Date:** 2026-09-03  ",
+        f"**Date:** {date.today().isoformat()}  ",
         "**Test Suite:** Scenarios B1 through B15 + Primary Research Benchmark  ",
         "**Target Architecture:** V3 Agent-Resilience Gateway with Formal FSM, Real Telemetry, and Semantic Failover  ",
         "",
