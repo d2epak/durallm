@@ -15,6 +15,7 @@ from llm_circuit_breaker.agent import (
     ToolCallResult,
     ToolCallValidator,
     ToolValidationReport,
+    extract_diagnostic_summary,
 )
 from llm_circuit_breaker.breaker import (
     DEFAULT_BREAKER_REGISTRY,
@@ -80,6 +81,11 @@ from llm_circuit_breaker.health import (
     DEFAULT_HEALTH_STORE,
     EndpointHealthSnapshot,
     HealthTelemetryStore,
+)
+from llm_circuit_breaker.mcp import (
+    DEFAULT_MCP_PROXY,
+    MCPProxy,
+    MCPToolDefinition,
 )
 from llm_circuit_breaker.models import AttemptRecord
 from llm_circuit_breaker.pools import (
@@ -175,6 +181,10 @@ __all__ = [
     "ToolValidationReport",
     "ContextManager",
     "ContextBudget",
+    "extract_diagnostic_summary",
+    "MCPProxy",
+    "DEFAULT_MCP_PROXY",
+    "MCPToolDefinition",
     # Agent Continuation Protocol
     "ACP_VERSION",
     "Checkpoint",

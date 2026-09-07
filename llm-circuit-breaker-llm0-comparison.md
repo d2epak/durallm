@@ -462,11 +462,29 @@ To address the immediate production runtime hazards identified for **Hermes Agen
    - Integrated warm-cache scoring into `RoutingScorer` and `CapabilityRouter`, awarding score bonuses to endpoints holding an active prompt cache for the request's prefix. Verified in [`tests/unit/test_cache_aware_routing.py`](file:///Users/deepak/llm-circuit-breaker/tests/unit/test_cache_aware_routing.py).
 4. **Current Status**: **285 passed tests, 18 subtests passed, 78.61% branch coverage**.
 
+### 10.7 Execution and Delivery of Milestone 7: OpenCode & OpenClaw Priorities (Frontiers 2, 3, 5)
+
+To address the immediate production runtime hazards identified for **OpenCode** and **OpenClaw**:
+1. **OpenCode Priority 1: Diagnostic Context Compaction**:
+   - Shipped enhanced `extract_diagnostic_summary` in [`src/llm_circuit_breaker/agent/context.py`](file:///Users/deepak/llm-circuit-breaker/src/llm_circuit_breaker/agent/context.py) with pattern recognition for compiler diagnostics (Rust `error[E...]`, Clang/GCC `file:line: error`, TypeScript `error TS...`, Python tracebacks), test runners (pytest assertion failures, unittest `FAIL`), and exit codes.
+   - Enhanced `ContextManager.compact` with in-place diagnostic compaction for oversized compiler/test logs in message history and tool results. Preserves root user objectives and active instructions while compacting tens of thousands of tokens of build noise to fit target context budgets without triggering premature `ContextOverflowError`. Verified in [`tests/unit/test_opencode_diagnostic_compactor.py`](file:///Users/deepak/llm-circuit-breaker/tests/unit/test_opencode_diagnostic_compactor.py).
+2. **OpenCode Priority 2: Fail-Closed Tool Schema Validation (Iron Rules 1 & 2)**:
+   - Hardened `ToolCallValidator` in [`src/llm_circuit_breaker/agent/tool_validation.py`](file:///Users/deepak/llm-circuit-breaker/src/llm_circuit_breaker/agent/tool_validation.py) to strictly enforce Iron Rule 1 (Fail Closed on Missing Required Arguments) across root and recursively nested object/array schemas (e.g. multi-file patch replacements).
+   - Expanded Iron Rule 2 syntactic normalization: strips markdown code fences, fixes trailing commas, safely parses raw unescaped newlines/tabs inside multi-line code string arguments (`strict=False`), safely parses single-quoted JSON dicts via AST evaluation, and unwraps parameter envelopes (`{"parameters": {...}}`). Verified in [`tests/unit/test_opencode_tool_validation.py`](file:///Users/deepak/llm-circuit-breaker/tests/unit/test_opencode_tool_validation.py).
+3. **OpenClaw Priority 1: Model Context Protocol (MCP) Reverse Proxy Edge & Tool Idempotency (Frontier 3)**:
+   - Shipped `MCPProxy` in [`src/llm_circuit_breaker/mcp/proxy.py`](file:///Users/deepak/llm-circuit-breaker/src/llm_circuit_breaker/mcp/proxy.py), providing a native JSON-RPC 2.0 reverse proxy edge for MCP clients (`initialize`, `tools/list`, `tools/call`).
+   - Wired tool calls into `ToolExecutionLedger` ([`src/llm_circuit_breaker/agent/idempotency.py`](file:///Users/deepak/llm-circuit-breaker/src/llm_circuit_breaker/agent/idempotency.py)): intercepts `tools/call` with `operation_id` or `Idempotency-Key` headers, committing verified execution receipts and returning cached results (`_lcb_status: "replayed"`) on network retries, completely bypassing duplicate external side effects.
+   - Enforced fail-closed lost-acknowledgment handling: blocks automatic replays with HTTP 409 Conflict / JSON-RPC code `-32001` if an identical tool operation was interrupted in an indeterminate state.
+   - Exposed `/v1/mcp` and `/mcp` endpoints on proxy server with HTTP loopback integration. Verified in [`tests/unit/test_openclaw_mcp_idempotency.py`](file:///Users/deepak/llm-circuit-breaker/tests/unit/test_openclaw_mcp_idempotency.py).
+4. **OpenClaw Priority 2: Multi-Key Rotation (Frontier 5)**:
+   - Verified seamless TPM/RPM shuffling on OpenClaw `general_agent` routes during rate-limit bursts without dropping pipeline tasks or triggering cross-provider failover.
+5. **Current Status**: **302 passed tests, 18 subtests passed, 78.18% branch coverage**.
+
 ---
 
 ## 11. Conclusion & Definitive Synthesis
 
-The journey across the three reviews (LLM0, LLM2, LLM1) transformed `llm-circuit-breaker` from a dual-architecture repository with aspirational documentation into an exceptionally hardened, unified, and empirically validated agent resilience gateway.
+The journey across the reviews transformed `llm-circuit-breaker` from a dual-architecture repository with aspirational documentation into an exceptionally hardened, unified, and empirically validated agent resilience gateway.
 
 Every historical gap identified during the review process has been systematically closed:
 - **Unified Data Plane**: Legacy proxy completely routed through `GatewayExecutor` (`eadcf56`).
@@ -477,9 +495,10 @@ Every historical gap identified during the review process has been systematicall
 - **Calibrated Task Selection**: Tokenizer preflight, independent credential resource lanes, atomic budget reservations, and shadow quality policies (`1943ba8`).
 - **Empirical Rigor**: Multi-run 7-system benchmark reports with 95% confidence intervals (`72d864c`).
 - **Top-Tier Developer Experience**: Modern, visual, and verified README showcase (`3277368`).
-- **Hermes & Claude Code Priorities**: Multi-key rotation (Frontier 5), VCR wire conformance (Frontier 1), and cache-aware prefix routing (Frontier 6).
+- **Hermes & Claude Code Priorities**: Multi-key rotation (Frontier 5), VCR wire conformance (Frontier 1), and cache-aware prefix routing (Frontier 6) (`fcf8cbd`).
+- **OpenCode & OpenClaw Priorities**: Diagnostic context compaction, fail-closed tool schema validation (Iron Rules 1 & 2), and MCP reverse proxy with tool idempotency (Frontier 3).
 
-With 285 passing tests, 78.61% branch coverage, clean linters/type checks, and zero core dependencies, `llm-circuit-breaker` occupies a genuinely unique and defensible position in the AI infrastructure ecosystem.
+With 302 passing tests, 78.18% branch coverage, clean linters/type checks, and zero core dependencies, `llm-circuit-breaker` occupies a genuinely unique and defensible position in the AI infrastructure ecosystem.
 
 ---
 

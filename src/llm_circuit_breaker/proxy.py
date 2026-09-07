@@ -29,6 +29,7 @@ from llm_circuit_breaker.errors import (
 )
 from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.gateway import ProxyGateway, http_error_for
+from llm_circuit_breaker.mcp.proxy import MCPProxy
 from llm_circuit_breaker.observability.logger import DEFAULT_STRUCTURED_LOGGER
 from llm_circuit_breaker.pools import POOL_MANAGER
 from llm_circuit_breaker.protocol.anthropic import anthropic_request_to_ir, ir_to_anthropic_response
@@ -456,6 +457,13 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(200, result)
             return
 
+        if path in ("/v1/mcp", "/mcp", "/v1/mcp/tools/call"):
+            mcp_proxy = MCPProxy(tool_ledger=GATEWAY.executor.tool_ledger)
+            req_headers = {k: v for k, v in self.headers.items()}
+            status, resp, resp_headers = mcp_proxy.handle_json_rpc(body, headers=req_headers)
+            self._send_json(status, resp, resp_headers)
+            return
+
         try:
             continuation = continuation_request_from_headers(self.headers)
             logical_operation_id = logical_operation_id_from_headers(self.headers)
@@ -881,6 +889,20 @@ def create_proxy_app():
                 media_type="application/json",
             )
         return Response(content=json.dumps(result), status_code=200, media_type="application/json")
+
+    @app.post("/v1/mcp")
+    @app.post("/mcp")
+    @app.post("/v1/mcp/tools/call")
+    async def mcp_endpoint(req: Request):
+        body = await req.json()
+        mcp_proxy = MCPProxy(tool_ledger=GATEWAY.executor.tool_ledger)
+        status, resp, resp_headers = mcp_proxy.handle_json_rpc(body, headers=dict(req.headers))
+        return Response(
+            content=json.dumps(resp),
+            status_code=status,
+            media_type="application/json",
+            headers=resp_headers,
+        )
 
     return app
 

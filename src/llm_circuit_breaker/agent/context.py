@@ -43,10 +43,32 @@ def estimate_tokens(payload: Any) -> int:
     return max(1, (text_len + 3) // 4)
 
 
-def extract_structured_tool_summary(raw_content: str, max_chars: int = 500) -> str:
+DIAGNOSTIC_PATTERNS = re.compile(
+    r"("
+    r"(?:error|fatal|fail(?:ed|ure)?|exception|critical|traceback|panic)\b"
+    r"|(?:exit(?:\s+code)?|returncode)\s*[:=]?\s*\d+"
+    r"|(?:AssertionError|TypeError|ValueError|KeyError|IndexError|AttributeError|SyntaxError|NameError)"
+    r"|(?:\bFAILED\b|\bFAIL\b|\b=== FAILURES ===\b|\b=== ERRORS ===\b)"
+    r"|error\[E\d+\]"
+    r"|error TS\d+"
+    r"|(?:[\w\.\-/]+\.\w+):(\d+)(?::(\d+))?:\s*(?:fatal )?(?:error|warning)"
+    r"|File \"[^\"]+\", line \d+"
+    r"|diff --git"
+    r"|@@ -[0-9,]+ \+[0-9,]+ @@"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def extract_diagnostic_summary(raw_content: str, max_chars: int = 600) -> str:
     """
-    Extract structured diagnostic information from tool outputs rather than blind text slicing.
-    Preserves exit codes, error messages, stack traces, paths, and status keys.
+    Extract structured diagnostic information from compiler outputs, test traces,
+    and tool outputs rather than blind text slicing.
+    Preserves:
+    - Compiler error sites (file:line:col: error)
+    - Test failure assertions (FAILED test_..., AssertionError)
+    - Python/runtime tracebacks
+    - Exit codes and execution summaries
     """
     if len(raw_content) <= max_chars:
         return raw_content
@@ -56,33 +78,51 @@ def extract_structured_tool_summary(raw_content: str, max_chars: int = 500) -> s
         data = json.loads(raw_content)
         if isinstance(data, dict):
             extracted = {}
-            for k in ["status", "exit_code", "returncode", "error", "errors", "message", "path", "file", "id", "count"]:
+            for k in [
+                "status", "exit_code", "returncode", "error", "errors", "message",
+                "path", "file", "id", "count", "stderr", "stdout",
+            ]:
                 if k in data:
                     extracted[k] = data[k]
             if extracted:
-                return (
+                formatted = (
                     f"[Structured Tool Output Summary (by Circuit Breaker)]:\n"
                     f"{json.dumps(extracted, ensure_ascii=False, indent=2)}\n"
                     f"... (remaining payload truncated to preserve context budget)"
                 )
+                if len(formatted) <= max_chars:
+                    return formatted
+                return formatted[:max_chars] + "\n... [truncated]"
     except Exception:
         pass
 
     # 2. Text / Log file extraction: hunt for diagnostic lines
     lines = raw_content.splitlines()
-    if len(lines) <= 2:
+    if len(lines) <= 4:
+        half = max(50, (max_chars - 60) // 2)
         return (
             "[Historical Tool Output compacted by Circuit Breaker to fit target budget]\n"
-            + raw_content[:max_chars // 2]
+            + raw_content[:half]
             + "\n... [truncated] ...\n"
-            + raw_content[-(max_chars // 2):]
+            + raw_content[-half:]
         )
 
-    error_patterns = re.compile(r"(error|exception|fail|fatal|critical|traceback|exit code|returncode)", re.IGNORECASE)
-    diagnostic_lines = [ln.strip() for ln in lines if error_patterns.search(ln)]
+    diagnostic_lines: list[str] = []
+    seen = set()
+    for ln in lines:
+        cleaned = ln.strip()
+        if not cleaned:
+            continue
+        # Skip repetitive progress lines
+        if re.match(r"^[\.FEsxX]+\s+\[\s*\d+%\]", cleaned) or re.match(r"^\.+$", cleaned):
+            continue
+        if DIAGNOSTIC_PATTERNS.search(cleaned):
+            if cleaned not in seen:
+                seen.add(cleaned)
+                diagnostic_lines.append(cleaned)
 
-    header_lines = lines[:2]
-    tail_lines = lines[-2:]
+    header_lines = [ln.strip() for ln in lines[:3] if ln.strip()]
+    tail_lines = [ln.strip() for ln in lines[-3:] if ln.strip()]
 
     parts = [
         "[Historical Tool Output compacted by Circuit Breaker to fit target budget]",
@@ -91,9 +131,10 @@ def extract_structured_tool_summary(raw_content: str, max_chars: int = 500) -> s
     ]
 
     if diagnostic_lines:
+        max_diag = max(2, min(len(diagnostic_lines), 8))
         parts.extend([
-            "--- EXTRACTED DIAGNOSTICS & ERRORS ---",
-            "\n".join(diagnostic_lines[:4]),
+            f"--- EXTRACTED DIAGNOSTICS & ERRORS ({len(diagnostic_lines)} findings) ---",
+            "\n".join(diagnostic_lines[:max_diag]),
         ])
 
     parts.extend([
@@ -105,6 +146,11 @@ def extract_structured_tool_summary(raw_content: str, max_chars: int = 500) -> s
     if len(summary) > max_chars:
         summary = summary[:max_chars] + "\n... [truncated]"
     return summary
+
+
+def extract_structured_tool_summary(raw_content: str, max_chars: int = 500) -> str:
+    """Backward-compatible wrapper for extract_diagnostic_summary."""
+    return extract_diagnostic_summary(raw_content, max_chars=max_chars)
 
 
 @dataclass
@@ -127,8 +173,8 @@ class ContextManager:
     1. System instructions (never dropped)
     2. Root user objective (first user prompt, never dropped)
     3. Active constraints (never dropped)
-    4. Recent execution turns (latest preserve_tail_turns intact)
-    5. Structured tool result summaries (preserving exit codes, errors, paths)
+    4. Diagnostic compaction of large compiler/test traces in tool results and messages
+    5. Recent execution turns (latest preserve_tail_turns intact)
     6. Evict oldest intermediate pairs between root objective and recent tail turns.
     """
 
@@ -159,46 +205,63 @@ class ContextManager:
 
         compacted = copy.deepcopy(request)
         messages = compacted.messages
-        # OpenAI-compatible inputs commonly retain the system message in
-        # ``messages`` *and* project it into ``system_instruction``. Protect
-        # every leading system/developer message and the first user objective;
-        # treating index 1 as disposable silently lost that objective.
         first_user_idx = next((idx for idx, message in enumerate(messages) if message.role == "user"), None)
         protected_prefix_count = (first_user_idx + 1) if first_user_idx is not None else 1
 
-        if len(messages) <= (self.preserve_tail_turns + protected_prefix_count):
-            # Too few messages to drop turns; compact content in place
-            for m in messages:
-                for tr in m.tool_results:
-                    if len(tr.content) > 400:
-                        tr.content = extract_structured_tool_summary(tr.content, max_chars=400)
-            self._require_fit(compacted, target_tokens)
-            return compacted, True
-
-        # Phase 1: Structured semantic compaction of historical tool results in older turns
-        cutoff_idx = len(messages) - self.preserve_tail_turns
-        for idx in range(1, cutoff_idx):
-            m = messages[idx]
+        # Phase 1: In-place diagnostic compaction of oversized tool results and logs
+        for idx, m in enumerate(messages):
             for tr in m.tool_results:
                 if len(tr.content) > 400:
-                    tr.content = extract_structured_tool_summary(tr.content, max_chars=400)
-            if m.content and len(m.content) > 1000 and m.role == "assistant":
+                    tr.content = extract_diagnostic_summary(tr.content, max_chars=400)
+            # Compact message content if it contains huge logs (e.g. OpenCode compiler/test outputs)
+            # Do not drop root objective or final instruction entirely; compact huge diagnostic bodies
+            is_root_user = (idx == first_user_idx)
+            is_final_msg = (idx == len(messages) - 1)
+            if m.content and len(m.content) > 1000:
+                if not is_root_user and not is_final_msg:
+                    m.content = extract_diagnostic_summary(m.content, max_chars=600)
+                elif is_final_msg and not is_root_user:
+                    # Final instruction has huge attached log; compact the log while keeping tail instructions
+                    m.content = extract_diagnostic_summary(m.content, max_chars=1200)
+
+        if estimate_tokens(compacted) <= target_tokens:
+            return compacted, True
+
+        # Phase 2: If message turns exceed tail window, evict intermediate turns
+        cutoff_idx = len(messages) - self.preserve_tail_turns
+        for idx in range(protected_prefix_count, max(protected_prefix_count, cutoff_idx)):
+            m = messages[idx]
+            for tr in m.tool_results:
+                if len(tr.content) > 300:
+                    tr.content = extract_diagnostic_summary(tr.content, max_chars=300)
+            if m.content and len(m.content) > 600 and m.role == "assistant":
                 m.content = (
-                    m.content[:400]
+                    m.content[:300]
                     + "\n... [Prior assistant reasoning compacted by Circuit Breaker] ...\n"
-                    + m.content[-400:]
+                    + m.content[-300:]
                 )
 
         if estimate_tokens(compacted) <= target_tokens:
             return compacted, True
 
-        # Phase 2: Drop only intermediate message turns. The root objective is
-        # the first user message, not a hard-coded numeric index.
         start_evict_idx = protected_prefix_count
         while len(compacted.messages) > (self.preserve_tail_turns + protected_prefix_count):
             if estimate_tokens(compacted) <= target_tokens:
                 break
             compacted.messages.pop(start_evict_idx)
+
+        if estimate_tokens(compacted) <= target_tokens:
+            return compacted, True
+
+        # Phase 3: Aggressive compaction of tail turns if still over budget
+        for idx, m in enumerate(compacted.messages):
+            if idx == first_user_idx:
+                continue
+            for tr in m.tool_results:
+                if len(tr.content) > 250:
+                    tr.content = extract_diagnostic_summary(tr.content, max_chars=250)
+            if m.content and len(m.content) > 500:
+                m.content = extract_diagnostic_summary(m.content, max_chars=400)
 
         self._require_fit(compacted, target_tokens)
         return compacted, True
@@ -208,3 +271,4 @@ class ContextManager:
         remaining = estimate_tokens(request)
         if remaining > target_tokens:
             raise ContextOverflowError(required_tokens=remaining, available_budget=target_tokens)
+
