@@ -82,6 +82,7 @@ class RouteDefinition:
     base_url: str
     api_format: str  # 'openai'
     env_key: Optional[str]
+    env_keys: List[str] = field(default_factory=list)
     context_length: int = 65536
     max_output_tokens: int = 4096
     headers: Dict[str, str] = field(default_factory=dict)

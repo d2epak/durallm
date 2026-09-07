@@ -1,4 +1,3 @@
-import json
 import unittest
 from unittest.mock import MagicMock
 
@@ -8,8 +7,8 @@ from llm_circuit_breaker.execution.executor import GatewayExecutor
 from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
 from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
 from llm_circuit_breaker.protocol.ir import NormalizedResponse
-from llm_circuit_breaker.proxy import ProxyGateway, build_proxy_gateway, serve_chat_completions, serve_messages
 from llm_circuit_breaker.providers.base import ProviderExecutionResult
+from llm_circuit_breaker.proxy import ProxyGateway, serve_chat_completions
 from llm_circuit_breaker.routing.router import CapabilityRouter
 
 
@@ -24,7 +23,9 @@ class TestProxyFailoverTelemetry(unittest.TestCase):
 
         health = HealthTelemetryStore()
         router = CapabilityRouter(capability_registry=reg, health_store=health)
-        executor = GatewayExecutor(capability_registry=reg, router=router, health_store=health)
+        from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
+        adapters = ProviderAdapterRegistry()
+        executor = GatewayExecutor(capability_registry=reg, router=router, health_store=health, adapter_registry=adapters)
 
         # Primary ep1 fails with 401 Auth error
         mock_adapter1 = MagicMock()

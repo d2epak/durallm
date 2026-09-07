@@ -38,6 +38,7 @@ class CandidateEvaluation:
     quality_confidence: float = 0.0
     quality_provenance: Optional[str] = None
     degradation_required: bool = False
+    warm_cache: bool = False
 
 
 @dataclass

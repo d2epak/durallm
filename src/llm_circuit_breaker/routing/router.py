@@ -16,6 +16,9 @@ from llm_circuit_breaker.capability.registry import (
     DEFAULT_CAPABILITY_REGISTRY,
     CapabilityRegistry,
 )
+from llm_circuit_breaker.routing.cache import (
+    PromptCacheTracker,
+)
 from llm_circuit_breaker.routing.decision import (
     CandidateEvaluation,
     RoutingDecision,
@@ -42,6 +45,7 @@ class CapabilityRouter:
         default_strategy: str = "balanced",
         lane_store: Optional[ResourceLaneStore] = None,
         shadow_quality_policy: Optional[ShadowQualityPolicy] = None,
+        cache_tracker: Optional[PromptCacheTracker] = None,
     ):
         self.capability_registry = capability_registry or DEFAULT_CAPABILITY_REGISTRY
         self.breaker_registry = breaker_registry or DEFAULT_BREAKER_REGISTRY
@@ -50,6 +54,7 @@ class CapabilityRouter:
         self.default_strategy = default_strategy
         self.lane_store = lane_store if lane_store is not None else ResourceLaneStore()
         self.shadow_quality_policy = shadow_quality_policy if shadow_quality_policy is not None else ShadowQualityPolicy()
+        self.cache_tracker = cache_tracker if cache_tracker is not None else PromptCacheTracker()
         self.scorer = RoutingScorer()
 
         self._lock = threading.RLock()
@@ -229,11 +234,14 @@ class CapabilityRouter:
                 )
                 continue
 
-            # 3. Soft scoring with real observed telemetry
+            # 3. Soft scoring with real observed telemetry and prompt cache awareness
+            prefix_hash = getattr(requirements, "prefix_hash", None)
+            is_warm = bool(prefix_hash and self.cache_tracker.is_warm(ep.id, prefix_hash))
             eval_record = self.scorer.score_candidate(
                 endpoint=ep,
                 breaker_state=breaker_state,
                 health=health_snap,
+                warm_cache=is_warm,
             )
             quality = self.shadow_quality_policy.estimate(ep, requirements.task_class)
             eval_record.resource_lane = ep.lane_key

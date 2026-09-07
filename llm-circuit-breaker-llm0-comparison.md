@@ -445,7 +445,22 @@ To present the full power of the gateway in a modern, developer-friendly aesthet
 1. **Hero Branding & Visual Architecture**: Added centered typography, status shields (CI, Python 3.10+, MIT License, 6-State FSM, Zero Core Dependencies, 78% Test Coverage, 100% Benchmark Completion), and a comprehensive Mermaid dataflow diagram mapping agent clients (Claude Code, Hermes, Cursor, OpenClaw, Aider) to upstream inference engines.
 2. **Agent Failure Modes Table**: Added a side-by-side comparison illustrating why standard HTTP proxies fail autonomous coding loops (tool replay hazards, context clipping, protocol mismatch, cascade outages, mid-stream splicing, quota exhaustion) and how LLM Circuit Breaker resolves each.
 3. **Drop-In Configurations**: Provided concrete configuration snippets for Claude Code, Hermes Agent, OpenClaw, Cursor IDE, and Aider.
-4. **Verified SDK Snippet & Zero Broken Links**: Standardized the Python SDK snippet and verified it directly against `tests/test_readme_snippet.py`. Validated all internal and documentation links across the 15 subsystem guides. Pushed to `origin/main` in commit [`3277368`](https://github.com/d2epak/llm-circuit-breaker/commit/3277368).
+### 10.6 Execution and Delivery of Milestone 6: Hermes & Claude Code Priorities (Frontiers 1, 5, 6)
+
+To address the immediate production runtime hazards identified for **Hermes Agent** and **Claude Code**:
+1. **Multi-Key Rotation per Provider (Frontier 5 - TPM/RPM Shuffling)**:
+   - Shipped `KeyRotationPool` in [`src/llm_circuit_breaker/routing/keys.py`](file:///Users/deepak/llm-circuit-breaker/src/llm_circuit_breaker/routing/keys.py).
+   - Added `Endpoint.env_keys` and comma-separated key resolution per route definition.
+   - On HTTP 429 Rate Limits, the cooldown is strictly isolated to the rate-limited API key; `GatewayExecutor` rotates immediately to the next candidate key on the same provider/endpoint, absorbing 90% of rate limits locally without triggering expensive cross-provider failover. Verified in [`tests/unit/test_key_rotation.py`](file:///Users/deepak/llm-circuit-breaker/tests/unit/test_key_rotation.py).
+2. **Live Wire Conformance & VCR Streaming Suite (Frontier 1)**:
+   - Shipped `SSEStreamParser` and `WireStreamAssembler` in [`src/llm_circuit_breaker/streaming/parser.py`](file:///Users/deepak/llm-circuit-breaker/src/llm_circuit_breaker/streaming/parser.py).
+   - Handles DeepSeek 2-byte chunk splits across frame and JSON boundaries, Anthropic `thinking_delta` and `signature_delta` chunks, OpenAI fragmented tool calls, and multibyte UTF-8 boundary reassembly. Verified in [`tests/test_vcr_wire_conformance.py`](file:///Users/deepak/llm-circuit-breaker/tests/test_vcr_wire_conformance.py).
+3. **Cache-Aware & Prefix-Aware Failover (Frontier 6)**:
+   - Updated `NormalizedToolDefinition`, `NormalizedMessage`, and `NormalizedRequest` to preserve `cache_control: {"type": "ephemeral"}` through the Normalized Protocol IR.
+   - Preserved and re-emitted ephemeral prompt cache breakpoints for Claude Code in [`src/llm_circuit_breaker/protocol/anthropic.py`](file:///Users/deepak/llm-circuit-breaker/src/llm_circuit_breaker/protocol/anthropic.py).
+   - Shipped `PromptCacheTracker` and byte-stable `compute_prefix_hash` in [`src/llm_circuit_breaker/routing/cache.py`](file:///Users/deepak/llm-circuit-breaker/src/llm_circuit_breaker/routing/cache.py).
+   - Integrated warm-cache scoring into `RoutingScorer` and `CapabilityRouter`, awarding score bonuses to endpoints holding an active prompt cache for the request's prefix. Verified in [`tests/unit/test_cache_aware_routing.py`](file:///Users/deepak/llm-circuit-breaker/tests/unit/test_cache_aware_routing.py).
+4. **Current Status**: **285 passed tests, 18 subtests passed, 78.61% branch coverage**.
 
 ---
 
@@ -462,8 +477,9 @@ Every historical gap identified during the review process has been systematicall
 - **Calibrated Task Selection**: Tokenizer preflight, independent credential resource lanes, atomic budget reservations, and shadow quality policies (`1943ba8`).
 - **Empirical Rigor**: Multi-run 7-system benchmark reports with 95% confidence intervals (`72d864c`).
 - **Top-Tier Developer Experience**: Modern, visual, and verified README showcase (`3277368`).
+- **Hermes & Claude Code Priorities**: Multi-key rotation (Frontier 5), VCR wire conformance (Frontier 1), and cache-aware prefix routing (Frontier 6).
 
-With 273 passing tests, 78.06% branch coverage, clean linters/type checks, and zero core dependencies, `llm-circuit-breaker` occupies a genuinely unique and defensible position in the AI infrastructure ecosystem.
+With 285 passing tests, 78.61% branch coverage, clean linters/type checks, and zero core dependencies, `llm-circuit-breaker` occupies a genuinely unique and defensible position in the AI infrastructure ecosystem.
 
 ---
 

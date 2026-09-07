@@ -18,7 +18,7 @@ import os
 import time
 import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from llm_circuit_breaker.continuation import ContinuationEvent, ContinuationRequest, SQLiteContinuationStore
 from llm_circuit_breaker.errors import (
@@ -626,6 +626,8 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             if btype == "thinking":
                 send_event("content_block_start", {"type": "content_block_start", "index": idx, "content_block": {"type": "thinking", "thinking": ""}})
                 send_event("content_block_delta", {"type": "content_block_delta", "index": idx, "delta": {"type": "thinking_delta", "thinking": b.get("thinking", "")}})
+                if b.get("signature"):
+                    send_event("content_block_delta", {"type": "content_block_delta", "index": idx, "delta": {"type": "signature_delta", "signature": b["signature"]}})
                 send_event("content_block_stop", {"type": "content_block_stop", "index": idx})
             elif btype == "text":
                 send_event("content_block_start", {"type": "content_block_start", "index": idx, "content_block": {"type": "text", "text": ""}})

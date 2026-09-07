@@ -123,6 +123,7 @@ class Endpoint:
     deployment: Optional[str] = None
     quota_bucket_id: Optional[str] = None
     env_key: Optional[str] = None
+    env_keys: List[str] = field(default_factory=list)
     headers: Dict[str, str] = field(default_factory=dict)
     weight: float = 1.0
     priority: int = 1

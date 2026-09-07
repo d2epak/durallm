@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, replace
-from typing import Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 from llm_circuit_breaker.agent.context import ContextBudget, ContextManager, estimate_tokens
 from llm_circuit_breaker.agent.failover_plan import FailoverPlan
@@ -38,7 +38,6 @@ from llm_circuit_breaker.execution.deadline import Deadline
 from llm_circuit_breaker.execution.ledger import AttemptLedger
 from llm_circuit_breaker.execution.policy import ExecutionPolicy
 from llm_circuit_breaker.health.telemetry import (
-    DEFAULT_HEALTH_STORE,
     HealthTelemetryStore,
 )
 from llm_circuit_breaker.models import (
@@ -64,7 +63,9 @@ from llm_circuit_breaker.providers.base import (
 from llm_circuit_breaker.routing.budget import (
     BudgetReservationStore,
 )
+from llm_circuit_breaker.routing.cache import compute_prefix_hash
 from llm_circuit_breaker.routing.decision import RoutingDecision
+from llm_circuit_breaker.routing.keys import KeyRotationPool
 from llm_circuit_breaker.routing.requirements import RequirementVector
 from llm_circuit_breaker.routing.resources import ResourceLaneStore
 from llm_circuit_breaker.routing.router import CapabilityRouter
@@ -167,6 +168,7 @@ class GatewayExecutor:
         attempt_store: Optional[AttemptStore] = None,
         budget_store: Optional[BudgetReservationStore] = None,
         lane_store: Optional[ResourceLaneStore] = None,
+        key_pool: Optional[KeyRotationPool] = None,
         sleeper: Callable[[float], None] = time.sleep,
         events: Optional[StructuredJsonLogger] = None,
     ):
@@ -181,6 +183,7 @@ class GatewayExecutor:
         self.response_validator = response_validator or ResponseValidator(tool_validator=self.tool_validator)
         self.attempt_store = attempt_store
         self.budget_store = budget_store if budget_store is not None else BudgetReservationStore()
+        self.key_pool = key_pool if key_pool is not None else KeyRotationPool()
         self._sleep = sleeper
         self.events = events or DEFAULT_STRUCTURED_LOGGER
         self.failover_listeners: List[Callable[[Dict[str, Any]], None]] = []
@@ -287,11 +290,13 @@ class GatewayExecutor:
         deadline = Deadline(total_timeout_ms=deadline_ms)
         ledger = AttemptLedger(self.policy)
         keys = dict(api_keys or {})
+        prefix_hash = compute_prefix_hash(request)
         req_vector = RequirementVector(
             require_tools=False,
             task_class="coding" if pool == "coding" else "general",
             estimated_input_tokens=estimate_tokens(request),
             expected_output_tokens=request.max_output_tokens or 4096,
+            prefix_hash=prefix_hash,
         )
         excluded_endpoints: List[str] = []
         last_failure_reason: Optional[str] = None
@@ -351,7 +356,9 @@ class GatewayExecutor:
                 excluded_endpoints.append(endpoint.id)
                 last_failure_reason = "adapter_has_no_native_stream"
                 continue
-            key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
+            key_val, key_id = self.key_pool.get_active_key(endpoint, keys)
+            if key_val is None:
+                key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
             prepared = self._streaming_prepared_request(adapter.prepare_request(endpoint, adapted_request, api_key=key_val))
             attempt = AttemptRecord(
                 request_id=request.request_id,
@@ -449,6 +456,7 @@ class GatewayExecutor:
         deadline = Deadline(total_timeout_ms=deadline_ms)
         ledger = AttemptLedger(self.policy)
         keys = dict(api_keys or {})
+        prefix_hash = compute_prefix_hash(request)
 
         # Build requirement vector from request (on top of any caller-supplied constraints)
         req_vector = replace(
@@ -457,6 +465,7 @@ class GatewayExecutor:
             task_class="coding" if pool == "coding" else "general",
             estimated_input_tokens=estimate_tokens(request),
             expected_output_tokens=request.max_output_tokens or 0,
+            prefix_hash=prefix_hash,
         )
 
         excluded_endpoints: List[str] = []
@@ -560,7 +569,9 @@ class GatewayExecutor:
 
             # 3. Prepare and Execute Request
             adapter = self.adapter_registry.get_adapter(endpoint.provider, protocol=endpoint.protocol)
-            key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
+            key_val, key_id = self.key_pool.get_active_key(endpoint, keys)
+            if key_val is None:
+                key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
             prepared = adapter.prepare_request(endpoint, adapted_request, api_key=key_val)
 
             attempt_timeout_sec = deadline.per_attempt_timeout_seconds()
@@ -714,6 +725,8 @@ class GatewayExecutor:
                         breaker.record_success(exec_result.duration_ms)
                         self.health_store.record_success(endpoint.id, exec_result.duration_ms)
                         self._record_lane_outcome(endpoint)
+                        if prefix_hash:
+                            self.router.cache_tracker.record_warm_cache(endpoint.id, prefix_hash)
                         attempt_rec.finish(success=True, status_code=200)
                         ledger.record_attempt(attempt_rec)
                         self._emit_attempt(attempt_rec)
@@ -765,6 +778,27 @@ class GatewayExecutor:
                 # Classify error
                 raw_msg = exec_result.body.decode("utf-8", errors="ignore")
                 classified = classify_failure(raw_msg, status_code=exec_result.status_code, headers=exec_result.headers)
+
+            # Intra-provider multi-key rotation: if 429 and an alternative key exists, rotate and retry locally
+            if (
+                classified.reason == FailoverReason.rate_limit
+                and key_id
+                and self.key_pool.has_alternative_key(endpoint, keys, key_id)
+            ):
+                self.key_pool.record_rate_limit(key_id, cooldown_seconds=classified.retry_after_seconds)
+                self.events.info(
+                    "key_rotated_on_rate_limit",
+                    endpoint=endpoint.id,
+                    old_key=key_id,
+                    retry_after=classified.retry_after_seconds,
+                )
+                attempt_rec.finish(success=False, status_code=exec_result.status_code, failure=classified)
+                ledger.record_attempt(attempt_rec)
+                self._emit_attempt(attempt_rec)
+                if budget_reservation_id is not None:
+                    self.budget_store.settle(budget_reservation_id, reserved_amount_usd)
+                self._finish_durable_attempt(attempt_rec, "key_rotated_429", classified.message)
+                continue
 
             # Record failure in breaker & health store
             breaker.record_failure(exec_result.duration_ms, failure_classification=classified)

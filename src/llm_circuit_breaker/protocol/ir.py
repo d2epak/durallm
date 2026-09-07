@@ -18,6 +18,7 @@ class NormalizedToolDefinition:
     name: str
     description: str = ""
     parameters: Dict[str, Any] = field(default_factory=lambda: {"type": "object", "properties": {}})
+    cache_control: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -55,6 +56,7 @@ class NormalizedMessage:
     tool_calls: List[NormalizedToolCall] = field(default_factory=list)
     tool_results: List[NormalizedToolResult] = field(default_factory=list)
     name: Optional[str] = None
+    cache_control: Optional[Dict[str, Any]] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -65,6 +67,7 @@ class NormalizedRequest:
     model: str = "default"
     messages: List[NormalizedMessage] = field(default_factory=list)
     system_instruction: Optional[str] = None
+    system_cache_control: Optional[Dict[str, Any]] = None
     tools: List[NormalizedToolDefinition] = field(default_factory=list)
     tool_choice: Optional[Any] = None
     max_output_tokens: Optional[int] = None

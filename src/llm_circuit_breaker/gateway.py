@@ -45,6 +45,7 @@ def endpoint_from_route(route: RouteDefinition, pool: str, priority: int) -> End
         base_url=route.base_url,
         protocol=route.api_format,
         env_key=route.env_key,
+        env_keys=list(route.env_keys),
         headers=dict(route.headers),
         priority=priority,
         pool=pool,

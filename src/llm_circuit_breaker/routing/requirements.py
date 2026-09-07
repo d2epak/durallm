@@ -45,6 +45,8 @@ class RequirementVector:
     # concurrent attempts cannot collectively overspend it.
     budget_scope: Optional[str] = None
     budget_limit_usd: Optional[float] = None
+    # Frontier 6: Byte-stable SHA-256 hash of system prompt and sorted tool signatures
+    prefix_hash: Optional[str] = None
 
     def estimated_cost_usd(self, profile: ModelProfile) -> float:
         """Per-request cost estimate: input tokens x input price + expected output tokens x output price."""

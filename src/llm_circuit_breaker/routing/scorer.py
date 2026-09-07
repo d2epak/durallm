@@ -36,6 +36,7 @@ class RoutingScorer:
         endpoint: Endpoint,
         breaker_state: CircuitBreakerState,
         health: Optional[EndpointHealthSnapshot] = None,
+        warm_cache: bool = False,
     ) -> CandidateEvaluation:
         """
         Compute multi-objective score based on REAL observed telemetry:
@@ -43,6 +44,7 @@ class RoutingScorer:
         - Latency: Observed EMA latency (or cold-start exploration score if UNKNOWN).
         - Cost: Inversely proportional to declared pricing (free = 1.0).
         - Quality: Verified tool calling, reasoning, and context window capability.
+        - Cache: Prompt-cache bonus for endpoints with active prefix in memory.
         """
         # 1. Health / Reliability Score (0.0 to 1.0)
         if breaker_state in (CircuitBreakerState.OPEN, CircuitBreakerState.FORCED_OPEN):
@@ -95,6 +97,9 @@ class RoutingScorer:
             + self.w_latency * latency_score
             + self.w_cost * cost_score
         )
+        # Frontier 6: Boost candidates holding a warm prompt cache for this prefix
+        if warm_cache:
+            final_score += 0.25
 
         return CandidateEvaluation(
             endpoint_id=endpoint.id,
@@ -109,4 +114,5 @@ class RoutingScorer:
             final_score=final_score,
             is_cold_start=is_cold_start,
             observed_latency_ms=observed_lat,
+            warm_cache=warm_cache,
         )

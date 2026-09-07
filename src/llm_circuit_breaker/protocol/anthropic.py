@@ -23,6 +23,7 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
 
     # 1. System Prompt
     system_text: Optional[str] = None
+    system_cache_control: Optional[Dict[str, Any]] = None
     raw_system = anthropic_body.get("system")
     if raw_system:
         if isinstance(raw_system, str):
@@ -31,6 +32,10 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
             parts = [b.get("text", "") for b in raw_system if isinstance(b, dict) and b.get("type") == "text"]
             if parts:
                 system_text = "\n".join(parts)
+            for b in raw_system:
+                if isinstance(b, dict) and b.get("cache_control"):
+                    system_cache_control = b["cache_control"]
+                    break
 
     # 2. Tool Definitions
     tools: List[NormalizedToolDefinition] = []
@@ -41,6 +46,7 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
                     name=t.get("name", ""),
                     description=t.get("description", ""),
                     parameters=t.get("input_schema", {"type": "object", "properties": {}}),
+                    cache_control=t.get("cache_control"),
                 )
             )
 
@@ -64,10 +70,13 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
         signatures: List[str] = []
         tool_calls: List[NormalizedToolCall] = []
         tool_results: List[NormalizedToolResult] = []
+        msg_cache_control: Optional[Dict[str, Any]] = None
 
         for b in content:
             if not isinstance(b, dict):
                 continue
+            if b.get("cache_control"):
+                msg_cache_control = b["cache_control"]
             btype = b.get("type")
             if btype == "text":
                 text_parts.append(b.get("text", ""))
@@ -109,6 +118,7 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
                 reasoning_signature=signatures[0] if len(reasoning_parts) == 1 and signatures else None,
                 tool_calls=tool_calls,
                 tool_results=tool_results,
+                cache_control=msg_cache_control,
             )
         )
 
@@ -117,6 +127,7 @@ def anthropic_request_to_ir(anthropic_body: Dict[str, Any]) -> NormalizedRequest
         model=model,
         messages=normalized_messages,
         system_instruction=system_text,
+        system_cache_control=system_cache_control,
         tools=tools,
         tool_choice=anthropic_body.get("tool_choice"),
         max_output_tokens=anthropic_body.get("max_tokens"),
@@ -147,7 +158,10 @@ def ir_to_anthropic_request(req: NormalizedRequest, target_model: str) -> Dict[s
     }
 
     if req.system_instruction:
-        payload["system"] = req.system_instruction
+        if req.system_cache_control:
+            payload["system"] = [{"type": "text", "text": req.system_instruction, "cache_control": req.system_cache_control}]
+        else:
+            payload["system"] = req.system_instruction
 
     if req.max_output_tokens:
         payload["max_tokens"] = req.max_output_tokens
@@ -158,14 +172,16 @@ def ir_to_anthropic_request(req: NormalizedRequest, target_model: str) -> Dict[s
 
     # Tools
     if req.tools:
-        payload["tools"] = [
-            {
+        payload["tools"] = []
+        for t in req.tools:
+            t_dict: Dict[str, Any] = {
                 "name": t.name,
                 "description": t.description,
                 "input_schema": t.parameters,
             }
-            for t in req.tools
-        ]
+            if t.cache_control:
+                t_dict["cache_control"] = t.cache_control
+            payload["tools"].append(t_dict)
         choice = tool_choice_to_anthropic(req.tool_choice)
         if choice is not None:
             payload["tool_choice"] = choice
@@ -199,6 +215,9 @@ def ir_to_anthropic_request(req: NormalizedRequest, target_model: str) -> Dict[s
                 "content": tr.content,
                 "is_error": tr.is_error,
             })
+
+        if content_blocks and m.cache_control:
+            content_blocks[-1]["cache_control"] = m.cache_control
 
         payload["messages"].append({
             "role": m.role,

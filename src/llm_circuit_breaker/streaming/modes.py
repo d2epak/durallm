@@ -93,6 +93,11 @@ def synthesize_anthropic_sse(resp: NormalizedResponse, requested_model: str) -> 
             "event: content_block_delta\n"
             + f"data: {json.dumps({'type': 'content_block_delta', 'index': block_idx, 'delta': {'type': 'thinking_delta', 'thinking': resp.reasoning_content}}, ensure_ascii=False)}\n\n"
         )
+        if getattr(resp, "reasoning_signature", None):
+            yield (
+                "event: content_block_delta\n"
+                + f"data: {json.dumps({'type': 'content_block_delta', 'index': block_idx, 'delta': {'type': 'signature_delta', 'signature': resp.reasoning_signature}}, ensure_ascii=False)}\n\n"
+            )
         yield (
             "event: content_block_stop\n"
             + f"data: {json.dumps({'type': 'content_block_stop', 'index': block_idx}, ensure_ascii=False)}\n\n"
