@@ -263,6 +263,104 @@ class TestFreeCodingHarness(unittest.TestCase):
         norm_oai = openai_request_to_ir(openai_body)
         self.assertEqual(norm_oai.max_output_tokens, 64000)
 
+    # ------------------------------------------------------------------
+    # 7. Context-Adaptive Dynamic Routing for Large Goal Sessions
+    # ------------------------------------------------------------------
+    def test_context_adaptive_routing_prioritizes_high_context_routes_for_large_prompts(self):
+        from durallm.capability.registry import CapabilityRegistry
+        from durallm.capability.profile import Endpoint, ModelProfile
+        from durallm.routing import CapabilityRouter, RequirementVector
+
+        reg = CapabilityRegistry()
+        ep_groq = Endpoint(
+            id="coding:groq",
+            provider="groq",
+            model="qwen/qwen3.6-27b",
+            base_url="https://api.groq.com",
+            priority=1,
+            pool="coding",
+            profile=ModelProfile("groq", "qwen/qwen3.6-27b", context_window=131072),
+        )
+        ep_openrouter = Endpoint(
+            id="coding:openrouter",
+            provider="openrouter",
+            model="qwen/qwen-2.5-coder-32b-instruct:free",
+            base_url="https://openrouter.ai",
+            priority=2,
+            pool="coding",
+            profile=ModelProfile("openrouter", "qwen/qwen-2.5-coder-32b-instruct:free", context_window=256000),
+        )
+        reg.register_endpoint(ep_groq)
+        reg.register_endpoint(ep_openrouter)
+
+        router = CapabilityRouter(capability_registry=reg)
+
+        # Small prompt (1000 tokens): priority 1 (Groq) is selected
+        req_small = RequirementVector(estimated_input_tokens=1000)
+        selected_small, _ = router.select_candidate(req_small, pool="coding", strategy="priority")
+        self.assertEqual(selected_small.id, "coding:groq")
+
+        # Large prompt (7500 tokens): 256k OpenRouter model is prioritized over Groq (strict TPM)
+        req_large = RequirementVector(estimated_input_tokens=7500)
+        selected_large, _ = router.select_candidate(req_large, pool="coding", strategy="priority")
+        self.assertEqual(selected_large.id, "coding:openrouter")
+
+    # ------------------------------------------------------------------
+    # 8. Fallback Hop Budget Permits Traversing All 6 Pool Routes
+    # ------------------------------------------------------------------
+    def test_default_fallback_policy_permits_traversing_six_routes(self):
+        from durallm.execution.policy import ExecutionPolicy
+        from durallm.execution.ledger import AttemptLedger
+
+        policy = ExecutionPolicy()
+        self.assertGreaterEqual(policy.fallback.max_fallback_hops, 6)
+        self.assertGreaterEqual(policy.max_total_attempts, 6)
+
+        ledger = AttemptLedger(policy)
+        # Verify ledger allows 5 fallbacks (6 endpoints) without throwing FallbackBudgetExhaustedError
+        for i in range(5):
+            ledger.validate_next_candidate(f"endpoint-{i}")
+            ledger.mark_fallback()
+        # 6th endpoint should be valid
+        ledger.validate_next_candidate("endpoint-5")
+
+    # ------------------------------------------------------------------
+    # 9. Groq TPM Output Token Defense
+    # ------------------------------------------------------------------
+    def test_groq_tpm_defense_throttles_max_tokens_for_large_inputs(self):
+        import json
+        from durallm.capability.profile import ModelProfile
+        adapter = OpenAICompatibleAdapter()
+        ep_groq = Endpoint(
+            id="coding:groq",
+            provider="groq",
+            model="qwen/qwen3.6-27b",
+            base_url="https://api.groq.com",
+            profile=ModelProfile("groq", "qwen/qwen3.6-27b", context_window=131072, max_output_tokens=8192),
+        )
+        # Large prompt of ~8000 tokens
+        norm_req = NormalizedRequest(
+            request_id="req-groq-tpm",
+            model="qwen/qwen3.6-27b",
+            messages=[],
+            system_instruction="x" * 32000,  # ~8000 tokens
+            max_output_tokens=8192,
+        )
+        prepared = adapter.prepare_request(ep_groq, norm_req, api_key="test-key")
+        body = json.loads(prepared.body_bytes.decode("utf-8"))
+        # 8000 + 8192 = 16192 > 12000 TPM -> max_tokens throttled to safe headroom
+        self.assertLessEqual(body["max_tokens"], 4096)
+        self.assertGreaterEqual(body["max_tokens"], 1024)
+
+    # ------------------------------------------------------------------
+    # 10. Deadline Extended Defaults for Heavy Coding Models
+    # ------------------------------------------------------------------
+    def test_deadline_defaults_extended_for_large_coding_models(self):
+        from durallm.execution.deadline import Deadline
+        d = Deadline()
+        self.assertGreaterEqual(d.per_attempt_timeout_ms, 60000.0)
+        self.assertGreaterEqual(d.total_timeout_ms, 180000.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -81,6 +81,7 @@ _OUTPUT_CAP_PATTERNS = [
     "available_tokens",
     "available tokens",
     "max_tokens is less than the context_window",
+    "on output tokens",
 ]
 
 _CONTEXT_OVERFLOW_PATTERNS = [
@@ -92,6 +93,8 @@ _CONTEXT_OVERFLOW_PATTERNS = [
     "too many tokens",
     "prompt is too long",
     "prompt too long",
+    "tokens per minute",
+    "tpm limit",
 ]
 
 

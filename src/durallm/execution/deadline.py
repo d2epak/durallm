@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
 from typing import Callable, Optional
@@ -13,18 +14,30 @@ from durallm.providers.base import TransportTimeouts
 @dataclass
 class Deadline:
     """Tracks hierarchical deadlines and remaining request execution budgets."""
-    total_timeout_ms: float = 60000.0
-    connect_timeout_ms: float = 5000.0
-    tls_timeout_ms: float = 5000.0
-    ttft_timeout_ms: float = 15000.0
-    idle_stream_timeout_ms: float = 10000.0
-    per_attempt_timeout_ms: float = 25000.0
+    total_timeout_ms: float = 180000.0
+    connect_timeout_ms: float = 10000.0
+    tls_timeout_ms: float = 10000.0
+    ttft_timeout_ms: float = 45000.0
+    idle_stream_timeout_ms: float = 20000.0
+    per_attempt_timeout_ms: float = 60000.0
     clock: Callable[[], float] = time.monotonic
     start_time_monotonic: Optional[float] = None
 
     def __post_init__(self):
         if self.start_time_monotonic is None:
             self.start_time_monotonic = self.clock()
+        gw_timeout = os.environ.get("GATEWAY_TIMEOUT") or os.environ.get("LLM_ATTEMPT_TIMEOUT")
+        if gw_timeout:
+            try:
+                self.per_attempt_timeout_ms = float(gw_timeout) * 1000.0
+            except ValueError:
+                pass
+        tot_timeout = os.environ.get("LLM_TOTAL_TIMEOUT")
+        if tot_timeout:
+            try:
+                self.total_timeout_ms = float(tot_timeout) * 1000.0
+            except ValueError:
+                pass
 
     def elapsed_ms(self) -> float:
         """Elapsed time in milliseconds since deadline started."""

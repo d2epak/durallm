@@ -34,7 +34,7 @@ class RetryPolicy:
 @dataclass
 class FallbackPolicy:
     """Policy for failing over to alternative provider endpoints."""
-    max_fallback_hops: int = 3
+    max_fallback_hops: int = 8
     require_capability_match: bool = True
     avoid_same_provider: bool = False
     avoid_recent_failure: bool = True
@@ -45,4 +45,4 @@ class ExecutionPolicy:
     """Combined policy governing request execution."""
     retry: RetryPolicy = field(default_factory=RetryPolicy)
     fallback: FallbackPolicy = field(default_factory=FallbackPolicy)
-    max_total_attempts: int = 6
+    max_total_attempts: int = 12

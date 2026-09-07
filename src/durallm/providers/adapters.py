@@ -370,6 +370,15 @@ class OpenAICompatibleAdapter(BaseHTTPAdapter):
             payload["max_tokens"] = min(payload["max_tokens"], max_out)
         else:
             payload["max_tokens"] = min(max_out, 8192)
+
+        if endpoint.provider.lower() == "groq":
+            from durallm.agent.context import estimate_tokens
+            in_est = estimate_tokens(request)
+            current_max = payload.get("max_tokens", 8192)
+            if in_est > 0 and (in_est + current_max) > 12000:
+                safe_out = max(1024, min(current_max, 12000 - in_est))
+                payload["max_tokens"] = safe_out
+
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
         headers = {

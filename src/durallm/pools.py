@@ -96,7 +96,7 @@ _BROWSER_UA = (
 
 # Default Coding Pool (Claude Code, Cursor, Aider) - Verified Active Free Coding Models
 DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
-    # 1. Groq: Qwen 3.6 27B (128k context, high-fidelity agentic coding)
+    # 1. Groq: Qwen 3.6 27B (128k context, ultra-fast agentic coding)
     RouteDefinition(
         id="groq-qwen36-coding",
         provider="groq",
@@ -109,33 +109,20 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),
-    # 2. Groq: GPT-OSS 120B (128k context, agentic reasoning MoE)
+    # 2. OpenRouter: Qwen 2.5 Coder 32B Instruct Free (256k context, resilient open-weights coding)
     RouteDefinition(
-        id="groq-gpt-oss-coding",
-        provider="groq",
-        model="openai/gpt-oss-120b",
+        id="openrouter-qwen25-coding",
+        provider="openrouter",
+        model="qwen/qwen-2.5-coder-32b-instruct:free",
         pool="coding",
-        base_url="https://api.groq.com/openai/v1",
+        base_url="https://openrouter.ai/api/v1",
         api_format="openai",
-        env_key="GROQ_API_KEY",
-        context_length=131072,
+        env_key="OPENROUTER_API_KEY",
+        context_length=256000,
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),
-    # 3. NVIDIA NIM: Nemotron-3-Ultra 550B (128k context, agent orchestration)
-    RouteDefinition(
-        id="nvidia-nemotron-coding",
-        provider="nvidia",
-        model="nvidia/nemotron-3-ultra-550b-a55b",
-        pool="coding",
-        base_url="https://integrate.api.nvidia.com/v1",
-        api_format="openai",
-        env_key="NVIDIA_API_KEY",
-        context_length=131072,
-        max_output_tokens=8192,
-        headers={"User-Agent": _BROWSER_UA}
-    ),
-    # 4. NVIDIA NIM: Gemma 4 31B IT (128k context, high-speed coding)
+    # 3. NVIDIA NIM: Gemma 4 31B IT (128k context, high-speed coding)
     RouteDefinition(
         id="nvidia-gemma4-coding",
         provider="nvidia",
@@ -148,7 +135,7 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),
-    # 5. OpenRouter: Cohere North Mini Code Free (256k context, terminal & code generation)
+    # 4. OpenRouter: Cohere North Mini Code Free (256k context, terminal & code generation)
     RouteDefinition(
         id="openrouter-north-mini-coding",
         provider="openrouter",
@@ -161,16 +148,29 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),
-    # 6. OpenRouter: Qwen 2.5 Coder 32B Instruct Free (256k context, resilient open-weights coding)
+    # 5. NVIDIA NIM: Nemotron-3-Ultra 550B (128k context, agent orchestration)
     RouteDefinition(
-        id="openrouter-qwen25-coding",
-        provider="openrouter",
-        model="qwen/qwen-2.5-coder-32b-instruct:free",
+        id="nvidia-nemotron-coding",
+        provider="nvidia",
+        model="nvidia/nemotron-3-ultra-550b-a55b",
         pool="coding",
-        base_url="https://openrouter.ai/api/v1",
+        base_url="https://integrate.api.nvidia.com/v1",
         api_format="openai",
-        env_key="OPENROUTER_API_KEY",
-        context_length=256000,
+        env_key="NVIDIA_API_KEY",
+        context_length=131072,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA}
+    ),
+    # 6. Groq: GPT-OSS 120B (128k context, agentic reasoning MoE)
+    RouteDefinition(
+        id="groq-gpt-oss-coding",
+        provider="groq",
+        model="openai/gpt-oss-120b",
+        pool="coding",
+        base_url="https://api.groq.com/openai/v1",
+        api_format="openai",
+        env_key="GROQ_API_KEY",
+        context_length=131072,
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),

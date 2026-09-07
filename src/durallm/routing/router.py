@@ -285,8 +285,18 @@ class CapabilityRouter:
         selected_endpoint: Optional[Endpoint] = None
 
         if strat == "priority":
-            # Order by priority ascending (1 highest), then final score descending
-            eligible_endpoints.sort(key=lambda x: (x[0].priority, -x[1].final_score))
+            is_large_context = requirements.estimated_input_tokens > 5000
+
+            def priority_key(item: Tuple[Endpoint, CandidateEvaluation]):
+                ep, ev = item
+                cw = (ep.profile.context_window if ep.profile else 65536) or 65536
+                is_groq = ep.provider.lower() == "groq"
+                if is_large_context:
+                    tier = 2 if is_groq else (0 if cw >= 200000 else 1)
+                    return (tier, ep.priority, -ev.final_score)
+                return (ep.priority, -ev.final_score)
+
+            eligible_endpoints.sort(key=priority_key)
             selected_endpoint = eligible_endpoints[0][0]
 
         elif strat == "round_robin":
