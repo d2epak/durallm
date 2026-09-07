@@ -350,7 +350,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             self._send_json(200, {
                 "status": "healthy",
                 "engine": "durallm",
-                "version": "0.2.0",
+                "version": "0.2.1",
                 "pools": {
                     "coding": {
                         "active_candidates": len(candidates_coding),
@@ -718,7 +718,7 @@ def create_proxy_app():
     except ImportError:
         raise ImportError("FastAPI is optional. Install with: pip install 'durallm[proxy]'")
 
-    app = FastAPI(title="LLM Circuit Breaker Gateway", version="0.2.0")
+    app = FastAPI(title="LLM Circuit Breaker Gateway", version="0.2.1")
 
     @app.get("/health")
     async def health():

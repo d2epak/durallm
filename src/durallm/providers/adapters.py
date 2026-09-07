@@ -370,7 +370,7 @@ class OpenAICompatibleAdapter(BaseHTTPAdapter):
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "durallm/0.2.0",
+            "User-Agent": "durallm/0.2.1",
         }
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -409,7 +409,7 @@ class AnthropicAdapter(BaseHTTPAdapter):
         headers = {
             "Content-Type": "application/json",
             "anthropic-version": "2023-06-01",
-            "User-Agent": "durallm/0.2.0",
+            "User-Agent": "durallm/0.2.1",
         }
         if api_key:
             headers["x-api-key"] = api_key
@@ -486,7 +486,7 @@ class GeminiAdapter(BaseHTTPAdapter):
 
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "durallm/0.2.0",
+            "User-Agent": "durallm/0.2.1",
         }
         # SECURE AUTH IN HEADER, NOT URL QUERY PARAMETER!
         if api_key:

@@ -49,7 +49,7 @@ def fetch_openrouter_catalog(timeout: float = 10.0) -> list[dict[str, Any]]:
     """Fetch live catalog from OpenRouter."""
     req = urllib.request.Request(
         _OPENROUTER_CATALOG_URL,
-        headers={"User-Agent": "durallm/0.2.0", "Accept": "application/json"},
+        headers={"User-Agent": "durallm/0.2.1", "Accept": "application/json"},
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
