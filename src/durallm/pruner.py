@@ -92,17 +92,21 @@ def prune_anthropic_request(
 def prune_openai_request(
     request: Dict[str, Any],
     max_context_tokens: int,
-    safety_margin_tokens: int = 2048
+    safety_margin_tokens: int = 2048,
+    min_preserve_tail: int = 2,
 ) -> Dict[str, Any]:
     """
-    Prune an OpenAI Chat Completion request to fit within max_context_tokens.
+    Prune an OpenAI Chat Completion request to fit strictly within max_context_tokens.
     Preserves:
-    - System message
-    - Initial user prompt
-    - Latest 6 turns
+    - System message (index 0)
+    - Initial user objective (first user turn)
+    - Most recent active turn(s)
     Compacts:
-    - Historical role=='tool' payloads
+    - Historical role=='tool' payloads across all turns
+    - Adaptively reduces tail window from 6 to min_preserve_tail (default: 2) if needed
     """
+    from durallm.agent.context import extract_diagnostic_summary
+
     current_tokens = estimate_tokens(request)
     target_tokens = max(512, max_context_tokens - safety_margin_tokens)
 
@@ -111,29 +115,48 @@ def prune_openai_request(
 
     req = copy.deepcopy(request)
     messages: List[Dict[str, Any]] = req.get("messages", [])
-    if len(messages) <= 4:
+    if len(messages) <= 2:
         return req
 
     preserve_tail = 6
     start_idx = 1 if messages and messages[0].get("role") == "system" else 0
     start_idx += 1  # preserve root user prompt
 
-    if len(messages) > (start_idx + preserve_tail):
-        for msg in messages[start_idx:-preserve_tail]:
-            if msg.get("role") == "tool":
-                content = msg.get("content", "")
-                if isinstance(content, str) and len(content) > 600:
-                    msg["content"] = (
-                        content[:250]
-                        + "\n... [Historical tool output compacted by Circuit Breaker] ...\n"
-                        + content[-250:]
-                    )
+    # Step 1: In-place diagnostic compaction of oversized tool results across ALL messages
+    tail_cutoff = max(start_idx, len(messages) - 2)
+    for idx, msg in enumerate(messages[start_idx:], start=start_idx):
+        if msg.get("role") == "tool":
+            content = msg.get("content", "")
+            if isinstance(content, str):
+                if idx < tail_cutoff and len(content) > 400:
+                    msg["content"] = extract_diagnostic_summary(content, max_chars=300)
+                elif idx >= tail_cutoff and len(content) > 1200:
+                    # Compact huge tool outputs in tail (e.g. multi-thousand token file reads)
+                    msg["content"] = extract_diagnostic_summary(content, max_chars=800)
 
     if estimate_tokens(req) <= target_tokens:
         return req
 
+    # Step 2: Evict intermediate message turns between root objective and tail
     while len(messages) > (start_idx + preserve_tail) and estimate_tokens(req) > target_tokens:
         messages.pop(start_idx)
+
+    if estimate_tokens(req) <= target_tokens:
+        req["messages"] = messages
+        return req
+
+    # Step 3: If still exceeding budget, adaptively shrink preserve_tail down to min_preserve_tail
+    while preserve_tail > min_preserve_tail and estimate_tokens(req) > target_tokens:
+        preserve_tail -= 2
+        while len(messages) > (start_idx + preserve_tail) and estimate_tokens(req) > target_tokens:
+            messages.pop(start_idx)
+
+    # Step 4: Compact assistant reasoning content if still exceeding budget
+    if estimate_tokens(req) > target_tokens:
+        for idx in range(start_idx, len(messages) - 1):
+            m = messages[idx]
+            if m.get("role") == "assistant" and isinstance(m.get("content"), str) and len(m["content"]) > 400:
+                m["content"] = extract_diagnostic_summary(m["content"], max_chars=300)
 
     req["messages"] = messages
     return req
@@ -182,9 +205,9 @@ def prune_for_free_tpm(
 
 def prune_for_groq_tpm(
     payload: Dict[str, Any],
-    max_input_tokens: int = 5200,
+    max_input_tokens: int = 3800,
 ) -> Dict[str, Any]:
-    """Prune and compact an OpenAI-format chat completion payload specifically for Groq's 7,000 ITPM / 8,000 TPM limit."""
+    """Prune and compact an OpenAI-format chat completion payload specifically for Groq's 6,000 TPM limit."""
     req = copy.deepcopy(payload)
     current_tokens = estimate_tokens(req)
     if current_tokens <= max_input_tokens:
@@ -215,8 +238,8 @@ def prune_for_groq_tpm(
             if estimate_tokens(req) <= max_input_tokens:
                 return req
 
-    # Step 3: Run standard sliding-window message pruning
-    req = prune_openai_request(req, max_context_tokens=max_input_tokens, safety_margin_tokens=250)
+    # Step 3: Run sliding-window message pruning with adaptive tail down to 2 turns
+    req = prune_openai_request(req, max_context_tokens=max_input_tokens, safety_margin_tokens=200, min_preserve_tail=2)
     if estimate_tokens(req) <= max_input_tokens:
         return req
 

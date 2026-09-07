@@ -80,3 +80,13 @@ class AttemptLedger:
     def mark_fallback(self) -> None:
         """Increment fallback hops count."""
         self.fallback_count += 1
+
+    def reset_for_rate_limit_retry(self, endpoint_ids: List[str]) -> None:
+        """Reset retry counts and cycle history for candidates re-admitted after rate-limit wait."""
+        for ep in endpoint_ids:
+            self._endpoint_counts[ep] = 0
+        self._endpoints_attempted = [ep for ep in self._endpoints_attempted if ep not in endpoint_ids]
+        self.fallback_count = 0
+        if len(self.attempts) >= self.policy.max_total_attempts:
+            self.policy.max_total_attempts = len(self.attempts) + len(endpoint_ids) * 2
+

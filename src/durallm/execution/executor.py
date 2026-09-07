@@ -301,6 +301,8 @@ class GatewayExecutor:
         excluded_endpoints: List[str] = []
         last_failure_reason: Optional[str] = None
         attempt_idx = 0
+        rate_limit_waits = 0
+        max_rate_limit_waits = 3
 
         while not deadline.is_expired() and ledger.total_attempts < self.policy.max_total_attempts:
             attempt_idx += 1
@@ -314,6 +316,42 @@ class GatewayExecutor:
                 fallback_reason=last_failure_reason,
             )
             if endpoint is None:
+                temp_rate_limited_eps = []
+                delays = []
+                for att in ledger.attempts:
+                    if att.endpoint_id in excluded_endpoints and att.failure:
+                        if (
+                            att.failure.reason in (FailoverReason.rate_limit, FailoverReason.upstream_rate_limit)
+                            and not att.failure.is_permanent
+                            and (att.failure.retry_after_seconds is None or att.failure.retry_after_seconds < 300.0)
+                        ):
+                            if att.endpoint_id not in temp_rate_limited_eps:
+                                temp_rate_limited_eps.append(att.endpoint_id)
+                                if att.failure.retry_after_seconds:
+                                    delays.append(att.failure.retry_after_seconds)
+
+                rem_sec = deadline.remaining_ms() / 1000.0
+                if temp_rate_limited_eps and rate_limit_waits < max_rate_limit_waits and rem_sec > 10.0:
+                    rate_limit_waits += 1
+                    target_delay = min(delays) if delays else 8.0
+                    wait_s = max(2.0, min(target_delay, 15.0, rem_sec - 5.0))
+                    self.events.info(
+                        "stream_rate_limit_rollover_wait",
+                        pool=pool,
+                        endpoints=temp_rate_limited_eps,
+                        wait_seconds=wait_s,
+                        attempt=rate_limit_waits,
+                    )
+                    self._sleep(wait_s)
+                    for ep_id in temp_rate_limited_eps:
+                        if ep_id in excluded_endpoints:
+                            excluded_endpoints.remove(ep_id)
+                        for ep_obj in self.capability_registry.endpoints_for_pool(pool):
+                            if ep_obj.id == ep_id and ep_obj.lane_key:
+                                self.router.lane_store.set_available(ep_obj.lane_key)
+                    ledger.reset_for_rate_limit_retry(temp_rate_limited_eps)
+                    last_failure_reason = "rate_limit_rollover_retry"
+                    continue
                 break
             # Raw pass-through is safe only when the client and upstream use
             # the same event protocol. Cross-protocol calls remain atomic.
@@ -482,6 +520,8 @@ class GatewayExecutor:
         fallback_marked = False  # True once the retry loop has already counted the pending hop
         # Spec §15: after a size rejection, shrink the assumed window and retry the same candidate once.
         window_shrink: Dict[str, float] = {}
+        rate_limit_waits = 0
+        max_rate_limit_waits = 3
 
         while not deadline.is_expired() and ledger.total_attempts < self.policy.max_total_attempts:
             attempt_idx += 1
@@ -498,6 +538,50 @@ class GatewayExecutor:
             )
 
             if not endpoint:
+                temp_rate_limited_eps = []
+                delays = []
+                for att in ledger.attempts:
+                    if att.endpoint_id in excluded_endpoints and att.failure:
+                        if (
+                            att.failure.reason in (FailoverReason.rate_limit, FailoverReason.upstream_rate_limit)
+                            and not att.failure.is_permanent
+                            and (att.failure.retry_after_seconds is None or att.failure.retry_after_seconds < 300.0)
+                        ):
+                            if att.endpoint_id not in temp_rate_limited_eps:
+                                temp_rate_limited_eps.append(att.endpoint_id)
+                                if att.failure.retry_after_seconds:
+                                    delays.append(att.failure.retry_after_seconds)
+
+                rem_sec = deadline.remaining_ms() / 1000.0
+                if temp_rate_limited_eps and rate_limit_waits < max_rate_limit_waits and rem_sec > 10.0:
+                    rate_limit_waits += 1
+                    target_delay = min(delays) if delays else 8.0
+                    wait_s = max(2.0, min(target_delay, 15.0, rem_sec - 5.0))
+                    logger.info(
+                        "All candidates exhausted in pool '%s', but %d candidate(s) are on temporary rate limit cooldown. "
+                        "Waiting %.1fs for rate limit rollover (remaining deadline: %.1fs)...",
+                        pool, len(temp_rate_limited_eps), wait_s, rem_sec,
+                    )
+                    self.events.info(
+                        "rate_limit_rollover_wait",
+                        pool=pool,
+                        endpoints=temp_rate_limited_eps,
+                        wait_seconds=wait_s,
+                        attempt=rate_limit_waits,
+                    )
+                    self._sleep(wait_s)
+
+                    for ep_id in temp_rate_limited_eps:
+                        if ep_id in excluded_endpoints:
+                            excluded_endpoints.remove(ep_id)
+                        for ep_obj in self.capability_registry.endpoints_for_pool(pool):
+                            if ep_obj.id == ep_id and ep_obj.lane_key:
+                                self.router.lane_store.set_available(ep_obj.lane_key)
+
+                    ledger.reset_for_rate_limit_retry(temp_rate_limited_eps)
+                    last_failure_reason = "rate_limit_rollover_retry"
+                    continue
+
                 logger.error("No candidate matches requirements in pool '%s'", pool)
                 self.events.error(
                     "request_exhausted", request_id=request.request_id, pool=pool,

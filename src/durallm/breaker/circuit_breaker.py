@@ -30,8 +30,8 @@ logger = logging.getLogger("durallm.breaker")
 class CircuitBreakerConfig:
     """Circuit Breaker configuration thresholds and timings."""
     failure_rate_threshold: float = 50.0  # Percentage (0 - 100)
-    slow_call_rate_threshold: float = 50.0  # Percentage (0 - 100)
-    slow_call_duration_ms: float = 5000.0  # Milliseconds
+    slow_call_rate_threshold: float = 100.0  # Percentage (0 - 100); disabled by default to prevent trips on slow LLM generation
+    slow_call_duration_ms: float = 120000.0  # Milliseconds (120s accommodates heavy open-weights queueing)
     minimum_number_of_calls: int = 10
     sliding_window_type: SlidingWindowType = SlidingWindowType.COUNT_BASED
     sliding_window_size: int = 20

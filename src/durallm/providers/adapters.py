@@ -385,8 +385,8 @@ class OpenAICompatibleAdapter(BaseHTTPAdapter):
             payload["max_tokens"] = min(payload.get("max_tokens", 950), 950)
             if "max_completion_tokens" in payload:
                 payload["max_completion_tokens"] = min(payload["max_completion_tokens"], 950)
-            # Compact input payload if needed so input + output <= 7,000.
-            payload = prune_for_groq_tpm(payload, max_input_tokens=5200)
+            # Compact input payload so input (3800) + output (950) <= 4,750 < 6,000 TPM limit.
+            payload = prune_for_groq_tpm(payload, max_input_tokens=3800)
 
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 

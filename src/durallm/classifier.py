@@ -98,11 +98,27 @@ _CONTEXT_OVERFLOW_PATTERNS = [
     "too many tokens",
     "prompt is too long",
     "prompt too long",
+]
+
+_TPM_RATE_LIMIT_PATTERNS = [
     "tokens per minute",
     "tpm limit",
     "input tokens per minute",
     "itpm",
 ]
+
+
+def parse_retry_after_from_body(error_msg: str) -> Optional[float]:
+    """Extract retry-after delay in seconds from provider error body (e.g. Groq 'Please try again in 5.14s.')."""
+    import re
+    msg = str(error_msg).lower()
+    m = re.search(r"try again in\s+([0-9.]+)\s*s", msg)
+    if m:
+        try:
+            return max(0.1, float(m.group(1)))
+        except ValueError:
+            pass
+    return None
 
 
 def parse_output_cap_from_error(error_msg: str) -> Optional[int]:
@@ -333,9 +349,13 @@ def classify_failure(
             message=msg,
         )
 
-    # 5. HTTP 429 Rate Limits (Rate Limit)
-    if code == 429 or "ratelimit" in type(error).__name__.lower():
+    # 5. HTTP 429 Rate Limits / TPM Quotas (Rate Limit)
+    if code == 429 or any(p in msg for p in _TPM_RATE_LIMIT_PATTERNS) or "ratelimit" in type(error).__name__.lower():
         is_upstream_shared = any(p in msg for p in _UPSTREAM_429_PATTERNS)
+        parsed_delay = parse_retry_after_from_body(msg)
+        delay = retry_after or parsed_delay
+        if delay is None and any(p in msg for p in _TPM_RATE_LIMIT_PATTERNS):
+            delay = 60.0  # TPM limits reset at the 60-second window
         return FailureClassification(
             category=FailureCategory.RATE_LIMIT,
             reason=FailoverReason.upstream_rate_limit if is_upstream_shared else FailoverReason.rate_limit,
@@ -343,7 +363,7 @@ def classify_failure(
             retryable=True,
             poisons_health=True,
             status_code=429,
-            retry_after_seconds=retry_after,
+            retry_after_seconds=delay,
             message=msg,
         )
 

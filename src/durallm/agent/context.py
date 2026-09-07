@@ -282,6 +282,10 @@ class ContextManager:
         if sys_inst and len(sys_inst) > 2000 and estimate_tokens(compacted) > target_tokens:
             compacted.system_instruction = sys_inst[:2000] + "\n... [System instruction condensed by ContextManager] ..."
 
+        # Phase 5: Adaptive tail eviction down to min_tail (2 turns) while strictly preserving root user objective
+        while len(compacted.messages) > (2 + protected_prefix_count) and estimate_tokens(compacted) > target_tokens:
+            compacted.messages.pop(start_evict_idx)
+
         self._require_fit(compacted, target_tokens)
         return compacted, True
 

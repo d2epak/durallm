@@ -372,5 +372,91 @@ class TestFreeCodingHarness(unittest.TestCase):
         self.assertGreaterEqual(d.total_timeout_ms, 180000.0)
 
 
+    # ------------------------------------------------------------------
+    # 11. Deep Tail Tool Compaction for 55m /goal Sessions (14k Tokens)
+    # ------------------------------------------------------------------
+    def test_deep_tail_tool_compaction_for_long_horizon_sessions(self):
+        from durallm.pruner import prune_for_groq_tpm, estimate_tokens
+        messages = [
+            {"role": "system", "content": "You are Claude Code, an expert coding assistant."},
+            {"role": "user", "content": "Build the full stack task manager application in FastAPI and React."},
+        ]
+        # Simulate 10 turns of tool outputs where the last 6 messages contain huge outputs (>7k tokens)
+        for i in range(10):
+            messages.append({"role": "assistant", "content": f"Running step {i}"})
+            messages.append({"role": "tool", "content": f"Large command/file output for step {i}: " + ("abc " * 1000)})
+        messages.append({"role": "assistant", "content": "Analyzing latest test failures."})
+        messages.append({"role": "user", "content": "Please continue fixing the tests."})
+
+        payload = {"model": "qwen/qwen3.6-27b", "messages": messages}
+        initial_tokens = estimate_tokens(payload)
+        self.assertGreater(initial_tokens, 7000)
+
+        pruned = prune_for_groq_tpm(payload, max_input_tokens=3800)
+        pruned_tokens = estimate_tokens(pruned)
+        self.assertLessEqual(pruned_tokens, 3800)
+        # Root user objective and system prompt must be strictly preserved
+        self.assertEqual(pruned["messages"][0]["content"], "You are Claude Code, an expert coding assistant.")
+        self.assertEqual(pruned["messages"][1]["content"], "Build the full stack task manager application in FastAPI and React.")
+
+    # ------------------------------------------------------------------
+    # 12. Groq TPM 429 Classification Extracts Retry-After and Sets Retryable
+    # ------------------------------------------------------------------
+    def test_groq_tpm_classified_as_rate_limit_with_retry_after(self):
+        err_msg = (
+            '{"error":{"message":"Rate limit reached for model qwen/qwen3.6-27b on tokens per minute (TPM): '
+            'Limit 6000, Used 5980, Requested 350. Please try again in 5.2s.","type":"tokens","code":"rate_limit_exceeded"}}'
+        )
+        classified = classify_failure(err_msg, status_code=429)
+        self.assertEqual(classified.category, FailureCategory.RATE_LIMIT)
+        self.assertEqual(classified.reason, FailoverReason.rate_limit)
+        self.assertTrue(classified.retryable)
+        self.assertTrue(classified.should_fallback)
+        self.assertTrue(classified.poisons_health)
+        self.assertAlmostEqual(classified.retry_after_seconds, 5.2, places=1)
+
+    # ------------------------------------------------------------------
+    # 13. Circuit Breaker Does Not Trip on 15s-45s Slow LLM Responses
+    # ------------------------------------------------------------------
+    def test_circuit_breaker_does_not_trip_on_normal_generation_latencies(self):
+        from durallm.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+        from durallm.breaker.state import CircuitBreakerState
+
+        # 120s slow call duration default allows 15s-45s calls without counting as slow
+        cb = CircuitBreaker("test-breaker", CircuitBreakerConfig())
+        for _ in range(15):
+            cb.record_success(duration_ms=45000.0)  # 45s response latency
+        self.assertEqual(cb.state, CircuitBreakerState.CLOSED)
+
+    # ------------------------------------------------------------------
+    # 14. AttemptLedger Rate Limit Reset Allows Rollover Without Cycle Error
+    # ------------------------------------------------------------------
+    def test_attempt_ledger_reset_for_rate_limit_retry(self):
+        from durallm.execution.policy import ExecutionPolicy
+        from durallm.execution.ledger import AttemptLedger
+        from durallm.models import AttemptRecord
+
+        policy = ExecutionPolicy()
+        ledger = AttemptLedger(policy)
+
+        # Attempt endpoint A, fallback to B
+        rec_a = AttemptRecord(request_id="req1", endpoint_id="ep-a", provider="groq", model="qwen", attempt_index=1, fallback_index=0)
+        ledger.record_attempt(rec_a)
+        ledger.mark_fallback()
+
+        rec_b = AttemptRecord(request_id="req1", endpoint_id="ep-b", provider="groq", model="gpt-oss", attempt_index=2, fallback_index=1)
+        ledger.record_attempt(rec_b)
+
+        # Re-attempting ep-a directly without reset would trip CycleDetectedError
+        with self.assertRaises(Exception):
+            ledger.validate_next_candidate("ep-a")
+
+        # After rate limit rollover reset, ep-a is re-admitted cleanly
+        ledger.reset_for_rate_limit_retry(["ep-a", "ep-b"])
+        ledger.validate_next_candidate("ep-a")
+        self.assertTrue(ledger.can_attempt_endpoint("ep-a"))
+
+
 if __name__ == "__main__":
     unittest.main()
+
