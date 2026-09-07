@@ -165,6 +165,78 @@ class TestCanaryEngine(unittest.TestCase):
             # Verify deprecated model marked deprecated
             self.assertIn(("coding", "retired/old-model:free"), pool_mgr.deprecated)
 
+    @patch.object(CanaryProber, "fetch_openrouter_free_models")
+    @patch.object(CanaryProber, "ping_endpoint")
+    def test_canary_run_probe_end_to_end(self, mock_ping, mock_fetch):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ledger_file = Path(tmpdir) / "test_ledger.json"
+            initial_data = {
+                "version": "1.0.0",
+                "providers": {
+                    "openrouter": {
+                        "base_url": "https://openrouter.ai/api/v1",
+                        "auth_env": "OPENROUTER_API_KEY",
+                        "models": {
+                            "old/model:free": {
+                                "pool": "coding",
+                                "status": "active",
+                            }
+                        },
+                    },
+                    "groq": {
+                        "models": {
+                            "qwen/qwen3.6-27b": {"status": "active"}
+                        }
+                    },
+                    "nvidia": {
+                        "models": {
+                            "google/gemma-4-31b-it": {"status": "active"}
+                        }
+                    }
+                },
+            }
+            with open(ledger_file, "w", encoding="utf-8") as f:
+                json.dump(initial_data, f)
+
+            # Mock discovery returns a new model, but old/model:free is missing (retired)
+            mock_fetch.return_value = [
+                {
+                    "id": "new/coder-model:free",
+                    "name": "New Coder Free",
+                    "context_length": 65536,
+                    "supports_tools": True,
+                }
+            ]
+            mock_ping.return_value = {
+                "status": "active",
+                "status_code": 200,
+                "latency_ms": 250.0,
+            }
+
+            prober = CanaryProber(ledger_path=ledger_file)
+            result = prober.run_probe(update_pools=True)
+
+            self.assertEqual(result["status"], "success")
+            self.assertEqual(result["discovered_free_models"], 1)
+
+            # Check saved ledger
+            saved = prober.load_ledger()
+            models = saved["providers"]["openrouter"]["models"]
+            # Old model missing from live catalog is marked deprecated
+            self.assertEqual(models["old/model:free"]["status"], "deprecated")
+            # New model added
+            self.assertIn("new/coder-model:free", models)
+            self.assertEqual(models["new/coder-model:free"]["status"], "active")
+
+    def test_scheduler_start_stop(self):
+        scheduler = NightlyCanaryScheduler()
+        self.assertFalse(scheduler.status()["running"])
+        scheduler.start(run_immediately=False)
+        self.assertTrue(scheduler.status()["running"])
+        scheduler.stop()
+        self.assertFalse(scheduler.status()["running"])
+
 
 if __name__ == "__main__":
     unittest.main()
+
