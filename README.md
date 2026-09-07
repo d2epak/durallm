@@ -147,27 +147,86 @@ durallm --port 4001 --discover
 
 ## 🤖 Agent Drop-In Integration
 
-Seamlessly point your favorite autonomous agent at `durallm` by overriding the base URL:
+DuraLLM acts as a zero-loss local harness for autonomous AI agents, wrapping free and open-weight models with automatic protocol translation, rate-limit failovers, context compaction, and idempotent tool safety.
 
-### Claude Code
+### 1. Claude Code (Autonomous Coding Agent)
+
+Use DuraLLM as a self-healing harness around free coding LLMs (Groq, NVIDIA NIM, OpenRouter) for Claude Code:
+
+#### Step 1: Export Free Provider API Keys
+Set at least one free provider key in your environment:
+```bash
+export GROQ_API_KEY="gsk_..."           # High-speed inference (Qwen 3.6 27B, GPT-OSS 120B)
+export NVIDIA_API_KEY="nvapi-..."       # 128k context (Nemotron 3 Ultra, Gemma 4 31B)
+export OPENROUTER_API_KEY="sk-or-..."   # 256k context (North Mini Code, Qwen 2.5 Coder 32B)
+```
+
+#### Step 2: Start the DuraLLM Gateway
+```bash
+durallm --port 4001
+# Or run with Python:
+python -m durallm.proxy --port 4001
+```
+
+#### Step 3: Run Claude Code with Local Gateway Routing
+In your terminal, point Claude Code's Anthropic endpoint to DuraLLM:
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:4001"
+export ANTHROPIC_API_KEY="dummy"  # Claude Code requires a non-empty string; DuraLLM handles upstream auth
+
 claude
 ```
 
-### Hermes Agent / OpenClaw
+#### How DuraLLM Protects Claude Code:
+- **Automatic Subagent Aliasing**: Claude Code requests starting with `claude-` (such as `claude-opus-5`, `claude-3-5-haiku`, or `claude-3-5-sonnet`) automatically map directly to the active coding route pool.
+- **Output Cap Clamping**: Anthropic `max_tokens` (often 8192–64000) are automatically clamped to `<= 8192` when dispatching to Groq or OpenRouter, preventing `HTTP 400: max_tokens must be less than or equal to 16384`.
+- **TPM Payload Pruning**: When prompt history exceeds 12,000 tokens on free tier models, DuraLLM automatically compacts historical tool output logs while preserving system prompts and recent turns, preventing `HTTP 413: request too large on tokens per minute (TPM)`.
+- **24-Hour Quota Lockout**: If OpenRouter exhausts its free daily allowance (`rate limit exceeded: free-models-per-day`), DuraLLM locks the endpoint for 24 hours (`86,400s`) and falls back seamlessly to Groq or NVIDIA NIM without thrashing.
+
+---
+
+### 2. Hermes Agent & OpenClaw (Autonomous Reasoning & Multi-Turn Agents)
+
+Use DuraLLM to provide resilient OpenAI-compatible chat completions with idempotent tool calling for Hermes Agent:
+
+#### Step 1: Export Provider Keys & Start Gateway
+```bash
+export GROQ_API_KEY="gsk_..."
+export NVIDIA_API_KEY="nvapi-..."
+export OPENROUTER_API_KEY="sk-or-..."
+
+durallm --port 4001
+```
+
+#### Step 2: Configure Hermes Agent
+Point Hermes Agent to DuraLLM's `/v1` endpoint:
 ```bash
 export OPENAI_BASE_URL="http://127.0.0.1:4001/v1"
-export OPENAI_API_KEY="sk-dummy" # Gateway manages actual provider credentials
+export OPENAI_API_KEY="sk-dummy"  # Gateway manages actual provider credentials
+
+# Launch Hermes Agent
 hermes
 ```
 
-### Cursor IDE
+Or configure in `~/.hermes/config.yaml` or `~/.hermes/.env`:
+```env
+OPENAI_BASE_URL=http://127.0.0.1:4001/v1
+OPENAI_API_KEY=sk-dummy
+```
+
+#### Model Selection & Capabilities in Hermes:
+- **Default Pool (`hermes-default` / `openclaw-default`)**: Dispatches to the high-speed general agent pool (NVIDIA Llama 3.2 Vision, Groq Llama 3.1 8B Instant, OpenRouter free models).
+- **Virtual Model Discovery**: Query `GET http://127.0.0.1:4001/v1/models` to view all available virtual and provider-specific model IDs.
+- **Tool Idempotency**: Hermes tool calls are assigned deterministic ledger IDs (`PROPOSED` $\to$ `VALIDATED` $\to$ `COMMITTED`), preventing destructive bash commands or file writes from repeating if an upstream connection drops mid-turn.
+
+---
+
+### 3. Cursor IDE
 Navigate to **Cursor Settings** $\to$ **Models** $\to$ **OpenAI API Key**:
 - Check **Override OpenAI Base URL**
 - Set Base URL: `http://127.0.0.1:4001/v1`
 
-### Aider
+### 4. Aider
 ```bash
 aider --openai-api-base http://127.0.0.1:4001/v1 --model openai/gpt-4o
 ```

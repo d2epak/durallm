@@ -14,6 +14,8 @@ from typing import Any, Dict, List
 
 logger = logging.getLogger("durallm.pruner")
 
+FREE_TIER_TPM_LIMIT = 12000
+
 
 def estimate_tokens(payload: Any) -> int:
     """Rough but safe token estimation (approx 3.8 chars per token)."""
@@ -135,3 +137,21 @@ def prune_openai_request(
 
     req["messages"] = messages
     return req
+
+
+def prune_for_free_tpm(
+    request: Dict[str, Any],
+    tpm_limit: int = FREE_TIER_TPM_LIMIT,
+    safety_margin_tokens: int = 2048,
+) -> Dict[str, Any]:
+    """Prune request payload to fit within free-tier TPM ceilings (default: 12,000 tokens)."""
+    current_tokens = estimate_tokens(request)
+    if current_tokens > tpm_limit:
+        logger.warning(
+            "Request payload size (%d tokens) exceeds free-tier TPM ceiling (%d tokens). Pruning payload.",
+            current_tokens,
+            tpm_limit,
+        )
+        return prune_openai_request(request, max_context_tokens=tpm_limit, safety_margin_tokens=safety_margin_tokens)
+    return request
+

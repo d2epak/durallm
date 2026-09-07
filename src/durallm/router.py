@@ -282,7 +282,10 @@ class UniversalFailoverRouter:
                 pool.upper(), attempts, max_attempts, route.provider, route.model
             )
 
-            pruned_payload = prune_openai_request(openai_payload, route.context_length)
+            effective_context = route.context_length
+            if route.provider.lower() in ("groq", "nvidia", "openrouter"):
+                effective_context = min(effective_context, 12000)
+            pruned_payload = prune_openai_request(openai_payload, effective_context)
             status, headers, body = execute_upstream_request(route, pruned_payload)
 
             if status == 200:

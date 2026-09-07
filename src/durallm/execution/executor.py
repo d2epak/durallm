@@ -510,8 +510,11 @@ class GatewayExecutor:
             # 2. Context Adaptation (Budget Sizing)
             profile = endpoint.profile or self.capability_registry.get_profile(endpoint.provider, endpoint.model)
             shrink = window_shrink.get(endpoint.id, 1.0)
+            target_context = profile.context_window
+            if endpoint.pool == "coding" and endpoint.provider.lower() in ("groq", "nvidia", "openrouter"):
+                target_context = min(target_context, 12000)
             budget = ContextBudget(
-                model_context_window=int(profile.context_window * shrink),
+                model_context_window=int(target_context * shrink),
                 desired_output_tokens=request.max_output_tokens or 4096,
                 safety_margin_tokens=2048,
             )
@@ -810,6 +813,13 @@ class GatewayExecutor:
                 cooldown_seconds=classified.retry_after_seconds or (60.0 if classified.reason == FailoverReason.rate_limit else None),
                 is_permanent=classified.is_permanent,
             )
+            if classified.reason == FailoverReason.billing:
+                try:
+                    from durallm.pools import POOL_MANAGER
+                    route_id = endpoint.id.split(":")[-1]
+                    POOL_MANAGER.mark_quota_exhausted(pool, route_id, seconds=float(classified.retry_after_seconds or 86400.0))
+                except Exception:
+                    pass
             if classified.is_permanent:
                 self.router.mark_dead(endpoint.id, provider=endpoint.provider, model=endpoint.model, reason=classified.message[:160])
             self._record_lane_outcome(endpoint, classified)

@@ -30,6 +30,7 @@ _BILLING_PATTERNS = [
     "quota_exceeded",
     "account_deactivated",
     "balance is too low",
+    "free-models-per-day",
 ]
 
 _DEPRECATION_PATTERNS = [
@@ -52,7 +53,6 @@ _UPSTREAM_429_PATTERNS = [
     "temporarily rate-limited upstream",
     "upstream_provider_shared_pool",
     "provider returned error",
-    "rate limit exceeded: free-models-per-day",
     "daily",
     "quota exceeded",
 ]
@@ -183,9 +183,18 @@ def classify_api_error(
     error: Any,
     status_code: Optional[int] = None,
     headers: Optional[Dict[str, str]] = None,
+    pool: Optional[str] = None,
+    route_id: Optional[str] = None,
 ) -> ClassifiedError:
     """Classify an exception or response into a structured ClassifiedError (V1/V2 compatible)."""
     classification = classify_failure(error, status_code=status_code, headers=headers)
+    if classification.reason == FailoverReason.billing and pool and route_id:
+        try:
+            from durallm.pools import POOL_MANAGER
+            seconds = float(classification.retry_after_seconds or 86400.0)
+            POOL_MANAGER.mark_quota_exhausted(pool, route_id, seconds=seconds)
+        except Exception:
+            pass
     return ClassifiedError(
         reason=classification.reason,
         should_fallback=classification.should_fallback,
@@ -270,7 +279,21 @@ def classify_failure(
             message=msg,
         )
 
-    # 4. HTTP 402 Billing / Credits Exhaustion (Rate/Quota Limit)
+    # 4a. OpenRouter Daily Free Tier Quota Lockout (free-models-per-day)
+    if "free-models-per-day" in msg:
+        return FailureClassification(
+            category=FailureCategory.RATE_LIMIT,
+            reason=FailoverReason.billing,
+            should_fallback=True,
+            retryable=False,
+            poisons_health=False,
+            is_permanent=False,
+            status_code=code or 429,
+            retry_after_seconds=86400.0,
+            message=msg,
+        )
+
+    # 4b. HTTP 402 Billing / Credits Exhaustion (Rate/Quota Limit)
     if code == 402 or any(p in msg for p in _BILLING_PATTERNS):
         return FailureClassification(
             category=FailureCategory.RATE_LIMIT,

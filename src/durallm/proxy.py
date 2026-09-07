@@ -75,7 +75,8 @@ GATEWAY = build_proxy_gateway()
 
 
 def pool_for_model(requested_model: str) -> str:
-    return "coding" if any(k in requested_model.lower() for k in ["code", "claude", "coder"]) else "general_agent"
+    m = (requested_model or "").lower()
+    return "coding" if m.startswith("claude-") or any(k in m for k in ["code", "claude", "coder"]) else "general_agent"
 
 
 def _attach_tool_operation_metadata(body: Dict[str, Any], response: Any) -> Dict[str, Any]:
@@ -110,10 +111,14 @@ def build_failover_telemetry(
         "X-LCB-Selected-Endpoint": selected_id,
     }
 
+    is_virtual_alias = (
+        requested_model in ("auto-coding-agent", "hermes-default", "openclaw-default", "default")
+        or (requested_model or "").lower().startswith("claude-")
+    )
     has_failover = (
         (ledger and getattr(ledger, "fallback_count", 0) > 0)
         or any(not getattr(c, "eligible", True) for c in getattr(decision, "evaluated_candidates", []))
-        or (requested_model not in ("auto-coding-agent", "hermes-default", "openclaw-default", "default") and active_model != requested_model)
+        or (not is_virtual_alias and active_model != requested_model)
     )
 
     if has_failover:
@@ -391,6 +396,11 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
                 {"id": "auto-coding-agent", "object": "model", "created": int(time.time()), "owned_by": "circuit-breaker"},
                 {"id": "hermes-default", "object": "model", "created": int(time.time()), "owned_by": "circuit-breaker"},
                 {"id": "openclaw-default", "object": "model", "created": int(time.time()), "owned_by": "circuit-breaker"},
+                {"id": "claude-opus-5", "object": "model", "created": int(time.time()), "owned_by": "durallm-harness"},
+                {"id": "claude-3-5-haiku", "object": "model", "created": int(time.time()), "owned_by": "durallm-harness"},
+                {"id": "claude-3-5-haiku-20241022", "object": "model", "created": int(time.time()), "owned_by": "durallm-harness"},
+                {"id": "claude-3-5-sonnet", "object": "model", "created": int(time.time()), "owned_by": "durallm-harness"},
+                {"id": "claude-3-7-sonnet", "object": "model", "created": int(time.time()), "owned_by": "durallm-harness"},
             ]
             for r in POOL_MANAGER.coding_routes:
                 virtual_models.append({"id": f"coding/{r.provider}/{r.model}", "object": "model", "created": int(time.time()), "owned_by": r.provider})

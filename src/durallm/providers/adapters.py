@@ -365,6 +365,12 @@ class OpenAICompatibleAdapter(BaseHTTPAdapter):
         api_key: Optional[str] = None,
     ) -> PreparedRequest:
         payload = ir_to_openai_request(request, endpoint.model)
+        if endpoint.provider.lower() in ("groq", "openrouter"):
+            max_out = (endpoint.profile.max_output_tokens if endpoint.profile else 8192) or 8192
+            if "max_tokens" in payload:
+                payload["max_tokens"] = min(payload["max_tokens"], max_out, 8192)
+            else:
+                payload["max_tokens"] = min(max_out, 8192)
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
         headers = {

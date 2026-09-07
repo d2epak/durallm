@@ -95,15 +95,19 @@ class CapabilityRegistry:
             ModelProfile("cerebras", "llama3.1-8b", protocol="openai", context_window=65536, max_output_tokens=4096, supports_tools=True, is_free=True),
             # Groq
             ModelProfile("groq", "llama-3.3-70b-versatile", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("groq", "qwen/qwen3.6-27b", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("groq", "openai/gpt-oss-120b", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True, is_free=True),
             # OpenRouter Free
-            ModelProfile("openrouter", "qwen/qwen-2.5-coder-32b-instruct:free", protocol="openai", context_window=32768, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("openrouter", "qwen/qwen-2.5-coder-32b-instruct:free", protocol="openai", context_window=256000, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("openrouter", "cohere/north-mini-code:free", protocol="openai", context_window=256000, max_output_tokens=8192, supports_tools=True, is_free=True),
             ModelProfile("openrouter", "mistralai/devstral-2512:free", protocol="openai", context_window=262144, max_output_tokens=8192, supports_tools=True, is_free=True),
             ModelProfile("openrouter", "meta-llama/llama-3.3-70b-instruct:free", protocol="openai", context_window=65536, max_output_tokens=4096, supports_tools=True, is_free=True),
             # Mistral
             ModelProfile("mistral", "codestral-latest", protocol="openai", context_window=256000, max_output_tokens=8192, supports_tools=True),
             ModelProfile("mistral", "mistral-small-latest", protocol="openai", context_window=128000, max_output_tokens=4096, supports_tools=True),
             # NVIDIA NIM
-            ModelProfile("nvidia", "nvidia/nemotron-3-ultra-550b-a55b", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True),
+            ModelProfile("nvidia", "nvidia/nemotron-3-ultra-550b-a55b", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("nvidia", "google/gemma-4-31b-it", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True, is_free=True),
             # Google Gemini
             ModelProfile("gemini", "gemini-2.5-flash", protocol="gemini", context_window=1048576, max_output_tokens=8192, supports_tools=True, supports_vision=True, is_free=True),
             ModelProfile("gemini", "gemini-1.5-pro", protocol="gemini", context_window=2097152, max_output_tokens=8192, supports_tools=True, supports_vision=True),
