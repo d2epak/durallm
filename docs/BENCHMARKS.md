@@ -35,7 +35,7 @@ Seven systems run every scenario through the same harness and are scored by the 
 - **Baseline-C-Static-Fallback:** static a → b → c order; no breaker, validation, compaction or ledger.
 - **Baseline-D-Breaker-Static-Fallback:** Baseline C guarded by one circuit breaker per provider with V3's configuration; nothing else.
 - **Baseline-E-V1-Prototype:** the v0.1 `UniversalFailoverRouter` (round-robin pools, cooldown timers, payload pruning) driven through its real `dispatch` loop, with its upstream HTTP call redirected to the mock providers.
-- **Baseline-F-LiteLLM-Router:** an in-process `litellm.Router` instance configuring primary-to-fallback routing through LiteLLM's `CustomLLM` seam onto the mock providers.
+- **Baseline-F-Standard-Router:** an in-process standard router instance configuring primary-to-fallback routing through an extensible provider seam onto the mock providers.
 - **LLM-Circuit-Breaker-V3:** the current gateway.
 
 | Baseline / System | Completion Rate | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
@@ -46,9 +46,9 @@ Seven systems run every scenario through the same harness and are scored by the 
 | **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.03 ms | 0.32 ms | 20.0% |
 | **Baseline-D-Breaker-Static-Fallback** | 33.3% | 33.3% | 0.04 ms | 0.29 ms | 20.0% |
 | **Baseline-E-V1-Prototype** | 53.3% | 53.3% | 0.13 ms | 5.07 ms | 20.0% |
-| **Baseline-F-LiteLLM-Router** | 33.3% | 33.3% | 7.98 ms | 24.68 ms | 20.0% |
+| **Baseline-F-Standard-Router** | 33.3% | 33.3% | 7.98 ms | 24.68 ms | 20.0% |
 
-*Takeaway:* Retry and static fallback catch the common HTTP 5xx cases, but **only V3 completes all 15 scenarios**. The V1 prototype's pruner passes the compaction scenarios and its pools pass B12, yet it forwards invalid tool calls, re-executes tools, ignores cost and capability requirements, and its round-robin selection sends B10's recovered turn to the secondary. LiteLLM Router handles basic HTTP 5xx fallbacks (passing B1, B9, B11), but fails compaction on context overflows (B4, B5), forwards invalid tool syntax/schemas (B6, B7, B14), and re-executes duplicate tool calls (B8). Every system is scored by one rule (a response counts only if every delivered tool call passes the real schema validator; attempts are counted from the mock providers' call log). All rows run in one process against the same mock providers, so latencies measure harness overhead; the V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2.
+*Takeaway:* Retry and static fallback catch the common HTTP 5xx cases, but **only V3 completes all 15 scenarios**. The V1 prototype's pruner passes the compaction scenarios and its pools pass B12, yet it forwards invalid tool calls, re-executes tools, ignores cost and capability requirements, and its round-robin selection sends B10's recovered turn to the secondary. Standard Router handles basic HTTP 5xx fallbacks (passing B1, B9, B11), but fails compaction on context overflows (B4, B5), forwards invalid tool syntax/schemas (B6, B7, B14), and re-executes duplicate tool calls (B8). Every system is scored by one rule (a response counts only if every delivered tool call passes the real schema validator; attempts are counted from the mock providers' call log). All rows run in one process against the same mock providers, so latencies measure harness overhead; the V3 P95 is dominated by the 1 s `Retry-After` wait honoured in B2.
 
 ---
 

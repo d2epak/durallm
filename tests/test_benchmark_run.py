@@ -84,7 +84,7 @@ class TestEndToEnd(unittest.TestCase):
 
     def test_every_system_has_a_row_and_v3_passes_every_scenario_in_every_run(self):
         rows = [line for line in self.report.splitlines() if line.startswith("| **")]
-        self.assertEqual(len(rows), 7 + 15)  # seven systems (including LiteLLM) + fifteen V3 scenario rows
+        self.assertEqual(len(rows), 7 + 15)  # seven systems (including standard router) + fifteen V3 scenario rows
         self.assertEqual(self.data["aggregate"]["LLM-Circuit-Breaker-V3"]["completion_rate_pct"]["mean"], 100.0)
         self.assertEqual(set(self.data["scenario_passes"]["LLM-Circuit-Breaker-V3"].values()), {2})
         self.assertIn("**Runs:** 2 (seed 1;", self.report)

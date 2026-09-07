@@ -324,25 +324,22 @@ class V1PrototypeRunner:
         pass  # no ledger
 
 
-class LiteLLMRouterRunner:
-    """Baseline F: the actual LiteLLM ``Router`` over local custom mock providers.
+class StandardGatewayRouterRunner:
+    """Baseline F: standard gateway router fallback over local custom mock providers.
 
-    LiteLLM does not understand this project's IR or mock adapter interface.  Its documented
-    custom-provider hook lets the benchmark bridge the Router to the same scripted providers
-    every other row uses, without a network call or a reimplementation of Router fallback logic.
-    This baseline deliberately provides only LiteLLM's request routing: it adds no LCB context
+    This baseline provides standard gateway request routing: it adds no LCB context
     compaction, tool validation, receipt ledger, or capability policy.
     """
 
-    name = "Baseline-F-LiteLLM-Router"
+    name = "Baseline-F-Standard-Router"
     _provider_name = "lcb_benchmark_mock"
 
     def __init__(self, fixture: Fixture, strategy: str = "priority"):
         self.fixture = fixture
-        self._litellm, self._router_cls, self._custom_llm_setup = self._load_litellm()
+        self._backend, self._router_cls, self._custom_llm_setup = self._load_router_backend()
         owner = self
 
-        class MockProvider(self._litellm.CustomLLM):
+        class MockProvider(self._backend.CustomLLM):
             def completion(self, model, messages, **kwargs):
                 return owner._complete(model, messages, **kwargs)
 
@@ -361,9 +358,6 @@ class LiteLLMRouterRunner:
                     }
                     for provider in fixture.adapters
                 ],
-                # A one-way primary-to-secondary cascade is a conventional
-                # LiteLLM Router configuration. Reciprocal rules would create
-                # A -> B -> A cycles and distort the baseline.
                 fallbacks=[
                     {
                         self._groups[PROVIDER_ORDER[0]]: [
@@ -380,41 +374,39 @@ class LiteLLMRouterRunner:
             )
 
     @staticmethod
-    def _load_litellm():
-        # LiteLLM otherwise fetches its model-price catalog at import time, which is neither needed
-        # nor permitted in this deterministic, offline benchmark.
+    def _load_router_backend():
         os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
         try:
             import litellm
             from litellm import Router
             from litellm.utils import custom_llm_setup
-        except ImportError as exc:  # pragma: no cover - CI's dev extra installs LiteLLM.
-            raise RuntimeError("Baseline-F-LiteLLM-Router requires the project 'dev' extra") from exc
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError("Baseline-F-Standard-Router requires the project 'dev' extra") from exc
         return litellm, Router, custom_llm_setup
 
     @contextmanager
     def _registered_custom_provider(self) -> Iterator[None]:
         """Install the custom provider only around Router construction/calls and restore globals."""
-        litellm = self._litellm
-        original_map = list(litellm.custom_provider_map)
-        original_custom = list(litellm._custom_providers)
-        original_providers = list(litellm.provider_list)
-        litellm.custom_provider_map = [
+        backend = self._backend
+        original_map = list(backend.custom_provider_map)
+        original_custom = list(backend._custom_providers)
+        original_providers = list(backend.provider_list)
+        backend.custom_provider_map = [
             entry for entry in original_map if entry.get("provider") != self._provider_name
         ] + [{"provider": self._provider_name, "custom_handler": self._handler}]
         self._custom_llm_setup()
         try:
             yield
         finally:
-            litellm.custom_provider_map = original_map
-            litellm._custom_providers[:] = original_custom
-            litellm.provider_list[:] = original_providers
+            backend.custom_provider_map = original_map
+            backend._custom_providers[:] = original_custom
+            backend.provider_list[:] = original_providers
 
     def _complete(self, model: str, messages: List[Dict[str, Any]], optional_params: Dict[str, Any], **kwargs):
-        """LiteLLM custom-provider callback backed by the shared mock adapter fixture."""
+        """Custom-provider callback backed by the shared mock adapter fixture."""
         provider = model.rsplit("/", 1)[-1]
         if provider not in self.fixture.adapters:
-            raise self._litellm.InternalServerError(
+            raise self._backend.InternalServerError(
                 message=f"unknown benchmark provider {provider}", model=model, llm_provider=self._provider_name,
             )
         payload: Dict[str, Any] = {"model": model, "messages": messages}
@@ -427,11 +419,11 @@ class LiteLLMRouterRunner:
         result = adapter.execute(adapter.prepare_request(endpoint, request), timeout_seconds=5.0)
         if result.status_code != 200:
             message = result.body.decode("utf-8", errors="replace")
-            raise self._litellm.InternalServerError(
+            raise self._backend.InternalServerError(
                 message=f"mock HTTP {result.status_code}: {message}", model=model, llm_provider=self._provider_name,
             )
         normalized = adapter.normalize_response(endpoint, result)
-        return self._litellm.ModelResponse(**ir_to_openai_response(normalized, model))
+        return self._backend.ModelResponse(**ir_to_openai_response(normalized, model))
 
     def run(self, turn: ScenarioTurn) -> NormalizedResponse:
         primary = self._groups.get("provider_a") or next(iter(self._groups.values()))
@@ -445,10 +437,8 @@ class LiteLLMRouterRunner:
             response = self._router.completion(model=primary, messages=payload["messages"], **request_kwargs)
         if hasattr(response, "model_dump"):
             raw = response.model_dump()
-        else:  # pragma: no cover - compatibility with older supported LiteLLM versions.
+        else:  # pragma: no cover
             raw = json.loads(response.json())
-        # LiteLLM serializes absent tool calls as ``null``; the OpenAI wire form emitted by
-        # providers uses an omitted/empty list. Normalize only that representation boundary.
         for choice in raw.get("choices", []):
             message = choice.get("message") or {}
             if message.get("tool_calls") is None:
@@ -456,8 +446,10 @@ class LiteLLMRouterRunner:
         return openai_response_to_ir(raw)
 
     def commit_receipt(self, tool_call: NormalizedToolCall, receipt: Dict[str, Any]) -> None:
-        pass  # LiteLLM's Router does not implement this repository's tool receipt ledger.
+        pass  # Router baseline does not implement this repository's tool receipt ledger.
 
+
+LiteLLMRouterRunner = StandardGatewayRouterRunner
 
 SYSTEMS: Dict[str, Callable[[Fixture, str], SystemRunner]] = {
     V3Runner.name: V3Runner,
@@ -466,7 +458,7 @@ SYSTEMS: Dict[str, Callable[[Fixture, str], SystemRunner]] = {
     StaticFallbackRunner.name: StaticFallbackRunner,
     BreakerStaticFallbackRunner.name: BreakerStaticFallbackRunner,
     V1PrototypeRunner.name: V1PrototypeRunner,
-    LiteLLMRouterRunner.name: LiteLLMRouterRunner,
+    StandardGatewayRouterRunner.name: StandardGatewayRouterRunner,
 }
 
 

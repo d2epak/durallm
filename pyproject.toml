@@ -37,9 +37,7 @@ dev = [
     "ruff>=0.8.0",
     "mypy>=1.13.0",
     "build>=1.2.2",
-    # Benchmark-only: exercises LiteLLM's actual Router against local custom mock providers.
-    # 1.99+ imports typing.NotRequired despite declaring Python 3.10 support.
-    # Pin the verified Router-compatible release until LiteLLM repairs that ABI.
+    # Benchmark-only: exercises standard router baseline against local custom mock providers.
     "litellm>=1.90.0,<1.91.0",
 ]
 

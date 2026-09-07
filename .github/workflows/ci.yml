@@ -1,3 +1,4 @@
+# Continuous Integration & Automated Verification Workflow
 name: CI
 
 on:
@@ -5,6 +6,10 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  schedule:
+    # Daily automated regression test run at 04:00 UTC
+    - cron: '0 4 * * *'
+  workflow_dispatch:
 
 jobs:
   test:

@@ -271,7 +271,7 @@ Results from official reproducible run (`results/2026-09-06-1943ba8/report.md`, 
 | **Baseline-C (Static Fallback)** | 33.3% | 33.3% | 0.03 ms | 0.32 ms | 20.0% |
 | **Baseline-D (Breaker + Static Fallback)** | 33.3% | 33.3% | 0.04 ms | 0.29 ms | 20.0% |
 | **Baseline-E (V1 Prototype Router)** | 53.3% | 53.3% | 0.13 ms | 5.07 ms | 20.0% |
-| **Baseline-F (LiteLLM Router Seam)** | 33.3% | 33.3% | 7.98 ms | 24.68 ms | 20.0% |
+| **Baseline-F (Standard Router Seam)** | 33.3% | 33.3% | 7.98 ms | 24.68 ms | 20.0% |
 
 > **Key Takeaways**:
 > 1. **Zero Semantic Errors**: LLM-Circuit-Breaker-V3 achieves 0.0% semantic error rate by strictly failing closed on invalid tool arguments (B6, B7, B14), whereas all baselines forward malformed tool calls that crash agent loops.

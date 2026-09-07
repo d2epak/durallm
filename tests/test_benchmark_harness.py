@@ -150,16 +150,16 @@ class TestAddedBaselines(unittest.TestCase):
         self.assertIsNot(runner.router.pool_manager, POOL_MANAGER)
         self.assertEqual({r.provider for r in runner.router.pool_manager.coding_routes}, {"provider_a", "provider_b"})
 
-    def test_baseline_f_uses_the_real_litellm_router_fallback(self):
+    def test_baseline_f_uses_the_standard_router_fallback(self):
         seqs = {
             "provider_a": [MockFaultAction.server_error(503)],
-            "provider_b": [MockFaultAction.success("via litellm router")],
+            "provider_b": [MockFaultAction.success("via standard router")],
         }
         scn = scenario(seqs)
         fx = build_fixture(scn)
-        runner = SYSTEMS["Baseline-F-LiteLLM-Router"](fx, "priority")
+        runner = SYSTEMS["Baseline-F-Standard-Router"](fx, "priority")
         resp = runner.run(scn.turns[0])
-        self.assertEqual(resp.content, "via litellm router")
+        self.assertEqual(resp.content, "via standard router")
         self.assertEqual(fx.call_log, ["provider_a", "provider_b"])
 
 

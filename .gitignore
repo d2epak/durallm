@@ -39,3 +39,6 @@ model_catalog.json
 
 # macOS
 .DS_Store
+
+# Internal work & evaluation
+.internal/
