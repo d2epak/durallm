@@ -53,7 +53,7 @@ def execute_upstream_request(
     if route.api_format == "gemini":
         gemini_payload = convert_openai_to_gemini_payload(openai_payload)
         gemini_payload["generationConfig"] = {
-            "maxOutputTokens": openai_payload.get("max_tokens", route.max_output_tokens),
+            "maxOutputTokens": min(openai_payload.get("max_tokens", route.max_output_tokens), route.max_output_tokens, 8192),
             "temperature": openai_payload.get("temperature", 0.7),
         }
         data = json.dumps(gemini_payload, ensure_ascii=False).encode("utf-8")
@@ -65,6 +65,8 @@ def execute_upstream_request(
         url = f"{route.base_url.rstrip('/')}/chat/completions"
         payload_copy = dict(openai_payload)
         payload_copy["model"] = route.model
+        if "max_tokens" in payload_copy:
+            payload_copy["max_tokens"] = min(payload_copy["max_tokens"], route.max_output_tokens, 8192)
         if "thinking" in payload_copy and route.provider not in ("anthropic", "openrouter"):
             payload_copy.pop("thinking", None)
 
@@ -283,8 +285,6 @@ class UniversalFailoverRouter:
             )
 
             effective_context = route.context_length
-            if route.provider.lower() in ("groq", "nvidia", "openrouter"):
-                effective_context = min(effective_context, 12000)
             pruned_payload = prune_openai_request(openai_payload, effective_context)
             status, headers, body = execute_upstream_request(route, pruned_payload)
 

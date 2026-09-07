@@ -250,10 +250,10 @@ def anthropic_to_openai_request(anthropic_req: Dict[str, Any], model_name: str) 
         "stream": False,
     }
 
-    if any(k in model_name.lower() for k in ("groq", "openrouter")):
-        openai_req["max_tokens"] = min(anthropic_req.get("max_tokens", 8192), 8192)
-    elif "max_tokens" in anthropic_req:
-        openai_req["max_tokens"] = anthropic_req["max_tokens"]
+    if "max_tokens" in anthropic_req:
+        openai_req["max_tokens"] = min(anthropic_req["max_tokens"], 8192)
+    else:
+        openai_req["max_tokens"] = 8192
     if "temperature" in anthropic_req:
         openai_req["temperature"] = anthropic_req["temperature"]
 

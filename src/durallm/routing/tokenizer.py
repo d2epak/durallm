@@ -35,15 +35,19 @@ def preflight_context(
     the decision record. Provider-specific tokenizers can later replace it
     without changing the routing contract.
     """
-    required = max(0, input_tokens) + max(0, expected_output_tokens) + max(0, safety_margin_tokens)
-    minimum_required = max(0, expected_output_tokens) + max(0, safety_margin_tokens)
+    effective_output = min(
+        expected_output_tokens if expected_output_tokens > 0 else (profile.max_output_tokens or 4096),
+        profile.max_output_tokens or 4096,
+    )
+    required = max(0, input_tokens) + max(0, effective_output) + max(0, safety_margin_tokens)
+    minimum_required = max(0, effective_output) + max(0, safety_margin_tokens)
     fits = required <= profile.context_window
     if fits:
         return TokenizerPreflight(
             tokenizer_id=profile.tokenizer_id,
             tokenizer_revision=profile.tokenizer_revision,
             input_tokens=max(0, input_tokens),
-            expected_output_tokens=max(0, expected_output_tokens),
+            expected_output_tokens=max(0, effective_output),
             safety_margin_tokens=max(0, safety_margin_tokens),
             context_window=profile.context_window,
             fits_without_compaction=True,

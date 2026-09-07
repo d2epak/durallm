@@ -96,7 +96,7 @@ def openai_request_to_ir(openai_body: Dict[str, Any]) -> NormalizedRequest:
         system_instruction=system_instruction,
         tools=tools,
         tool_choice=openai_body.get("tool_choice"),
-        max_output_tokens=openai_body.get("max_tokens"),
+        max_output_tokens=openai_body.get("max_tokens") or openai_body.get("max_completion_tokens"),
         temperature=openai_body.get("temperature"),
         stream=bool(openai_body.get("stream", False)),
     )

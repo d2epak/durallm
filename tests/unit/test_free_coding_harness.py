@@ -185,6 +185,84 @@ class TestFreeCodingHarness(unittest.TestCase):
         self.assertNotIn("X-LCB-Failover", headers)
         self.assertIsNone(meta)
 
+    # ------------------------------------------------------------------
+    # 6. Claude Code /goal Session with 128k max_tokens & 7.3k prompt
+    # ------------------------------------------------------------------
+    def test_claude_code_goal_session_budget_and_preflight_do_not_collapse(self):
+        from durallm.capability.profile import ModelProfile
+        from durallm.protocol.anthropic import anthropic_request_to_ir
+        from durallm.protocol.openai import openai_request_to_ir
+        from durallm.routing.tokenizer import preflight_context
+        from durallm.execution.executor import GatewayExecutor
+        from durallm.protocol.ir import NormalizedMessage
+
+        profile = ModelProfile(
+            provider="groq",
+            model="qwen/qwen3.6-27b",
+            context_window=131072,
+            max_output_tokens=8192,
+            supports_tools=True,
+        )
+
+        # 1. Verify preflight_context does not reject 128k requested output
+        res = preflight_context(
+            profile,
+            input_tokens=7353,
+            expected_output_tokens=128000,
+            safety_margin_tokens=2048,
+            allow_compaction=True,
+        )
+        self.assertTrue(res.compatible, f"Preflight should be compatible, got reason: {res.reason}")
+        self.assertTrue(res.fits_without_compaction)
+        # Expected output should be clamped to profile.max_output_tokens (8192)
+        self.assertEqual(res.expected_output_tokens, 8192)
+
+        # 2. Verify Anthropic request with 128k max_tokens converts to IR
+        anthropic_body = {
+            "model": "claude-3-7-sonnet",
+            "max_tokens": 128000,
+            "system": "You are Claude Code.",
+            "messages": [
+                {"role": "user", "content": "x" * 29400}  # ~7350 tokens
+            ],
+        }
+        norm_req = anthropic_request_to_ir(anthropic_body)
+        self.assertEqual(norm_req.max_output_tokens, 128000)
+
+        # 3. Verify GatewayExecutor budget sizing allocates proper available input budget
+        executor = GatewayExecutor()
+        ep = Endpoint(
+            id="coding:groq-qwen36-coding",
+            provider="groq",
+            model="qwen/qwen3.6-27b",
+            base_url="https://api.groq.com/openai/v1",
+            pool="coding",
+            profile=profile,
+        )
+        executor.capability_registry.register_endpoint(ep)
+
+        # Ensure compacting does not raise ContextOverflowError
+        max_supported_out = profile.max_output_tokens or 4096
+        desired_output = min(norm_req.max_output_tokens or max_supported_out, max_supported_out)
+        from durallm.agent.context import ContextBudget
+        budget = ContextBudget(
+            model_context_window=profile.context_window,
+            desired_output_tokens=desired_output,
+            safety_margin_tokens=2048,
+        )
+        self.assertGreater(budget.available_input_budget, 100000)
+        compacted, was_compacted = executor.context_manager.compact(norm_req, budget)
+        self.assertFalse(was_compacted)
+
+        # 4. Verify OpenAI max_completion_tokens is parsed into IR
+        openai_body = {
+            "model": "o3-mini",
+            "max_completion_tokens": 64000,
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+        norm_oai = openai_request_to_ir(openai_body)
+        self.assertEqual(norm_oai.max_output_tokens, 64000)
+
 
 if __name__ == "__main__":
     unittest.main()

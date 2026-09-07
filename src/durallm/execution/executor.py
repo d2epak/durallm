@@ -339,10 +339,17 @@ class GatewayExecutor:
                 last_failure_reason = "stream_route_rejected"
                 continue
 
+            max_supported_out = profile.max_output_tokens or 4096
+            desired_output = min(request.max_output_tokens or max_supported_out, max_supported_out)
+            safety_margin = 2048
+            est_in = estimate_tokens(request)
+            if profile.context_window - safety_margin - desired_output < est_in and desired_output > 1024:
+                desired_output = max(1024, min(desired_output, profile.context_window - safety_margin - est_in))
+
             budget = ContextBudget(
                 model_context_window=profile.context_window,
-                desired_output_tokens=request.max_output_tokens or 4096,
-                safety_margin_tokens=2048,
+                desired_output_tokens=desired_output,
+                safety_margin_tokens=safety_margin,
             )
             try:
                 adapted_request, was_compacted = self.context_manager.compact(request, budget)
@@ -510,13 +517,19 @@ class GatewayExecutor:
             # 2. Context Adaptation (Budget Sizing)
             profile = endpoint.profile or self.capability_registry.get_profile(endpoint.provider, endpoint.model)
             shrink = window_shrink.get(endpoint.id, 1.0)
-            target_context = profile.context_window
-            if endpoint.pool == "coding" and endpoint.provider.lower() in ("groq", "nvidia", "openrouter"):
-                target_context = min(target_context, 12000)
+            target_context = int(profile.context_window * shrink)
+
+            max_supported_out = profile.max_output_tokens or 4096
+            desired_output = min(request.max_output_tokens or max_supported_out, max_supported_out)
+            safety_margin = 2048
+            est_in = estimate_tokens(request)
+            if target_context - safety_margin - desired_output < est_in and desired_output > 1024:
+                desired_output = max(1024, min(desired_output, target_context - safety_margin - est_in))
+
             budget = ContextBudget(
-                model_context_window=int(target_context * shrink),
-                desired_output_tokens=request.max_output_tokens or 4096,
-                safety_margin_tokens=2048,
+                model_context_window=target_context,
+                desired_output_tokens=desired_output,
+                safety_margin_tokens=safety_margin,
             )
             try:
                 adapted_request, was_compacted = self.context_manager.compact(request, budget)

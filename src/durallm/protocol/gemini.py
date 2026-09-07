@@ -204,10 +204,9 @@ def ir_to_gemini_request(req: NormalizedRequest, target_model: str) -> Dict[str,
         if tool_config is not None:
             gemini_req["toolConfig"] = tool_config
 
-    # Generation Config
     gen_config: Dict[str, Any] = {}
     if req.max_output_tokens:
-        gen_config["maxOutputTokens"] = req.max_output_tokens
+        gen_config["maxOutputTokens"] = min(req.max_output_tokens, 8192)
     if req.temperature is not None:
         gen_config["temperature"] = req.temperature
     if gen_config:
