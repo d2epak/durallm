@@ -48,10 +48,12 @@ class CircuitBreaker:
         self,
         breaker_id: str,
         config: Optional[CircuitBreakerConfig] = None,
+        cluster_store: Optional[Any] = None,
     ):
         self.id = breaker_id
         self.config = config or CircuitBreakerConfig()
         self.clock = self.config.clock
+        self.cluster_store = cluster_store
 
         self._lock = threading.RLock()
         self._state = CircuitBreakerState.CLOSED
@@ -85,18 +87,30 @@ class CircuitBreaker:
             self._event_listeners.append(listener)
 
     def _emit_transition(self, from_state: CircuitBreakerState, to_state: CircuitBreakerState, reason: str) -> None:
+        now = self.clock()
         event = StateTransitionEvent(
             breaker_id=self.id,
             from_state=from_state,
             to_state=to_state,
-            timestamp_monotonic=self.clock(),
+            timestamp_monotonic=now,
             reason=reason,
-            metrics_snapshot=self._metrics.snapshot(self.clock()),
+            metrics_snapshot=self._metrics.snapshot(now),
         )
         logger.info(
             "[⚡ BREAKER %s] State changed: %s -> %s (Reason: %s)",
             self.id, from_state.value, to_state.value, reason
         )
+        if self.cluster_store is not None:
+            try:
+                snap = self._metrics.snapshot(now)
+                self.cluster_store.sync_breaker_state(
+                    self.id,
+                    to_state.value,
+                    error_count=int(snap.get("failure_rate", 0.0)),
+                    trip_timestamp=now,
+                )
+            except Exception as e:
+                logger.warning("Error syncing breaker transition to cluster store: %s", e)
         for listener in self._event_listeners:
             try:
                 listener(event)
@@ -104,8 +118,21 @@ class CircuitBreaker:
                 logger.warning("Error in breaker event listener: %s", e)
 
     def _check_and_update_state(self) -> None:
-        """Evaluate automatic transitions based on monotonic clock."""
+        """Evaluate automatic transitions based on monotonic clock and cluster state."""
         now = self.clock()
+
+        # Check for remote cluster trips from other gateway pods
+        if self._state == CircuitBreakerState.CLOSED and self.cluster_store is not None:
+            try:
+                remote = self.cluster_store.get_cluster_breaker_state(self.id)
+                if remote and remote.get("state") == CircuitBreakerState.OPEN.value:
+                    prev = self._state
+                    self._state = CircuitBreakerState.OPEN
+                    self._opened_at_monotonic = now
+                    self._emit_transition(prev, CircuitBreakerState.OPEN, "Synchronized trip from remote cluster node")
+                    return
+            except Exception as e:
+                logger.warning("Error reading cluster breaker state: %s", e)
 
         if self._state == CircuitBreakerState.OPEN:
             wait_seconds = self.config.wait_duration_open_ms / 1000.0

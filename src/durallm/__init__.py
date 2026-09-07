@@ -88,6 +88,13 @@ from durallm.mcp import (
     MCPToolDefinition,
 )
 from durallm.models import AttemptRecord
+from durallm.performance import (
+    FastSlidingWindow,
+    FastStreamRelay,
+    FastTokenEstimator,
+    get_accelerated_event_loop,
+    is_uvloop_active,
+)
 from durallm.pools import (
     POOL_MANAGER,
     IsolatedPoolManager,
@@ -128,6 +135,9 @@ from durallm.routing import (
     RoutingDecision,
     RoutingScorer,
 )
+from durallm.routing.cache import PromptCacheTracker
+from durallm.routing.keys import KeyRotationPool
+from durallm.storage.cluster import ClusterPersistenceStore
 from durallm.streaming import (
     MidStreamFailurePolicy,
     StreamingMetrics,
@@ -262,4 +272,14 @@ __all__ = [
     "CircuitBreakerGatewayHandler",
     "start_proxy_server",
     "create_proxy_app",
+    # Frontier Additions
+    "ClusterPersistenceStore",
+    "MCPProxy",
+    "KeyRotationPool",
+    "PromptCacheTracker",
+    "FastStreamRelay",
+    "FastTokenEstimator",
+    "FastSlidingWindow",
+    "get_accelerated_event_loop",
+    "is_uvloop_active",
 ]
