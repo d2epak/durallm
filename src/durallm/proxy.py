@@ -338,23 +338,52 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(encoded)))
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Connection", "close")
         for name, value in (extra_headers or {}).items():
             self.send_header(name, value)
         self.end_headers()
         self.wfile.write(encoded)
 
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Connection", "close")
+        self.end_headers()
+
+    def do_HEAD(self) -> None:
+        path = urllib.parse.urlsplit(self.path).path
+
+        if path in ("/health", "/healthz", "/api/hello", "/free-gateway/health", "/metrics", "/admin/breakers", "/admin/canary/status", "/v1/models", "/models"):
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Connection", "close")
+            self.end_headers()
+            return
+
+        self.send_response(404)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Connection", "close")
+        self.end_headers()
+
     def do_GET(self) -> None:
         path = urllib.parse.urlsplit(self.path).path
 
-        if path in ("/health", "/healthz"):
+        if path in ("/health", "/healthz", "/free-gateway/health"):
             candidates_coding = POOL_MANAGER.get_candidate_routes("coding")
             candidates_agent = POOL_MANAGER.get_candidate_routes("general_agent")
             from durallm.breaker.registry import DEFAULT_BREAKER_REGISTRY
             breaker_snaps = {name: b.snapshot()["state"] for name, b in DEFAULT_BREAKER_REGISTRY.all().items()}
             self._send_json(200, {
                 "status": "healthy",
+                "ok": True,
                 "engine": "durallm",
+                "service": "claude-free-resilient",
+                "gateway": "anthropic-messages-bridge",
                 "version": "0.2.1",
                 "pools": {
                     "coding": {
@@ -369,6 +398,16 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
                 "circuit_breakers": breaker_snaps,
                 "active_keys": list(POOL_MANAGER.keys.keys()),
                 "cooldowns": {f"{k[0]}:{k[1]}": max(0, int(v - time.monotonic())) for k, v in POOL_MANAGER.cooldowns.items()}
+            })
+            return
+
+        if path == "/api/hello":
+            self._send_json(200, {
+                "ok": True,
+                "status": "healthy",
+                "service": "claude-free-resilient",
+                "gateway": "anthropic-messages-bridge",
+                "engine": "durallm",
             })
             return
 
