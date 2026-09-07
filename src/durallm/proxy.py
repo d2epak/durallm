@@ -390,6 +390,15 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             })
             return
 
+        if path == "/admin/canary/status":
+            from durallm.canary import DEFAULT_CANARY_SCHEDULER
+            self._send_json(200, {
+                "scheduler": DEFAULT_CANARY_SCHEDULER.status(),
+                "quirks_ledger": DEFAULT_CANARY_SCHEDULER.prober.load_ledger(),
+            })
+            return
+
+
         if path in ("/v1/models", "/models"):
             # Provide virtual models for auto-configuration
             virtual_models = [
@@ -429,6 +438,12 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             body = json.loads(raw_body.decode("utf-8")) if raw_body else {}
         except Exception as e:
             self._send_json(400, {"error": {"message": f"Malformed JSON body: {e}"}})
+            return
+
+        if path == "/admin/canary/run":
+            from durallm.canary import DEFAULT_CANARY_SCHEDULER
+            result = DEFAULT_CANARY_SCHEDULER.trigger_now()
+            self._send_json(200, result)
             return
 
         if path == "/v1/continuations/ack":
@@ -923,15 +938,21 @@ def main():
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     parser.add_argument("--discover", action="store_true",
                         help="Fetch free OpenRouter models at startup (network call; off by default)")
+    parser.add_argument("--canary", action="store_true",
+                        help="Start autonomous 1:00 AM UK time canary probe scheduler")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+    # Synchronize pool manager with persistent quirks ledger
+    POOL_MANAGER.load_from_quirks_ledger()
 
     print("\n" + "=" * 65)
     print("  ⚡ LLM CIRCUIT BREAKER MULTI-AGENT GATEWAY ONLINE")
     print(f"  - Server Address: http://{args.host}:{args.port}")
     print(f"  - Claude Code (Coding Pool): http://{args.host}:{args.port}/v1/messages")
     print(f"  - Hermes / OpenClaw (Agent Pool): http://{args.host}:{args.port}/v1/chat/completions")
+    print(f"  - Canary Status: http://{args.host}:{args.port}/admin/canary/status")
     print(f"  - Health Diagnostics: http://{args.host}:{args.port}/health")
     print("=" * 65 + "\n")
 
@@ -939,13 +960,22 @@ def main():
         from durallm.discovery import register_discovered_models_to_pools
         register_discovered_models_to_pools()
 
+    canary_enabled = args.canary or os.environ.get("DURALLM_ENABLE_CANARY", "").lower() in ("true", "1", "yes")
+    if canary_enabled:
+        from durallm.canary import DEFAULT_CANARY_SCHEDULER
+        DEFAULT_CANARY_SCHEDULER.start(run_immediately=False)
+
     server = start_proxy_server(host=args.host, port=args.port)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
+        if canary_enabled:
+            from durallm.canary import DEFAULT_CANARY_SCHEDULER
+            DEFAULT_CANARY_SCHEDULER.stop()
         print("\nStopping LLM Circuit Breaker Gateway...")
         server.shutdown()
         server.server_close()
+
 
 
 if __name__ == "__main__":

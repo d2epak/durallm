@@ -390,5 +390,39 @@ class IsolatedPoolManager:
                 target_list.append(route)
                 logger.info("[✨ DISCOVERED] Added model '%s' to pool '%s'", route.model, pool)
 
+    def load_from_quirks_ledger(self, ledger_path: Optional[Path] = None) -> None:
+        """Load and synchronize pool routes and deprecations from quirks ledger."""
+        import json
+        p = ledger_path or (Path(__file__).resolve().parent.parent.parent / "docs" / "providers" / "provider_quirks_ledger.json")
+        if not p.exists():
+            return
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            providers = data.get("providers", {})
+            for prov_name, prov_info in providers.items():
+                for model_id, model_info in prov_info.get("models", {}).items():
+                    status = model_info.get("status", "active")
+                    pool_name = model_info.get("pool", "coding")
+                    if status == "deprecated":
+                        self.mark_deprecated(pool_name, model_id)
+                    elif status == "active":
+                        route = RouteDefinition(
+                            id=f"{prov_name}-ledger-{model_id.replace('/', '-')}",
+                            provider=prov_name,
+                            model=model_id,
+                            pool=pool_name,
+                            base_url=prov_info.get("base_url", ""),
+                            api_format="openai",
+                            env_key=prov_info.get("auth_env", ""),
+                            context_length=model_info.get("context_window", 65536),
+                            max_output_tokens=model_info.get("max_output_tokens", 4096),
+                            is_discovered=True,
+                        )
+                        self.add_discovered_route(pool_name, route)
+        except Exception as e:
+            logger.warning("Could not sync pool routes from quirks ledger: %s", e)
+
 
 POOL_MANAGER = IsolatedPoolManager()
+

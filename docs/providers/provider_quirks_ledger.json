@@ -1,0 +1,408 @@
+{
+  "version": "1.0.0",
+  "last_updated_utc": "2026-09-07T18:43:50.195153+00:00",
+  "scheduler": {
+    "target_time_local": "01:00",
+    "timezone": "Europe/London",
+    "schedule_type": "nightly_daemon",
+    "zero_external_cost": true
+  },
+  "providers": {
+    "groq": {
+      "name": "Groq",
+      "base_url": "https://api.groq.com/openai/v1",
+      "auth_env": "GROQ_API_KEY",
+      "global_quirks": [
+        "Strict 1,000 output tokens/min (OTPM) ceiling across free tier",
+        "Sliding window resets over 60 seconds on 429 TPM rate limits",
+        "Verbose tool schemas and large conversation tails must be compacted to <=3,800 input tokens"
+      ],
+      "models": {
+        "qwen/qwen3.6-27b": {
+          "pool": "coding",
+          "context_window": 131072,
+          "effective_tpm_limit": 6000,
+          "safe_input_tokens": 3800,
+          "max_output_tokens": 950,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Clamps max_tokens to 950 to prevent HTTP 429 OTPM limit rejection",
+            "Returns 'try again in X.XXs' in body on TPM exhaustion"
+          ],
+          "last_probe_latency_ms": 319.0
+        },
+        "openai/gpt-oss-120b": {
+          "pool": "coding",
+          "context_window": 131072,
+          "effective_tpm_limit": 8000,
+          "safe_input_tokens": 3800,
+          "max_output_tokens": 950,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "Reasoning MoE model capable of structured tool calling",
+            "OTPM capped at 1,000"
+          ]
+        },
+        "openai/gpt-oss-20b": {
+          "pool": "coding",
+          "context_window": 131072,
+          "effective_tpm_limit": 8000,
+          "safe_input_tokens": 3800,
+          "max_output_tokens": 950,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "Ultra-low latency (0.13s) fallback coding model"
+          ]
+        },
+        "llama-3.1-8b-instant": {
+          "pool": "general_agent",
+          "context_window": 131072,
+          "effective_tpm_limit": 8000,
+          "safe_input_tokens": 4096,
+          "max_output_tokens": 4096,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "High speed general agent reasoning"
+          ]
+        }
+      }
+    },
+    "openrouter": {
+      "name": "OpenRouter",
+      "base_url": "https://openrouter.ai/api/v1",
+      "auth_env": "OPENROUTER_API_KEY",
+      "global_quirks": [
+        "Account-wide 50 requests/day cap on free tier ('free-models-per-day')",
+        "Returns HTTP 429 when daily cap is breached; gateway must apply 24h provider-wide lockout",
+        ":free models can be deprecated without warning; retired models return HTTP 404"
+      ],
+      "models": {
+        "google/gemma-4-31b-it:free": {
+          "pool": "coding",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "High context (262k) coding model",
+            "Subject to daily 50 request account quota"
+          ]
+        },
+        "cohere/north-mini-code:free": {
+          "pool": "coding",
+          "context_window": 256000,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "Specialized for command-line tool execution and code generation"
+          ]
+        },
+        "nvidia/nemotron-3-super-120b-a12b:free": {
+          "pool": "coding",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "Large MoE open model with 262k context"
+          ]
+        },
+        "openrouter/free": {
+          "pool": "coding",
+          "context_window": 200000,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "OpenRouter's meta-router that dynamically routes to available free endpoints"
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "pool": "general_agent",
+          "context_window": 131072,
+          "safe_input_tokens": 16000,
+          "max_output_tokens": 4096,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "Zero-credit general agent reasoning route"
+          ]
+        },
+        "qwen/qwen-2.5-coder-32b-instruct:free": {
+          "pool": "coding",
+          "context_window": 32768,
+          "safe_input_tokens": 0,
+          "max_output_tokens": 0,
+          "supports_tools": false,
+          "supports_streaming": false,
+          "status": "deprecated",
+          "last_verified_utc": "2026-09-07T12:00:00Z",
+          "quirks": [
+            "Retired by OpenRouter in Sep 2026; returns HTTP 404 'this model is unavailable for free'"
+          ]
+        },
+        "inclusionai/ling-3.0-flash-sante:free": {
+          "pool": "general_agent",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "inclusionai/ling-3.0-flash-fin:free": {
+          "pool": "general_agent",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "dots-studio/dots-3-note-preview:free": {
+          "pool": "general_agent",
+          "context_window": 512000,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "liquid/lfm-2.5-2.6b:free": {
+          "pool": "general_agent",
+          "context_window": 65536,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "nvidia/nemotron-3.5-lightning:free": {
+          "pool": "general_agent",
+          "context_window": 1000000,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "thinkingmachines/inkling-small:free": {
+          "pool": "general_agent",
+          "context_window": 1048576,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "poolside/laguna-s-2.1:free": {
+          "pool": "general_agent",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "thinkingmachines/inkling:free": {
+          "pool": "general_agent",
+          "context_window": 1048576,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "poolside/laguna-xs-2.1:free": {
+          "pool": "general_agent",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "nvidia/nemotron-3.5-content-safety:free": {
+          "pool": "general_agent",
+          "context_window": 128000,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": false,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+          "pool": "general_agent",
+          "context_window": 256000,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "google/gemma-4-26b-a4b-it:free": {
+          "pool": "general_agent",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "google/lyria-3-pro-preview": {
+          "pool": "general_agent",
+          "context_window": 1048576,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": false,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "google/lyria-3-clip-preview": {
+          "pool": "general_agent",
+          "context_window": 1048576,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": false,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        }
+      }
+    },
+    "nvidia": {
+      "name": "NVIDIA NIM",
+      "base_url": "https://integrate.api.nvidia.com/v1",
+      "auth_env": "NVIDIA_API_KEY",
+      "global_quirks": [
+        "Free tier NIM models can queue heavily under load, taking 45-90 seconds",
+        "Per-attempt transport timeout must be >=120 seconds to prevent premature timeout failovers",
+        "Circuit breaker slow call duration threshold must be >=120s to avoid false OPEN trips"
+      ],
+      "models": {
+        "google/gemma-4-31b-it": {
+          "pool": "coding",
+          "context_window": 131072,
+          "safe_input_tokens": 16000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "quirks": [
+            "High quality 31B instruction/coding model",
+            "Latency can spike to 60s during peak hours"
+          ]
+        },
+        "meta/llama-3.2-11b-vision-instruct": {
+          "pool": "general_agent",
+          "context_window": 131072,
+          "safe_input_tokens": 16000,
+          "max_output_tokens": 4096,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "Fast multimodal agent model"
+          ]
+        },
+        "nvidia/nemotron-3-ultra-550b-a55b": {
+          "pool": "coding",
+          "context_window": 131072,
+          "safe_input_tokens": 16000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "quirks": [
+            "Ultra-large 550B model; high reasoning capability"
+          ]
+        }
+      }
+    }
+  }
+}
