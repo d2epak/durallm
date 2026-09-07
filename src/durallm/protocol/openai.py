@@ -263,6 +263,119 @@ def openai_response_to_ir(openai_resp: Dict[str, Any]) -> NormalizedResponse:
     )
 
 
+def sse_chunks_to_ir(sse_text: str, default_model: str = "default") -> NormalizedResponse:
+    """Reconstruct a NormalizedResponse IR from an SSE event stream (e.g. OpenAI/Groq/OpenRouter data: lines)."""
+    content_parts: List[str] = []
+    reasoning_parts: List[str] = []
+    tool_calls_map: Dict[int, Dict[str, Any]] = {}
+    finish_reason = "stop"
+    response_id = f"resp_{uuid.uuid4().hex[:12]}"
+    model = default_model
+    prompt_tokens = 0
+    completion_tokens = 0
+
+    for raw_line in sse_text.splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith(":"):
+            continue
+        if line.startswith("data:"):
+            data_str = line[len("data:"):].strip()
+            if data_str == "[DONE]":
+                break
+            try:
+                chunk = json.loads(data_str)
+            except Exception:
+                continue
+            if not isinstance(chunk, dict):
+                continue
+
+            if chunk.get("id"):
+                response_id = chunk["id"]
+            if chunk.get("model"):
+                model = chunk["model"]
+            if "usage" in chunk and isinstance(chunk["usage"], dict):
+                prompt_tokens = chunk["usage"].get("prompt_tokens", prompt_tokens)
+                completion_tokens = chunk["usage"].get("completion_tokens", completion_tokens)
+
+            for choice in chunk.get("choices", []):
+                fr = choice.get("finish_reason")
+                if fr:
+                    finish_reason = fr
+                delta = choice.get("delta", {})
+                if delta.get("content"):
+                    content_parts.append(delta["content"])
+                reasoning = delta.get("reasoning") or delta.get("reasoning_content")
+                if reasoning:
+                    reasoning_parts.append(reasoning)
+                for tc in delta.get("tool_calls", []):
+                    idx = tc.get("index", 0)
+                    if idx not in tool_calls_map:
+                        tool_calls_map[idx] = {
+                            "id": tc.get("id") or f"call_{uuid.uuid4().hex[:8]}",
+                            "name": tc.get("function", {}).get("name", ""),
+                            "arguments": "",
+                        }
+                    else:
+                        if tc.get("id"):
+                            tool_calls_map[idx]["id"] = tc["id"]
+                        if tc.get("function", {}).get("name"):
+                            tool_calls_map[idx]["name"] += tc["function"]["name"]
+                    if tc.get("function", {}).get("arguments"):
+                        tool_calls_map[idx]["arguments"] += tc["function"]["arguments"]
+
+    final_tool_calls: List[NormalizedToolCall] = []
+    for idx in sorted(tool_calls_map.keys()):
+        tc_dict = tool_calls_map[idx]
+        raw_args = tc_dict["arguments"]
+        try:
+            parsed_args = json.loads(raw_args) if raw_args else {}
+        except Exception:
+            parsed_args = {}
+        final_tool_calls.append(
+            NormalizedToolCall(
+                id=tc_dict["id"],
+                name=tc_dict["name"],
+                arguments=parsed_args,
+                raw_arguments=raw_args,
+            )
+        )
+
+    content = "".join(content_parts) if content_parts else None
+    reasoning_content = "".join(reasoning_parts) if reasoning_parts else None
+
+    return NormalizedResponse(
+        response_id=response_id,
+        model=model,
+        content=content,
+        reasoning_content=reasoning_content,
+        tool_calls=final_tool_calls,
+        finish_reason=finish_reason,
+        input_tokens=prompt_tokens,
+        output_tokens=completion_tokens,
+        raw_response={
+            "id": response_id,
+            "model": model,
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {"name": tc.name, "arguments": tc.raw_arguments},
+                        }
+                        for tc in final_tool_calls
+                    ] if final_tool_calls else None,
+                },
+                "finish_reason": finish_reason,
+            }],
+            "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+        },
+    )
+
+
 def ir_to_openai_response(resp: NormalizedResponse, requested_model: str) -> Dict[str, Any]:
     """Convert NormalizedResponse IR into native OpenAI ChatCompletion response format."""
     message: Dict[str, Any] = {

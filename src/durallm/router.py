@@ -26,7 +26,7 @@ from durallm.translators import (
 )
 
 logger = logging.getLogger("durallm.router")
-DEFAULT_TIMEOUT = int(os.environ.get("GATEWAY_TIMEOUT", "60"))
+DEFAULT_TIMEOUT = int(os.environ.get("GATEWAY_TIMEOUT", "120"))
 
 
 def resolve_secret(key_name: str) -> Optional[str]:

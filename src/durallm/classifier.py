@@ -31,6 +31,8 @@ _BILLING_PATTERNS = [
     "account_deactivated",
     "balance is too low",
     "free-models-per-day",
+    "free model requests",
+    "add 5 credits",
 ]
 
 _DEPRECATION_PATTERNS = [
@@ -59,11 +61,12 @@ _UPSTREAM_429_PATTERNS = [
 
 _WAF_PATTERNS = [
     "cloudflare",
-    "security challenge",
-    "attention required",
-    "error 1010",
-    "error 1015",
-    "error 1020",
+    "just a moment...",
+    "challenge-running",
+    "ddos protection",
+    "ray id",
+    "attention required! | cloudflare",
+    "security verification",
 ]
 
 _SSL_PATTERNS = [
@@ -82,6 +85,8 @@ _OUTPUT_CAP_PATTERNS = [
     "available tokens",
     "max_tokens is less than the context_window",
     "on output tokens",
+    "output tokens per minute",
+    "otpm",
 ]
 
 _CONTEXT_OVERFLOW_PATTERNS = [
@@ -95,6 +100,8 @@ _CONTEXT_OVERFLOW_PATTERNS = [
     "prompt too long",
     "tokens per minute",
     "tpm limit",
+    "input tokens per minute",
+    "itpm",
 ]
 
 
@@ -104,7 +111,12 @@ def parse_output_cap_from_error(error_msg: str) -> Optional[int]:
 
     msg = str(error_msg).lower()
 
-    # 1. Groq / generic less than or equal:
+    # 1. Groq / generic OTPM limit: "output tokens per minute (OTPM): Limit 1000"
+    m = re.search(r"(?:output tokens per minute|otpm)[^0-9]*limit\s*(\d+)", msg)
+    if m:
+        return int(m.group(1))
+
+    # 2. Groq / generic less than or equal:
     # `max_tokens` must be less than or equal to `16384`
     m = re.search(r"max_tokens[`'\"]?\s+must be less than or equal to\s+[`'\"]?(\d+)", msg)
     if m:
@@ -114,17 +126,17 @@ def parse_output_cap_from_error(error_msg: str) -> Optional[int]:
     if m and ("max_tokens" in msg or "token" in msg):
         return int(m.group(1))
 
-    # 2. DashScope / Alibaba range: "Range of max_tokens should be [1, 65536]"
+    # 3. DashScope / Alibaba range: "Range of max_tokens should be [1, 65536]"
     m = re.search(r"range of max_tokens should be\s*\[\s*\d+\s*,\s*(\d+)\s*\]", msg)
     if m:
         return int(m.group(1))
 
-    # 3. Model maximum output tokens: "exceeds model's maximum output tokens (65536)"
+    # 4. Model maximum output tokens: "exceeds model's maximum output tokens (65536)"
     m = re.search(r"exceeds model(?:'s)? maximum output tokens\s*\(?\s*(\d+)\s*\)?", msg)
     if m:
         return int(m.group(1))
 
-    # 4. Anthropic / OpenRouter available_tokens
+    # 5. Anthropic / OpenRouter available_tokens
     m = re.search(r"available[_\s]+tokens[:\s]+(\d+)", msg)
     if m:
         return int(m.group(1))
@@ -267,6 +279,18 @@ def classify_failure(
             retryable=True,
             poisons_health=False,  # Output cap mismatch does not mean provider infra is down!
             status_code=code or 400,
+            message=msg,
+        )
+
+    # 3b. Empty Response Body / Empty Completion (Semantic / Upstream Glitch)
+    if "empty response body" in msg or "empty completion" in msg:
+        return FailureClassification(
+            category=FailureCategory.SEMANTIC_AGENT_FAILURE,
+            reason=FailoverReason.empty_completion,
+            should_fallback=True,
+            retryable=True,
+            poisons_health=False,
+            status_code=code or 502,
             message=msg,
         )
 

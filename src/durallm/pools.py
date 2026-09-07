@@ -96,7 +96,7 @@ _BROWSER_UA = (
 
 # Default Coding Pool (Claude Code, Cursor, Aider) - Verified Active Free Coding Models
 DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
-    # 1. Groq: Qwen 3.6 27B (128k context, ultra-fast agentic coding)
+    # 1. Groq: Qwen 3.6 27B (7k ITPM / 1k OTPM, ultra-fast agentic coding)
     RouteDefinition(
         id="groq-qwen36-coding",
         provider="groq",
@@ -105,34 +105,34 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         base_url="https://api.groq.com/openai/v1",
         api_format="openai",
         env_key="GROQ_API_KEY",
-        context_length=131072,
-        max_output_tokens=8192,
+        context_length=7000,
+        max_output_tokens=950,
         headers={"User-Agent": _BROWSER_UA}
     ),
-    # 2. OpenRouter: Qwen 2.5 Coder 32B Instruct Free (256k context, resilient open-weights coding)
+    # 2. OpenRouter: Gemma 4 31B IT Free (262k context, resilient open-weights coding)
     RouteDefinition(
-        id="openrouter-qwen25-coding",
+        id="openrouter-gemma4-coding",
         provider="openrouter",
-        model="qwen/qwen-2.5-coder-32b-instruct:free",
+        model="google/gemma-4-31b-it:free",
         pool="coding",
         base_url="https://openrouter.ai/api/v1",
         api_format="openai",
         env_key="OPENROUTER_API_KEY",
-        context_length=256000,
+        context_length=262144,
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),
-    # 3. NVIDIA NIM: Gemma 4 31B IT (128k context, high-speed coding)
+    # 3. Groq: GPT-OSS 120B (8k TPM / 1k OTPM, agentic reasoning MoE with tool calling)
     RouteDefinition(
-        id="nvidia-gemma4-coding",
-        provider="nvidia",
-        model="google/gemma-4-31b-it",
+        id="groq-gpt-oss-coding",
+        provider="groq",
+        model="openai/gpt-oss-120b",
         pool="coding",
-        base_url="https://integrate.api.nvidia.com/v1",
+        base_url="https://api.groq.com/openai/v1",
         api_format="openai",
-        env_key="NVIDIA_API_KEY",
-        context_length=131072,
-        max_output_tokens=8192,
+        env_key="GROQ_API_KEY",
+        context_length=7500,
+        max_output_tokens=950,
         headers={"User-Agent": _BROWSER_UA}
     ),
     # 4. OpenRouter: Cohere North Mini Code Free (256k context, terminal & code generation)
@@ -148,11 +148,37 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),
-    # 5. NVIDIA NIM: Nemotron-3-Ultra 550B (128k context, agent orchestration)
+    # 5. Groq: GPT-OSS 20B (8k TPM / 1k OTPM, ultra-lightweight 0.13s coding model)
     RouteDefinition(
-        id="nvidia-nemotron-coding",
+        id="groq-gpt-oss-20b-coding",
+        provider="groq",
+        model="openai/gpt-oss-20b",
+        pool="coding",
+        base_url="https://api.groq.com/openai/v1",
+        api_format="openai",
+        env_key="GROQ_API_KEY",
+        context_length=7500,
+        max_output_tokens=950,
+        headers={"User-Agent": _BROWSER_UA}
+    ),
+    # 6. OpenRouter: Nemotron 3 Super 120B Free (262k context, large open model)
+    RouteDefinition(
+        id="openrouter-nemotron-coding",
+        provider="openrouter",
+        model="nvidia/nemotron-3-super-120b-a12b:free",
+        pool="coding",
+        base_url="https://openrouter.ai/api/v1",
+        api_format="openai",
+        env_key="OPENROUTER_API_KEY",
+        context_length=262144,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA}
+    ),
+    # 7. NVIDIA NIM: Gemma 4 31B IT (128k context, high-speed coding node)
+    RouteDefinition(
+        id="nvidia-gemma4-coding",
         provider="nvidia",
-        model="nvidia/nemotron-3-ultra-550b-a55b",
+        model="google/gemma-4-31b-it",
         pool="coding",
         base_url="https://integrate.api.nvidia.com/v1",
         api_format="openai",
@@ -161,15 +187,28 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),
-    # 6. Groq: GPT-OSS 120B (128k context, agentic reasoning MoE)
+    # 8. OpenRouter: Auto Free Router (200k context, automatic fallback)
     RouteDefinition(
-        id="groq-gpt-oss-coding",
-        provider="groq",
-        model="openai/gpt-oss-120b",
+        id="openrouter-free-coding",
+        provider="openrouter",
+        model="openrouter/free",
         pool="coding",
-        base_url="https://api.groq.com/openai/v1",
+        base_url="https://openrouter.ai/api/v1",
         api_format="openai",
-        env_key="GROQ_API_KEY",
+        env_key="OPENROUTER_API_KEY",
+        context_length=200000,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA}
+    ),
+    # 9. NVIDIA NIM: Nemotron-3-Ultra 550B (128k context, agent orchestration)
+    RouteDefinition(
+        id="nvidia-nemotron-coding",
+        provider="nvidia",
+        model="nvidia/nemotron-3-ultra-550b-a55b",
+        pool="coding",
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_format="openai",
+        env_key="NVIDIA_API_KEY",
         context_length=131072,
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
@@ -260,6 +299,16 @@ class IsolatedPoolManager:
             key = (pool.lower(), route_id.lower())
             self.exhausted_quotas[key] = time.time() + seconds
             logger.warning("[🛑 QUOTA EXHAUSTED] Pool '%s' route '%s' locked out for %.1fh", pool, route_id, seconds / 3600)
+
+    def mark_provider_quota_exhausted(self, pool: str, provider: str, seconds: float = 86400.0) -> None:
+        """Mark all routes for a given provider in a pool as having exhausted quota."""
+        with self._lock:
+            routes = self.coding_routes if pool == "coding" else self.agent_routes
+            for r in routes:
+                if r.provider.lower() == provider.lower():
+                    key = (pool.lower(), r.id.lower())
+                    self.exhausted_quotas[key] = time.time() + seconds
+            logger.warning("[🛑 PROVIDER QUOTA EXHAUSTED] Pool '%s' all routes for '%s' locked out for %.1fh", pool, provider, seconds / 3600)
 
     def clear_cooldown(self, provider: str, pool: Optional[str] = None) -> None:
         """Clear active cooldown for a provider."""

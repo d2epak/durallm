@@ -275,7 +275,7 @@ class GatewayExecutor:
         strategy: Optional[str] = None,
         api_keys: Optional[Dict[str, str]] = None,
         client_protocol: str = "openai",
-        deadline_ms: float = 60000.0,
+        deadline_ms: float = 300000.0,
     ) -> NativeStreamHandle:
         """Open a raw provider-native stream, failing over only before bytes escape.
 
@@ -451,7 +451,7 @@ class GatewayExecutor:
         request: NormalizedRequest,
         pool: str = "general_agent",
         strategy: Optional[str] = None,
-        deadline_ms: float = 60000.0,
+        deadline_ms: float = 300000.0,
         api_keys: Optional[Dict[str, str]] = None,
         requirements: Optional[RequirementVector] = None,
     ) -> Tuple[NormalizedResponse, RoutingDecision, AttemptLedger]:
@@ -590,7 +590,7 @@ class GatewayExecutor:
                 key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
             prepared = adapter.prepare_request(endpoint, adapted_request, api_key=key_val)
 
-            attempt_timeout_sec = deadline.per_attempt_timeout_seconds()
+            attempt_timeout_sec = deadline.per_attempt_timeout_seconds(endpoint.provider)
             attempt_rec = AttemptRecord(
                 request_id=request.request_id,
                 endpoint_id=endpoint.id,
@@ -788,7 +788,8 @@ class GatewayExecutor:
                     self._finish_durable_attempt(attempt_rec, "blocked_indeterminate_operation")
                     raise
                 except Exception as norm_err:
-                    logger.warning("Failed to normalize response from %s: %s", endpoint.id, norm_err)
+                    body_preview = exec_result.body[:200] if exec_result.body else b""
+                    logger.warning("Failed to normalize response from %s: %s (body preview: %r)", endpoint.id, norm_err, body_preview)
                     classified = classify_failure(norm_err, status_code=502)
             else:
                 # Classify error
@@ -830,7 +831,14 @@ class GatewayExecutor:
                 try:
                     from durallm.pools import POOL_MANAGER
                     route_id = endpoint.id.split(":")[-1]
-                    POOL_MANAGER.mark_quota_exhausted(pool, route_id, seconds=float(classified.retry_after_seconds or 86400.0))
+                    retry_sec = float(classified.retry_after_seconds or 86400.0)
+                    POOL_MANAGER.mark_quota_exhausted(pool, route_id, seconds=retry_sec)
+                    msg_lower = (classified.message or "").lower()
+                    if "free-models-per-day" in msg_lower or "free model requests" in msg_lower or endpoint.provider.lower() == "openrouter":
+                        POOL_MANAGER.mark_provider_quota_exhausted(pool, endpoint.provider, seconds=retry_sec)
+                        for ep_item in self.capability_registry.endpoints_for_pool(pool):
+                            if ep_item.provider.lower() == endpoint.provider.lower() and ep_item.id not in excluded_endpoints:
+                                excluded_endpoints.append(ep_item.id)
                 except Exception:
                     pass
             if classified.is_permanent:

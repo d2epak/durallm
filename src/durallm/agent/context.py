@@ -263,6 +263,25 @@ class ContextManager:
             if m.content and len(m.content) > 500:
                 m.content = extract_diagnostic_summary(m.content, max_chars=400)
 
+        if estimate_tokens(compacted) <= target_tokens:
+            return compacted, True
+
+        # Phase 4: Compaction of tool schemas and system prompt if still exceeding target budget
+        if compacted.tools and estimate_tokens(compacted) > target_tokens:
+            for t in compacted.tools:
+                if t.description and len(t.description) > 120:
+                    first_sent = t.description.split(". ")[0] + "."
+                    t.description = first_sent if len(first_sent) <= 120 else t.description[:120]
+                if t.parameters and isinstance(t.parameters, dict) and "properties" in t.parameters:
+                    for p_val in t.parameters.get("properties", {}).values():
+                        if isinstance(p_val, dict) and "description" in p_val and isinstance(p_val["description"], str):
+                            if len(p_val["description"]) > 50:
+                                p_val["description"] = p_val["description"][:50]
+
+        sys_inst = getattr(compacted, "system_instruction", None)
+        if sys_inst and len(sys_inst) > 2000 and estimate_tokens(compacted) > target_tokens:
+            compacted.system_instruction = sys_inst[:2000] + "\n... [System instruction condensed by ContextManager] ..."
+
         self._require_fit(compacted, target_tokens)
         return compacted, True
 

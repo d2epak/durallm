@@ -50,12 +50,13 @@ class TestFreeCodingHarness(unittest.TestCase):
     def test_adapter_prepare_request_clamps_max_tokens_for_groq_and_openrouter(self):
         from durallm.capability.profile import ModelProfile
         adapter = OpenAICompatibleAdapter()
-        endpoint = Endpoint(
-            id="coding:groq-qwen36",
-            provider="groq",
-            model="qwen/qwen3.6-27b",
-            base_url="https://api.groq.com/openai/v1",
-            profile=ModelProfile("groq", "qwen/qwen3.6-27b", max_output_tokens=8192),
+        # OpenRouter clamps to model profile max_output_tokens (e.g. 8192)
+        ep_openrouter = Endpoint(
+            id="coding:openrouter-gemma4",
+            provider="openrouter",
+            model="google/gemma-4-31b-it:free",
+            base_url="https://openrouter.ai/api/v1",
+            profile=ModelProfile("openrouter", "google/gemma-4-31b-it:free", max_output_tokens=8192),
         )
         norm_req = NormalizedRequest(
             request_id="req-test-1",
@@ -63,10 +64,22 @@ class TestFreeCodingHarness(unittest.TestCase):
             messages=[],
             max_output_tokens=16384,
         )
-        prepared = adapter.prepare_request(endpoint, norm_req, api_key="test-key")
+        prepared_openrouter = adapter.prepare_request(ep_openrouter, norm_req, api_key="test-key")
         import json
-        payload = json.loads(prepared.body_bytes.decode("utf-8"))
-        self.assertEqual(payload["max_tokens"], 8192)
+        payload_openrouter = json.loads(prepared_openrouter.body_bytes.decode("utf-8"))
+        self.assertEqual(payload_openrouter["max_tokens"], 8192)
+
+        # Groq clamps to 950 due to strict 1,000 OTPM limit
+        ep_groq = Endpoint(
+            id="coding:groq-qwen36",
+            provider="groq",
+            model="qwen/qwen3.6-27b",
+            base_url="https://api.groq.com/openai/v1",
+            profile=ModelProfile("groq", "qwen/qwen3.6-27b", max_output_tokens=950),
+        )
+        prepared_groq = adapter.prepare_request(ep_groq, norm_req, api_key="test-key")
+        payload_groq = json.loads(prepared_groq.body_bytes.decode("utf-8"))
+        self.assertEqual(payload_groq["max_tokens"], 950)
 
     # ------------------------------------------------------------------
     # 2. TPM Payload Pruning
@@ -134,27 +147,24 @@ class TestFreeCodingHarness(unittest.TestCase):
     # ------------------------------------------------------------------
     def test_default_coding_routes_contain_verified_active_free_models(self):
         route_models = {r.model for r in DEFAULT_CODING_ROUTES}
-        expected_models = {
-            "qwen/qwen3.6-27b",
-            "openai/gpt-oss-120b",
-            "nvidia/nemotron-3-ultra-550b-a55b",
-            "google/gemma-4-31b-it",
-            "cohere/north-mini-code:free",
-            "qwen/qwen-2.5-coder-32b-instruct:free",
-        }
-        self.assertEqual(route_models, expected_models)
+        self.assertIn("qwen/qwen3.6-27b", route_models)
+        self.assertIn("openai/gpt-oss-120b", route_models)
+        self.assertIn("openai/gpt-oss-20b", route_models)
+        self.assertIn("google/gemma-4-31b-it:free", route_models)
+        self.assertIn("cohere/north-mini-code:free", route_models)
+        self.assertIn("nvidia/nemotron-3-super-120b-a12b:free", route_models)
+        self.assertIn("google/gemma-4-31b-it", route_models)
+        self.assertIn("openrouter/free", route_models)
+        self.assertIn("nvidia/nemotron-3-ultra-550b-a55b", route_models)
 
-        # Check context windows
+        # Check Groq OTPM clamped max_output_tokens
         routes_by_model = {r.model: r for r in DEFAULT_CODING_ROUTES}
-        self.assertEqual(routes_by_model["qwen/qwen3.6-27b"].context_length, 131072)
-        self.assertEqual(routes_by_model["openai/gpt-oss-120b"].context_length, 131072)
-        self.assertEqual(routes_by_model["nvidia/nemotron-3-ultra-550b-a55b"].context_length, 131072)
-        self.assertEqual(routes_by_model["google/gemma-4-31b-it"].context_length, 131072)
-        self.assertEqual(routes_by_model["cohere/north-mini-code:free"].context_length, 256000)
-        self.assertEqual(routes_by_model["qwen/qwen-2.5-coder-32b-instruct:free"].context_length, 256000)
+        self.assertLessEqual(routes_by_model["qwen/qwen3.6-27b"].max_output_tokens, 1000)
+        self.assertLessEqual(routes_by_model["openai/gpt-oss-120b"].max_output_tokens, 1000)
+        self.assertLessEqual(routes_by_model["openai/gpt-oss-20b"].max_output_tokens, 1000)
 
         # Verify capability profiles exist with tool support enabled
-        for model in expected_models:
+        for model in route_models:
             provider = routes_by_model[model].provider
             profile = DEFAULT_CAPABILITY_REGISTRY.get_profile(provider, model)
             self.assertTrue(profile.supports_tools, f"Model {model} must declare supports_tools=True")
@@ -348,9 +358,9 @@ class TestFreeCodingHarness(unittest.TestCase):
         )
         prepared = adapter.prepare_request(ep_groq, norm_req, api_key="test-key")
         body = json.loads(prepared.body_bytes.decode("utf-8"))
-        # 8000 + 8192 = 16192 > 12000 TPM -> max_tokens throttled to safe headroom
-        self.assertLessEqual(body["max_tokens"], 4096)
-        self.assertGreaterEqual(body["max_tokens"], 1024)
+        # Groq clamps max_tokens to 950 due to 1,000 OTPM limit
+        self.assertLessEqual(body["max_tokens"], 950)
+        self.assertGreaterEqual(body["max_tokens"], 100)
 
     # ------------------------------------------------------------------
     # 10. Deadline Extended Defaults for Heavy Coding Models

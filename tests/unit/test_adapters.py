@@ -112,8 +112,79 @@ class TestUpstreamUrlBoundary(unittest.TestCase):
             res = _execute_with(urllib.error.URLError(ConnectionRefusedError(61, "Connection refused")))
             with patch("urllib.request.urlopen", side_effect=urllib.error.URLError(socket.timeout("timed out"))):
                 res = OpenAICompatibleAdapter("openai").execute(local, timeout_seconds=1.0)
-        self.assertEqual(res.transport_error, "timeout")
+            self.assertEqual(res.transport_error, "timeout")
+
+
+class TestStreamingDemuxAndStreamFalse(unittest.TestCase):
+    """Verify adapters enforce stream=False for buffered execution and demux SSE chunks safely."""
+
+    def test_openai_stream_false_enforced(self):
+        from durallm.protocol.ir import NormalizedRequest, NormalizedMessage
+        req = NormalizedRequest(
+            request_id="r1",
+            model="gpt-4o",
+            messages=[NormalizedMessage(role="user", content="hello")],
+            stream=True,  # Client requested streaming
+        )
+        ep = Endpoint(id="groq-test", provider="groq", model="openai/gpt-oss-120b", base_url="https://api.groq.com/openai/v1")
+        prep = OpenAICompatibleAdapter("groq").prepare_request(ep, req, api_key="test_key")
+        body = json.loads(prep.body_bytes.decode("utf-8"))
+        self.assertFalse(body.get("stream", False), "stream=False must be enforced for buffered execution")
+
+    def test_anthropic_stream_false_enforced(self):
+        from durallm.protocol.ir import NormalizedRequest, NormalizedMessage
+        req = NormalizedRequest(
+            request_id="r2",
+            model="claude-3-7-sonnet-20250219",
+            messages=[NormalizedMessage(role="user", content="hello")],
+            stream=True,
+        )
+        ep = Endpoint(id="anthropic-test", provider="anthropic", model="claude-3-7-sonnet-20250219", base_url="https://api.anthropic.com")
+        prep = AnthropicAdapter("anthropic").prepare_request(ep, req, api_key="test_key")
+        body = json.loads(prep.body_bytes.decode("utf-8"))
+        self.assertFalse(body.get("stream", False), "stream=False must be enforced for buffered execution")
+
+    def test_openai_sse_stream_demux(self):
+        sse_data = (
+            'data: {"id":"chatcmpl-123","model":"qwen","choices":[{"index":0,"delta":{"content":"Hello ","reasoning":"Thinking step."}}]}\n\n'
+            'data: {"id":"chatcmpl-123","model":"qwen","choices":[{"index":0,"delta":{"content":"world!"},"finish_reason":"stop"}]}\n\n'
+            'data: [DONE]\n'
+        )
+        ep = Endpoint(id="qwen-ep", provider="groq", model="qwen/qwen3.6-27b", base_url="https://api.groq.com")
+        res = ProviderExecutionResult(status_code=200, headers={"content-type": "text/event-stream"}, body=sse_data.encode("utf-8"))
+        norm = OpenAICompatibleAdapter("groq").normalize_response(ep, res)
+        self.assertEqual(norm.content, "Hello world!")
+        self.assertEqual(norm.reasoning_content, "Thinking step.")
+        self.assertEqual(norm.finish_reason, "stop")
+
+    def test_anthropic_sse_stream_demux(self):
+        sse_data = (
+            'event: message_start\ndata: {"type":"message_start","message":{"id":"msg_abc","model":"claude","usage":{"input_tokens":10}}}\n\n'
+            'event: content_block_start\ndata: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n\n'
+            'event: content_block_delta\ndata: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"4"}}\n\n'
+            'event: content_block_stop\ndata: {"type":"content_block_stop","index":0}\n\n'
+            'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":2}}\n\n'
+            'event: message_stop\ndata: {"type":"message_stop"}\n\n'
+        )
+        ep = Endpoint(id="claude-ep", provider="anthropic", model="claude-3-7-sonnet", base_url="https://api.anthropic.com")
+        res = ProviderExecutionResult(status_code=200, headers={"content-type": "text/event-stream"}, body=sse_data.encode("utf-8"))
+        norm = AnthropicAdapter("anthropic").normalize_response(ep, res)
+        self.assertEqual(norm.content, "4")
+        self.assertEqual(norm.input_tokens, 10)
+        self.assertEqual(norm.output_tokens, 2)
+        self.assertEqual(norm.finish_reason, "stop")
+
+    def test_empty_body_raises_value_error_and_classifies_as_empty_completion(self):
+        ep = Endpoint(id="test-ep", provider="groq", model="qwen", base_url="https://api.groq.com")
+        res = ProviderExecutionResult(status_code=200, headers={}, body=b"   ")
+        adapter = OpenAICompatibleAdapter("groq")
+        with self.assertRaises(ValueError) as ctx:
+            adapter.normalize_response(ep, res)
+        classified = classify_failure(ctx.exception, status_code=502)
+        self.assertEqual(classified.reason, FailoverReason.empty_completion)
+        self.assertTrue(classified.retryable)
 
 
 if __name__ == "__main__":
     unittest.main()
+

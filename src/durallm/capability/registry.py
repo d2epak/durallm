@@ -95,11 +95,15 @@ class CapabilityRegistry:
             ModelProfile("cerebras", "llama3.1-8b", protocol="openai", context_window=65536, max_output_tokens=4096, supports_tools=True, is_free=True),
             # Groq
             ModelProfile("groq", "llama-3.3-70b-versatile", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True, is_free=True),
-            ModelProfile("groq", "qwen/qwen3.6-27b", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True, is_free=True),
-            ModelProfile("groq", "openai/gpt-oss-120b", protocol="openai", context_window=131072, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("groq", "qwen/qwen3.6-27b", protocol="openai", context_window=7000, max_output_tokens=950, supports_tools=True, is_free=True),
+            ModelProfile("groq", "openai/gpt-oss-120b", protocol="openai", context_window=7500, max_output_tokens=950, supports_tools=True, is_free=True),
+            ModelProfile("groq", "openai/gpt-oss-20b", protocol="openai", context_window=7500, max_output_tokens=950, supports_tools=True, is_free=True),
             # OpenRouter Free
-            ModelProfile("openrouter", "qwen/qwen-2.5-coder-32b-instruct:free", protocol="openai", context_window=256000, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("openrouter", "google/gemma-4-31b-it:free", protocol="openai", context_window=262144, max_output_tokens=8192, supports_tools=True, is_free=True),
             ModelProfile("openrouter", "cohere/north-mini-code:free", protocol="openai", context_window=256000, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("openrouter", "nvidia/nemotron-3-super-120b-a12b:free", protocol="openai", context_window=262144, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("openrouter", "openrouter/free", protocol="openai", context_window=200000, max_output_tokens=8192, supports_tools=True, is_free=True),
+            ModelProfile("openrouter", "qwen/qwen-2.5-coder-32b-instruct:free", protocol="openai", context_window=256000, max_output_tokens=8192, supports_tools=True, is_free=True),
             ModelProfile("openrouter", "mistralai/devstral-2512:free", protocol="openai", context_window=262144, max_output_tokens=8192, supports_tools=True, is_free=True),
             ModelProfile("openrouter", "meta-llama/llama-3.3-70b-instruct:free", protocol="openai", context_window=65536, max_output_tokens=4096, supports_tools=True, is_free=True),
             # Mistral

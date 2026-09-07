@@ -11,6 +11,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from typing import Dict, Iterator, List, Optional
 
 from durallm._env import ALLOW_LOCAL_UPSTREAM_ENV, env_flag
@@ -365,19 +366,27 @@ class OpenAICompatibleAdapter(BaseHTTPAdapter):
         api_key: Optional[str] = None,
     ) -> PreparedRequest:
         payload = ir_to_openai_request(request, endpoint.model)
+        # Force non-streaming for buffered execution
+        payload["stream"] = False
+
         max_out = (endpoint.profile.max_output_tokens if endpoint.profile else 8192) or 8192
         if "max_tokens" in payload:
             payload["max_tokens"] = min(payload["max_tokens"], max_out)
         else:
             payload["max_tokens"] = min(max_out, 8192)
 
+        if "max_completion_tokens" in payload:
+            payload["max_completion_tokens"] = min(payload["max_completion_tokens"], max_out)
+
         if endpoint.provider.lower() == "groq":
-            from durallm.agent.context import estimate_tokens
-            in_est = estimate_tokens(request)
-            current_max = payload.get("max_tokens", 8192)
-            if in_est > 0 and (in_est + current_max) > 12000:
-                safe_out = max(1024, min(current_max, 12000 - in_est))
-                payload["max_tokens"] = safe_out
+            from durallm.pruner import prune_for_groq_tpm
+            # Groq free tier strictly enforces OTPM of 1,000 and ITPM of 7,000 / 8,000 total TPM.
+            # Clamp output tokens to at most 950 so OTPM is never violated.
+            payload["max_tokens"] = min(payload.get("max_tokens", 950), 950)
+            if "max_completion_tokens" in payload:
+                payload["max_completion_tokens"] = min(payload["max_completion_tokens"], 950)
+            # Compact input payload if needed so input + output <= 7,000.
+            payload = prune_for_groq_tpm(payload, max_input_tokens=5200)
 
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
@@ -401,7 +410,16 @@ class OpenAICompatibleAdapter(BaseHTTPAdapter):
         endpoint: Endpoint,
         result: ProviderExecutionResult,
     ) -> NormalizedResponse:
-        raw_json = json.loads(result.body.decode("utf-8"))
+        body_text = result.body.decode("utf-8", errors="replace").strip()
+        if not body_text:
+            raise ValueError(f"Empty response body received from {endpoint.id} (status {result.status_code})")
+
+        # Resilient handling for upstream SSE streams (data: lines)
+        if body_text.startswith("data:") or "\ndata:" in body_text:
+            from durallm.protocol.openai import sse_chunks_to_ir
+            return sse_chunks_to_ir(body_text, default_model=endpoint.model)
+
+        raw_json = json.loads(body_text)
         return openai_response_to_ir(raw_json)
 
 
@@ -418,6 +436,8 @@ class AnthropicAdapter(BaseHTTPAdapter):
         api_key: Optional[str] = None,
     ) -> PreparedRequest:
         payload = ir_to_anthropic_request(request, endpoint.model)
+        # Force non-streaming for buffered execution
+        payload["stream"] = False
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 
         headers = {
@@ -440,7 +460,14 @@ class AnthropicAdapter(BaseHTTPAdapter):
         endpoint: Endpoint,
         result: ProviderExecutionResult,
     ) -> NormalizedResponse:
-        raw_json = json.loads(result.body.decode("utf-8"))
+        body_text = result.body.decode("utf-8", errors="replace").strip()
+        if not body_text:
+            raise ValueError(f"Empty response body received from {endpoint.id} (status {result.status_code})")
+
+        if body_text.startswith("event:") or "\nevent:" in body_text:
+            return self._parse_anthropic_sse(body_text, endpoint.model)
+
+        raw_json = json.loads(body_text)
         # Anthropic message response to IR
         text_parts: List[str] = []
         reasoning = None
@@ -477,6 +504,100 @@ class AnthropicAdapter(BaseHTTPAdapter):
             input_tokens=usage.get("input_tokens", 0),
             output_tokens=usage.get("output_tokens", 0),
             raw_response=raw_json,
+        )
+
+    def _parse_anthropic_sse(self, sse_text: str, default_model: str) -> NormalizedResponse:
+        text_parts: List[str] = []
+        reasoning = None
+        signature = None
+        tool_calls = []
+        model = default_model
+        msg_id = f"msg_{uuid.uuid4().hex[:12]}"
+        input_tokens = 0
+        output_tokens = 0
+        stop_reason = "end_turn"
+
+        current_block_type: Optional[str] = None
+        current_tool_id: str = ""
+        current_tool_name: str = ""
+        current_tool_input_str: str = ""
+
+        for raw_line in sse_text.splitlines():
+            line = raw_line.strip()
+            if not line or not line.startswith("data:"):
+                continue
+            data_str = line[len("data:"):].strip()
+            try:
+                data = json.loads(data_str)
+            except Exception:
+                continue
+            if not isinstance(data, dict):
+                continue
+            evt_type = data.get("type")
+            if evt_type == "message_start":
+                msg = data.get("message", {})
+                if msg.get("id"):
+                    msg_id = msg["id"]
+                if msg.get("model"):
+                    model = msg["model"]
+                usage = msg.get("usage", {})
+                input_tokens = usage.get("input_tokens", input_tokens)
+            elif evt_type == "content_block_start":
+                cb = data.get("content_block", {})
+                current_block_type = cb.get("type")
+                if current_block_type == "text":
+                    text_parts.append(cb.get("text", ""))
+                elif current_block_type == "thinking":
+                    reasoning = cb.get("thinking", "")
+                    signature = cb.get("signature")
+                elif current_block_type == "tool_use":
+                    current_tool_id = cb.get("id", f"toolu_{uuid.uuid4().hex[:8]}")
+                    current_tool_name = cb.get("name", "")
+                    current_tool_input_str = ""
+            elif evt_type == "content_block_delta":
+                delta = data.get("delta", {})
+                d_type = delta.get("type")
+                if d_type == "text_delta":
+                    text_parts.append(delta.get("text", ""))
+                elif d_type == "thinking_delta":
+                    reasoning = (reasoning or "") + delta.get("thinking", "")
+                elif d_type == "input_json_delta":
+                    current_tool_input_str += delta.get("partial_json", "")
+            elif evt_type == "content_block_stop":
+                if current_block_type == "tool_use":
+                    from durallm.protocol.ir import NormalizedToolCall
+                    try:
+                        args = json.loads(current_tool_input_str) if current_tool_input_str else {}
+                    except Exception:
+                        args = {}
+                    tool_calls.append(
+                        NormalizedToolCall(
+                            id=current_tool_id,
+                            name=current_tool_name,
+                            arguments=args,
+                            raw_arguments=current_tool_input_str,
+                        )
+                    )
+                current_block_type = None
+            elif evt_type == "message_delta":
+                delta = data.get("delta", {})
+                if delta.get("stop_reason"):
+                    stop_reason = delta["stop_reason"]
+                usage = data.get("usage", {})
+                output_tokens = usage.get("output_tokens", output_tokens)
+
+        finish_map = {"end_turn": "stop", "tool_use": "tool_calls", "max_tokens": "length"}
+        return NormalizedResponse(
+            response_id=msg_id,
+            model=model,
+            content="".join(text_parts) if text_parts else None,
+            reasoning_content=reasoning,
+            reasoning_signature=signature,
+            tool_calls=tool_calls,
+            finish_reason=finish_map.get(stop_reason, "stop"),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            raw_response={"id": msg_id, "model": model, "content": text_parts},
         )
 
 

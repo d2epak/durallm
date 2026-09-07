@@ -292,7 +292,10 @@ class CapabilityRouter:
                 cw = (ep.profile.context_window if ep.profile else 65536) or 65536
                 is_groq = ep.provider.lower() == "groq"
                 if is_large_context:
-                    tier = 2 if is_groq else (0 if cw >= 200000 else 1)
+                    # Tier 0: OpenRouter large-context models (>=200k)
+                    # Tier 1: Groq fast compactable models (0.25s execution)
+                    # Tier 2: Slow/heavy queueing nodes (e.g. NVIDIA NIM free endpoints)
+                    tier = 0 if (cw >= 200000 and not is_groq) else (1 if is_groq else 2)
                     return (tier, ep.priority, -ev.final_score)
                 return (ep.priority, -ev.final_score)
 
