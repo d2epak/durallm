@@ -10,7 +10,7 @@
 
 | Baseline / System | Completion Rate | Recovery Rate | Median Latency | P95 Latency | Avg Attempts/Req | Semantic Error Rate |
 |---|---|---|---|---|---|---|
-| **LLM-Circuit-Breaker-V3** | 100.0% | 80.0% | 12.55 ms | 314.08 ms | 2.60 | 0.0% |
+| **DuraLLM-V3** | 100.0% | 80.0% | 12.55 ms | 314.08 ms | 2.60 | 0.0% |
 | **Baseline-A-Direct** | 0.0% | 0.0% | 0.03 ms | 0.07 ms | 1.20 | 20.0% |
 | **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.03 ms | 0.12 ms | 2.33 | 20.0% |
 | **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.07 ms | 0.16 ms | 2.20 | 20.0% |

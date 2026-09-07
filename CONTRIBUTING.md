@@ -13,8 +13,8 @@ Thank you for your interest in contributing to **LLM Circuit Breaker**! We welco
 ### Setup Instructions
 1. Clone the repository:
    ```bash
-   git clone https://github.com/d2epak/llm-circuit-breaker.git
-   cd llm-circuit-breaker
+   git clone https://github.com/d2epak/durallm.git
+   cd durallm
    ```
 
 2. Create and activate a virtual environment:

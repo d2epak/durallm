@@ -349,7 +349,7 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
             breaker_snaps = {name: b.snapshot()["state"] for name, b in DEFAULT_BREAKER_REGISTRY.all().items()}
             self._send_json(200, {
                 "status": "healthy",
-                "engine": "llm-circuit-breaker",
+                "engine": "durallm",
                 "version": "0.2.0",
                 "pools": {
                     "coding": {
@@ -716,13 +716,13 @@ def create_proxy_app():
         from fastapi import FastAPI, Request, Response
         from fastapi.responses import StreamingResponse
     except ImportError:
-        raise ImportError("FastAPI is optional. Install with: pip install 'llm-circuit-breaker[proxy]'")
+        raise ImportError("FastAPI is optional. Install with: pip install 'durallm[proxy]'")
 
     app = FastAPI(title="LLM Circuit Breaker Gateway", version="0.2.0")
 
     @app.get("/health")
     async def health():
-        return {"status": "healthy", "engine": "llm-circuit-breaker"}
+        return {"status": "healthy", "engine": "durallm"}
 
     @app.post("/v1/messages/count_tokens")
     async def count_tokens(req: Request):

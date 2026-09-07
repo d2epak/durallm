@@ -56,7 +56,7 @@ restart also converts any remaining `SUBMITTED` operation to that state.
 An in-process agent or custom tool runner can use the same lifecycle directly:
 
 ```python
-from llm_circuit_breaker.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
+from durallm.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
 
 store = SQLitePersistenceStore("gateway.db")
 ledger = SQLiteToolExecutionLedger(store)

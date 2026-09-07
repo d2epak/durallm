@@ -10,7 +10,7 @@
     "seed": 0
   },
   "aggregate": {
-    "LLM-Circuit-Breaker-V3": {
+    "DuraLLM-V3": {
       "completion_rate_pct": {
         "mean": 100.0,
         "ci95": 0.0,
@@ -240,7 +240,7 @@
     }
   },
   "scenario_passes": {
-    "LLM-Circuit-Breaker-V3": {
+    "DuraLLM-V3": {
       "B1": 5,
       "B2": 5,
       "B3": 5,
@@ -346,8 +346,8 @@
   "runs": [
     {
       "system_summaries": {
-        "LLM-Circuit-Breaker-V3": {
-          "system_name": "LLM-Circuit-Breaker-V3",
+        "DuraLLM-V3": {
+          "system_name": "DuraLLM-V3",
           "total_scenarios": 15,
           "successful_scenarios": 15,
           "completion_rate_pct": 100.0,
@@ -360,7 +360,7 @@
           "scenario_results": [
             {
               "scenario_id": "B1",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.214416918344796,
@@ -371,7 +371,7 @@
             },
             {
               "scenario_id": "B2",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1003.9895420195535,
@@ -382,7 +382,7 @@
             },
             {
               "scenario_id": "B3",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.952957931905985,
@@ -393,7 +393,7 @@
             },
             {
               "scenario_id": "B4",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.030334026552737,
@@ -404,7 +404,7 @@
             },
             {
               "scenario_id": "B5",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 12.361375032924116,
@@ -415,7 +415,7 @@
             },
             {
               "scenario_id": "B6",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1.484125037677586,
@@ -426,7 +426,7 @@
             },
             {
               "scenario_id": "B7",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.9429160272702575,
@@ -437,7 +437,7 @@
             },
             {
               "scenario_id": "B8",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.1925410469993949,
@@ -448,7 +448,7 @@
             },
             {
               "scenario_id": "B9",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 11.738708009943366,
@@ -459,7 +459,7 @@
             },
             {
               "scenario_id": "B10",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.930125093087554,
@@ -470,7 +470,7 @@
             },
             {
               "scenario_id": "B11",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.592374976724386,
@@ -481,7 +481,7 @@
             },
             {
               "scenario_id": "B12",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 12.785541010089219,
@@ -492,7 +492,7 @@
             },
             {
               "scenario_id": "B13",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.2562080044299364,
@@ -503,7 +503,7 @@
             },
             {
               "scenario_id": "B14",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 3.4763331059366465,
@@ -514,7 +514,7 @@
             },
             {
               "scenario_id": "B15",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.694083166308701,
@@ -1441,8 +1441,8 @@
     },
     {
       "system_summaries": {
-        "LLM-Circuit-Breaker-V3": {
-          "system_name": "LLM-Circuit-Breaker-V3",
+        "DuraLLM-V3": {
+          "system_name": "DuraLLM-V3",
           "total_scenarios": 15,
           "successful_scenarios": 15,
           "completion_rate_pct": 100.0,
@@ -1455,7 +1455,7 @@
           "scenario_results": [
             {
               "scenario_id": "B1",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.980291900224984,
@@ -1466,7 +1466,7 @@
             },
             {
               "scenario_id": "B2",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1005.764834000729,
@@ -1477,7 +1477,7 @@
             },
             {
               "scenario_id": "B3",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 11.481042020022869,
@@ -1488,7 +1488,7 @@
             },
             {
               "scenario_id": "B4",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.45900003798306,
@@ -1499,7 +1499,7 @@
             },
             {
               "scenario_id": "B5",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.35712498985231,
@@ -1510,7 +1510,7 @@
             },
             {
               "scenario_id": "B6",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.4538330249488354,
@@ -1521,7 +1521,7 @@
             },
             {
               "scenario_id": "B7",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.2781250514090061,
@@ -1532,7 +1532,7 @@
             },
             {
               "scenario_id": "B8",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.27062406297773123,
@@ -1543,7 +1543,7 @@
             },
             {
               "scenario_id": "B9",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.091625063680112,
@@ -1554,7 +1554,7 @@
             },
             {
               "scenario_id": "B10",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.133041026070714,
@@ -1565,7 +1565,7 @@
             },
             {
               "scenario_id": "B11",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.34125001449138,
@@ -1576,7 +1576,7 @@
             },
             {
               "scenario_id": "B12",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.191249967552722,
@@ -1587,7 +1587,7 @@
             },
             {
               "scenario_id": "B13",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.23516698274761438,
@@ -1598,7 +1598,7 @@
             },
             {
               "scenario_id": "B14",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1.1495411163195968,
@@ -1609,7 +1609,7 @@
             },
             {
               "scenario_id": "B15",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.4325419431552291,
@@ -2536,8 +2536,8 @@
     },
     {
       "system_summaries": {
-        "LLM-Circuit-Breaker-V3": {
-          "system_name": "LLM-Circuit-Breaker-V3",
+        "DuraLLM-V3": {
+          "system_name": "DuraLLM-V3",
           "total_scenarios": 15,
           "successful_scenarios": 15,
           "completion_rate_pct": 100.0,
@@ -2550,7 +2550,7 @@
           "scenario_results": [
             {
               "scenario_id": "B1",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 12.513542082160711,
@@ -2561,7 +2561,7 @@
             },
             {
               "scenario_id": "B2",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1006.0579999117181,
@@ -2572,7 +2572,7 @@
             },
             {
               "scenario_id": "B3",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.701249961741269,
@@ -2583,7 +2583,7 @@
             },
             {
               "scenario_id": "B4",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.711832976900041,
@@ -2594,7 +2594,7 @@
             },
             {
               "scenario_id": "B5",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 12.870291015133262,
@@ -2605,7 +2605,7 @@
             },
             {
               "scenario_id": "B6",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.6527500227093697,
@@ -2616,7 +2616,7 @@
             },
             {
               "scenario_id": "B7",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.5620000883936882,
@@ -2627,7 +2627,7 @@
             },
             {
               "scenario_id": "B8",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.4617919912561774,
@@ -2638,7 +2638,7 @@
             },
             {
               "scenario_id": "B9",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 12.480499921366572,
@@ -2649,7 +2649,7 @@
             },
             {
               "scenario_id": "B10",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.351001009345055,
@@ -2660,7 +2660,7 @@
             },
             {
               "scenario_id": "B11",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 11.675999965518713,
@@ -2671,7 +2671,7 @@
             },
             {
               "scenario_id": "B12",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.203541049733758,
@@ -2682,7 +2682,7 @@
             },
             {
               "scenario_id": "B13",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.23891706950962543,
@@ -2693,7 +2693,7 @@
             },
             {
               "scenario_id": "B14",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.8390417788177729,
@@ -2704,7 +2704,7 @@
             },
             {
               "scenario_id": "B15",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.3737088991329074,
@@ -3631,8 +3631,8 @@
     },
     {
       "system_summaries": {
-        "LLM-Circuit-Breaker-V3": {
-          "system_name": "LLM-Circuit-Breaker-V3",
+        "DuraLLM-V3": {
+          "system_name": "DuraLLM-V3",
           "total_scenarios": 15,
           "successful_scenarios": 15,
           "completion_rate_pct": 100.0,
@@ -3645,7 +3645,7 @@
           "scenario_results": [
             {
               "scenario_id": "B1",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.177957967855036,
@@ -3656,7 +3656,7 @@
             },
             {
               "scenario_id": "B2",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1003.0625000363216,
@@ -3667,7 +3667,7 @@
             },
             {
               "scenario_id": "B3",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 12.013667030259967,
@@ -3678,7 +3678,7 @@
             },
             {
               "scenario_id": "B4",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.40420898143202,
@@ -3689,7 +3689,7 @@
             },
             {
               "scenario_id": "B5",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.51654203608632,
@@ -3700,7 +3700,7 @@
             },
             {
               "scenario_id": "B6",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.7363329641520977,
@@ -3711,7 +3711,7 @@
             },
             {
               "scenario_id": "B7",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.5544159794226289,
@@ -3722,7 +3722,7 @@
             },
             {
               "scenario_id": "B8",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.45775005128234625,
@@ -3733,7 +3733,7 @@
             },
             {
               "scenario_id": "B9",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.665208010934293,
@@ -3744,7 +3744,7 @@
             },
             {
               "scenario_id": "B10",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.525207923725247,
@@ -3755,7 +3755,7 @@
             },
             {
               "scenario_id": "B11",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.517749961465597,
@@ -3766,7 +3766,7 @@
             },
             {
               "scenario_id": "B12",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.312292914837599,
@@ -3777,7 +3777,7 @@
             },
             {
               "scenario_id": "B13",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.26591692585498095,
@@ -3788,7 +3788,7 @@
             },
             {
               "scenario_id": "B14",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1.1092500062659383,
@@ -3799,7 +3799,7 @@
             },
             {
               "scenario_id": "B15",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.3553749993443489,
@@ -4726,8 +4726,8 @@
     },
     {
       "system_summaries": {
-        "LLM-Circuit-Breaker-V3": {
-          "system_name": "LLM-Circuit-Breaker-V3",
+        "DuraLLM-V3": {
+          "system_name": "DuraLLM-V3",
           "total_scenarios": 15,
           "successful_scenarios": 15,
           "completion_rate_pct": 100.0,
@@ -4740,7 +4740,7 @@
           "scenario_results": [
             {
               "scenario_id": "B1",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 12.733208946883678,
@@ -4751,7 +4751,7 @@
             },
             {
               "scenario_id": "B2",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1011.2893750192598,
@@ -4762,7 +4762,7 @@
             },
             {
               "scenario_id": "B3",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.441957999020815,
@@ -4773,7 +4773,7 @@
             },
             {
               "scenario_id": "B4",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.640042045153677,
@@ -4784,7 +4784,7 @@
             },
             {
               "scenario_id": "B5",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.966958969831467,
@@ -4795,7 +4795,7 @@
             },
             {
               "scenario_id": "B6",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.7640420226380229,
@@ -4806,7 +4806,7 @@
             },
             {
               "scenario_id": "B7",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 0.5267079686746001,
@@ -4817,7 +4817,7 @@
             },
             {
               "scenario_id": "B8",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.4658749094232917,
@@ -4828,7 +4828,7 @@
             },
             {
               "scenario_id": "B9",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.176082982681692,
@@ -4839,7 +4839,7 @@
             },
             {
               "scenario_id": "B10",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 14.989666058681905,
@@ -4850,7 +4850,7 @@
             },
             {
               "scenario_id": "B11",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.400375028140843,
@@ -4861,7 +4861,7 @@
             },
             {
               "scenario_id": "B12",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 13.907542102970183,
@@ -4872,7 +4872,7 @@
             },
             {
               "scenario_id": "B13",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.23329199757426977,
@@ -4883,7 +4883,7 @@
             },
             {
               "scenario_id": "B14",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": true,
               "total_latency_ms": 1.9799171714112163,
@@ -4894,7 +4894,7 @@
             },
             {
               "scenario_id": "B15",
-              "system_name": "LLM-Circuit-Breaker-V3",
+              "system_name": "DuraLLM-V3",
               "success": true,
               "recovery_occurred": false,
               "total_latency_ms": 0.5052069900557399,

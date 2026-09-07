@@ -103,7 +103,7 @@ class MCPProxy:
                     "tools": {"listChanged": False},
                 },
                 "serverInfo": {
-                    "name": "llm-circuit-breaker-mcp-proxy",
+                    "name": "durallm-mcp-proxy",
                     "version": "3.0.0",
                 },
             },

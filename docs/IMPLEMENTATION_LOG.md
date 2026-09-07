@@ -25,14 +25,14 @@ This document tracks implementation progress across milestones, capturing object
 - **Commit:** `v2-02-core-and-breaker`
 - **Objective:** Establish formal exception hierarchy, structured failure taxonomy, and Resilience4j-compliant circuit breaker state machine with sliding windows, bounded half-open probe admission, and monotonic clock injection.
 - **Files Created/Modified:**
-  - `src/llm_circuit_breaker/errors.py` (Domain exceptions)
-  - `src/llm_circuit_breaker/models.py` (FailureCategory, FailureClassification, AttemptRecord)
-  - `src/llm_circuit_breaker/classifier.py` (Enhanced with hierarchical taxonomy & Retry-After parser)
-  - `src/llm_circuit_breaker/breaker/state.py` (CircuitBreakerState & StateTransitionEvent)
-  - `src/llm_circuit_breaker/breaker/metrics.py` (Count and time sliding windows)
-  - `src/llm_circuit_breaker/breaker/circuit_breaker.py` (Core state machine & probe permits)
-  - `src/llm_circuit_breaker/breaker/registry.py` (CircuitBreakerRegistry)
-  - `src/llm_circuit_breaker/breaker/__init__.py`
+  - `src/durallm/errors.py` (Domain exceptions)
+  - `src/durallm/models.py` (FailureCategory, FailureClassification, AttemptRecord)
+  - `src/durallm/classifier.py` (Enhanced with hierarchical taxonomy & Retry-After parser)
+  - `src/durallm/breaker/state.py` (CircuitBreakerState & StateTransitionEvent)
+  - `src/durallm/breaker/metrics.py` (Count and time sliding windows)
+  - `src/durallm/breaker/circuit_breaker.py` (Core state machine & probe permits)
+  - `src/durallm/breaker/registry.py` (CircuitBreakerRegistry)
+  - `src/durallm/breaker/__init__.py`
   - `tests/unit/test_circuit_breaker.py` (12 formal compliance tests)
 - **Tests Run:**
   - `uv run pytest -v` (26 passed in 0.81s)
@@ -47,14 +47,14 @@ This document tracks implementation progress across milestones, capturing object
 - **Commit:** `v2-03-capability-and-ir`
 - **Objective:** Establish canonical `ModelProfile` capability definitions and central `NormalizedRequest`/`NormalizedResponse` protocol IR, decoupling providers into an O(N) translation architecture.
 - **Files Created/Modified:**
-  - `src/llm_circuit_breaker/capability/profile.py` (`ModelProfile` and `Endpoint`)
-  - `src/llm_circuit_breaker/capability/registry.py` (`CapabilityRegistry` with built-in provider profiles)
-  - `src/llm_circuit_breaker/capability/__init__.py`
-  - `src/llm_circuit_breaker/protocol/ir.py` (Canonical `NormalizedRequest`, `NormalizedResponse`, `NormalizedMessage`, `NormalizedToolCall`, `NormalizedToolDefinition`)
-  - `src/llm_circuit_breaker/protocol/anthropic.py` (Anthropic Messages <-> IR)
-  - `src/llm_circuit_breaker/protocol/openai.py` (OpenAI Chat Completions <-> IR)
-  - `src/llm_circuit_breaker/protocol/gemini.py` (Google Gemini REST <-> IR with protobuf schema cleaner)
-  - `src/llm_circuit_breaker/protocol/__init__.py`
+  - `src/durallm/capability/profile.py` (`ModelProfile` and `Endpoint`)
+  - `src/durallm/capability/registry.py` (`CapabilityRegistry` with built-in provider profiles)
+  - `src/durallm/capability/__init__.py`
+  - `src/durallm/protocol/ir.py` (Canonical `NormalizedRequest`, `NormalizedResponse`, `NormalizedMessage`, `NormalizedToolCall`, `NormalizedToolDefinition`)
+  - `src/durallm/protocol/anthropic.py` (Anthropic Messages <-> IR)
+  - `src/durallm/protocol/openai.py` (OpenAI Chat Completions <-> IR)
+  - `src/durallm/protocol/gemini.py` (Google Gemini REST <-> IR with protobuf schema cleaner)
+  - `src/durallm/protocol/__init__.py`
   - `tests/unit/test_protocol_ir.py` (Roundtrip tests for Anthropic, OpenAI, and Gemini)
 - **Tests Run:**
   - `uv run pytest -v` (29 passed in 0.83s)
@@ -69,15 +69,15 @@ This document tracks implementation progress across milestones, capturing object
 - **Commit:** `v2-04-routing-and-execution`
 - **Objective:** Build capability-aware candidate selection with hard constraint filters, multi-objective soft scoring (quality, reliability, latency, cost), deadline tracking with remaining budget enforcement, bounded retries with jittered backoff, and fallback cycle protection.
 - **Files Created/Modified:**
-  - `src/llm_circuit_breaker/routing/requirements.py` (`RequirementVector` with hard constraint matcher)
-  - `src/llm_circuit_breaker/routing/decision.py` (`CandidateEvaluation` and `RoutingDecision` audit record)
-  - `src/llm_circuit_breaker/routing/scorer.py` (`RoutingScorer` with normalized multi-objective scoring)
-  - `src/llm_circuit_breaker/routing/router.py` (`CapabilityRouter` with priority, round-robin, latency-aware, cost-aware, and balanced selection)
-  - `src/llm_circuit_breaker/routing/__init__.py`
-  - `src/llm_circuit_breaker/execution/deadline.py` (`Deadline` with per-attempt timeout bounded by total remaining deadline)
-  - `src/llm_circuit_breaker/execution/policy.py` (`RetryPolicy` with jitter/Retry-After and `FallbackPolicy`)
-  - `src/llm_circuit_breaker/execution/ledger.py` (`AttemptLedger` with cycle detection and budget bounds)
-  - `src/llm_circuit_breaker/execution/__init__.py`
+  - `src/durallm/routing/requirements.py` (`RequirementVector` with hard constraint matcher)
+  - `src/durallm/routing/decision.py` (`CandidateEvaluation` and `RoutingDecision` audit record)
+  - `src/durallm/routing/scorer.py` (`RoutingScorer` with normalized multi-objective scoring)
+  - `src/durallm/routing/router.py` (`CapabilityRouter` with priority, round-robin, latency-aware, cost-aware, and balanced selection)
+  - `src/durallm/routing/__init__.py`
+  - `src/durallm/execution/deadline.py` (`Deadline` with per-attempt timeout bounded by total remaining deadline)
+  - `src/durallm/execution/policy.py` (`RetryPolicy` with jitter/Retry-After and `FallbackPolicy`)
+  - `src/durallm/execution/ledger.py` (`AttemptLedger` with cycle detection and budget bounds)
+  - `src/durallm/execution/__init__.py`
   - `tests/unit/test_routing_engine.py` (Tests for tool requirements, context limits, breaker exclusions, and decision audit records)
   - `tests/unit/test_execution_policy.py` (Tests for deadline math, backoff, cycle detection, and fallback budgets)
 - **Tests Run:**
@@ -93,10 +93,10 @@ This document tracks implementation progress across milestones, capturing object
 - **Commit:** `v2-05-agent-semantics`
 - **Objective:** Implement strict tool schema validation with safe syntactic normalization and zero argument hallucination, provider-neutral `AgentState` and `StateSnapshot` models, and budget-aware context manager preserving planted task goals and constraints.
 - **Files Created/Modified:**
-  - `src/llm_circuit_breaker/agent/tool_validation.py` (`ToolCallValidator`, `ToolCallResult`, and `ToolValidationReport`)
-  - `src/llm_circuit_breaker/agent/state.py` (`AgentState` with versioning and immutable `StateSnapshot`)
-  - `src/llm_circuit_breaker/agent/context.py` (`ContextBudget` and `ContextManager` with hierarchical compaction)
-  - `src/llm_circuit_breaker/agent/__init__.py`
+  - `src/durallm/agent/tool_validation.py` (`ToolCallValidator`, `ToolCallResult`, and `ToolValidationReport`)
+  - `src/durallm/agent/state.py` (`AgentState` with versioning and immutable `StateSnapshot`)
+  - `src/durallm/agent/context.py` (`ContextBudget` and `ContextManager` with hierarchical compaction)
+  - `src/durallm/agent/__init__.py`
   - `tests/unit/test_tool_validation.py` (Tests for valid tools, markdown fence normalization, missing required keys, unknown tools, and strict unparseable text rejection)
   - `tests/unit/test_agent_semantics.py` (Tests for snapshot serialization roundtrip and context compaction preserving planted critical goals and constraints)
 - **Tests Run:**
@@ -112,13 +112,13 @@ This document tracks implementation progress across milestones, capturing object
 - **Commit:** `v2-06-streaming-and-providers`
 - **Objective:** Establish true and synthetic streaming modes with explicit mid-stream failure recovery policies, clean provider adapters for OpenAI, Anthropic, and Gemini (fixing URL query credential transport via secure headers), and rolling health telemetry.
 - **Files Created/Modified:**
-  - `src/llm_circuit_breaker/streaming/modes.py` (`StreamingMode`, `MidStreamFailurePolicy`, and SSE generators for Anthropic and OpenAI)
-  - `src/llm_circuit_breaker/streaming/__init__.py`
-  - `src/llm_circuit_breaker/providers/base.py` (`ProviderAdapter` protocol and `PreparedRequest`)
-  - `src/llm_circuit_breaker/providers/adapters.py` (`OpenAICompatibleAdapter`, `AnthropicAdapter`, and `GeminiAdapter` with `x-goog-api-key` header auth)
-  - `src/llm_circuit_breaker/providers/__init__.py`
-  - `src/llm_circuit_breaker/health/telemetry.py` (`HealthTelemetryStore` tracking EMA latency, consecutive failures, and cooldowns)
-  - `src/llm_circuit_breaker/health/__init__.py`
+  - `src/durallm/streaming/modes.py` (`StreamingMode`, `MidStreamFailurePolicy`, and SSE generators for Anthropic and OpenAI)
+  - `src/durallm/streaming/__init__.py`
+  - `src/durallm/providers/base.py` (`ProviderAdapter` protocol and `PreparedRequest`)
+  - `src/durallm/providers/adapters.py` (`OpenAICompatibleAdapter`, `AnthropicAdapter`, and `GeminiAdapter` with `x-goog-api-key` header auth)
+  - `src/durallm/providers/__init__.py`
+  - `src/durallm/health/telemetry.py` (`HealthTelemetryStore` tracking EMA latency, consecutive failures, and cooldowns)
+  - `src/durallm/health/__init__.py`
   - `tests/unit/test_streaming_and_providers.py` (Tests for synthetic Anthropic and OpenAI SSE streams, secure Gemini header auth, and EMA health tracking)
 - **Tests Run:**
   - `uv run pytest -v` (48 passed in 0.81s)
@@ -133,7 +133,7 @@ This document tracks implementation progress across milestones, capturing object
 - **Commit:** `v2-07-benchmarks-and-faults`
 - **Objective:** Build deterministic mock fault injection (status codes 429, 500, 503, 504, timeouts, malformed tool JSON, context overflows) and an automated benchmark runner executing 10 critical agent resilience scenarios (B1-B10).
 - **Files Created/Modified:**
-  - `src/llm_circuit_breaker/execution/executor.py` (`GatewayExecutor` full request lifecycle)
+  - `src/durallm/execution/executor.py` (`GatewayExecutor` full request lifecycle)
   - `tests/faults/mock_provider.py` (`ProgrammableMockAdapter` and `MockFaultAction`)
   - `tests/faults/test_fault_injection.py` (Unit tests for 503 outage, 429 Retry-After, and malformed tool fallover)
   - `benchmarks/scenarios.py` (Scenarios B1 through B10)
@@ -158,11 +158,11 @@ This document tracks implementation progress across milestones, capturing object
 - **Commit:** `v2-08-server-and-config`
 - **Objective:** Establish production `GatewayConfig` supporting JSON/YAML/environment variable configuration, remove global `socket.setdefaulttimeout` mutation in `router.py`, secure Gemini headers, expose `/metrics` and `/admin/breakers` in the proxy server, and unify exports in `__init__.py`.
 - **Files Created/Modified:**
-  - `src/llm_circuit_breaker/config.py` (`GatewayConfig` with env var overlay and builder helpers)
-  - `src/llm_circuit_breaker/router.py` (Eliminated `socket.setdefaulttimeout` and secured `x-goog-api-key` header)
-  - `src/llm_circuit_breaker/proxy.py` (Added `/metrics` and `/admin/breakers` endpoints reporting live circuit breaker states)
-  - `src/llm_circuit_breaker/errors.py` (Added `GatewayError` and `CircuitBreakerError` backward-compatible aliases)
-  - `src/llm_circuit_breaker/__init__.py` (Unified V2 exports while preserving 100% backward compatibility with V1)
+  - `src/durallm/config.py` (`GatewayConfig` with env var overlay and builder helpers)
+  - `src/durallm/router.py` (Eliminated `socket.setdefaulttimeout` and secured `x-goog-api-key` header)
+  - `src/durallm/proxy.py` (Added `/metrics` and `/admin/breakers` endpoints reporting live circuit breaker states)
+  - `src/durallm/errors.py` (Added `GatewayError` and `CircuitBreakerError` backward-compatible aliases)
+  - `src/durallm/__init__.py` (Unified V2 exports while preserving 100% backward compatibility with V1)
 - **Tests Run:**
   - `uv run pytest -v` (51 passed in 0.93s)
   - `uv run python -m benchmarks.run` (100% completion rate)

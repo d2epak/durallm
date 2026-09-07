@@ -147,7 +147,7 @@ durallm --port 4001 --discover
 
 ## 🤖 Agent Drop-In Integration
 
-Seamlessly point your favorite autonomous agent at `llm-circuit-breaker` by overriding the base URL:
+Seamlessly point your favorite autonomous agent at `durallm` by overriding the base URL:
 
 ### Claude Code
 ```bash

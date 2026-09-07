@@ -139,7 +139,7 @@ def build_report(env, harness, suite_runs, research_runs) -> str:
         "",
         f"**Generated:** {env['generated_at']}  ",
         f"**Commit:** `{env['commit']}`{dirty}  ",
-        f"**Environment:** llm-circuit-breaker {env['package_version']} · Python {env['python']} · {env['platform']}  ",
+        f"**Environment:** durallm {env['package_version']} · Python {env['python']} · {env['platform']}  ",
         f"**Runs:** {runs} (seed {env['seed']}; run *i* re-seeds `random` with seed + *i*, which fixes the jittered backoff draws)  ",
         "**Test Suite:** Scenarios B1 through B15 + Primary Research Benchmark  ",
         "",
@@ -194,7 +194,7 @@ def build_report(env, harness, suite_runs, research_runs) -> str:
         "| Scenario | Description | V3 Result | Attempts | Fallback Hops | Latency |",
         "|---|---|---|---|---|---|",
     ])
-    v3 = "LLM-Circuit-Breaker-V3"
+    v3 = "DuraLLM-V3"
     for idx, first in enumerate(suite_runs[0][v3].scenario_results):
         sid = first.scenario_id
         per_run = [run[v3].scenario_results[idx] for run in suite_runs]
@@ -256,7 +256,7 @@ def main(argv: Optional[Sequence[str]] = None) -> Path:
             f"{s['avg_attempts_per_request'].fmt():<12}"
         )
 
-    passes = scenario_passes(suite_runs)["LLM-Circuit-Breaker-V3"]
+    passes = scenario_passes(suite_runs)["DuraLLM-V3"]
     print("\n" + "-" * 85)
     print("  V3 SCENARIO BREAKDOWN (B1 - B15): passing runs")
     print("-" * 85)

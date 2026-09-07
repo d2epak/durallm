@@ -1,15 +1,15 @@
 # Migration Guide: Upgrading from V1 Prototype to V2 Gateway
 
-This guide details the architectural upgrades and API changes when migrating from `llm-circuit-breaker` v0.2.0 prototype to V2.
+This guide details the architectural upgrades and API changes when migrating from `durallm` v0.2.0 prototype to V2.
 
 ---
 
 ## 1. Backwards Compatibility Guarantee
 
 V2 is **100% backward-compatible** with existing V1 code and scripts:
-- Existing imports from `llm_circuit_breaker` continue to function without modification:
+- Existing imports from `durallm` continue to function without modification:
   ```python
-  from llm_circuit_breaker import (
+  from durallm import (
       UniversalFailoverRouter,
       POOL_MANAGER,
       IsolatedPoolManager,
@@ -45,7 +45,7 @@ V2 is **100% backward-compatible** with existing V1 code and scripts:
 
 ### Using the New Gateway Executor Directly in Python
 ```python
-from llm_circuit_breaker import (
+from durallm import (
     GatewayExecutor,
     NormalizedRequest,
     NormalizedMessage,
@@ -87,7 +87,7 @@ print(f"Content: {response.content}")
 
 ### Inspecting Circuit Breaker Health
 ```python
-from llm_circuit_breaker import DEFAULT_BREAKER_REGISTRY
+from durallm import DEFAULT_BREAKER_REGISTRY
 
 # Inspect all breaker states
 for name, breaker in DEFAULT_BREAKER_REGISTRY.all().items():

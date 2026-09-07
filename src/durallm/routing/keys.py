@@ -105,7 +105,7 @@ class KeyRotationPool:
         with self._lock:
             self._key_cooldowns[key_identifier] = current_time + duration
             logger.warning(
-                "[llm-circuit-breaker] KEY IN COOLDOWN: %s for %.1fs (rate-limited)",
+                "[durallm] KEY IN COOLDOWN: %s for %.1fs (rate-limited)",
                 key_identifier,
                 duration,
             )

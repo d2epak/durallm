@@ -68,7 +68,7 @@ class CapabilityRouter:
             if provider and model:
                 self.dead_list.add(f"{provider}:{model}")
             self.health_store.mark_dead(endpoint_id, provider=provider, model=model, reason=reason)
-            logger.warning("[llm-circuit-breaker] BLACKLISTED PERMANENT DEAD ENDPOINT: %s (%s)", endpoint_id, reason)
+            logger.warning("[durallm] BLACKLISTED PERMANENT DEAD ENDPOINT: %s (%s)", endpoint_id, reason)
 
     def clear_dead_list(self) -> None:
         """Reset permanent dead list."""

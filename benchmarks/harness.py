@@ -48,7 +48,7 @@ from durallm.providers.adapters import ProviderAdapterRegistry
 from durallm.router import UniversalFailoverRouter
 from tests.faults.mock_provider import ProgrammableMockAdapter
 
-V3_NAME = "LLM-Circuit-Breaker-V3"
+V3_NAME = "DuraLLM-V3"
 PROVIDER_ORDER = ("provider_a", "provider_b", "provider_c")
 # Shared by V3 and Baseline D so the breaker itself is not the variable between them.
 BREAKER_CONFIG = CircuitBreakerConfig(

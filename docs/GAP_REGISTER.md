@@ -9,22 +9,22 @@
 ## 1. CRITICAL Gaps
 
 ### GAP-C01: Hardcoded Latency in Candidate Soft Scoring
-- **Location:** `src/llm_circuit_breaker/routing/router.py:100` (`latency_ms=200.0`)
+- **Location:** `src/durallm/routing/router.py:100` (`latency_ms=200.0`)
 - **Impact:** The routing design forbids hardcoded fake health inputs. Router currently scores candidates assuming fixed 200ms latency rather than observed telemetry from `HealthTelemetryStore`.
 - **Resolution:** Bind `HealthTelemetryStore` directly to `CapabilityRouter`. If no observations exist, mark `latency = UNKNOWN` and apply documented cold-start policy.
 
 ### GAP-C02: Absence of Tool Execution Idempotency Ledger
-- **Location:** `src/llm_circuit_breaker/agent/` & `execution/`
+- **Location:** `src/durallm/agent/` & `execution/`
 - **Impact:** If an upstream tool call executes but the network drops before the response is returned, a naive gateway retry could re-execute a destructive tool (e.g. `rm -rf` or financial transaction).
 - **Resolution:** Implement `ToolExecutionLedger` tracking `tool_call_id`, `logical_operation_id`, `request_hash`, `status` (`proposed`, `validated`, `submitted`, `committed`, `ambiguous`, `failed`), and receipts. Replays must verify receipts before allowing execution.
 
 ### GAP-C03: Lack of Explicit Semantic Failover Plan (`FailoverPlan`)
-- **Location:** `src/llm_circuit_breaker/execution/executor.py`
+- **Location:** `src/durallm/execution/executor.py`
 - **Impact:** When failing over from Provider A to Provider B, the gateway currently adapts context and tools inline, but does not construct an auditable, observable `FailoverPlan` combining source, target, reason, state snapshot, context transformation, and tool adaptations.
 - **Resolution:** Create `FailoverPlan` dataclass and emit it during every cross-provider failover.
 
 ### GAP-C04: Blind Text Truncation in Tool Output Context Compaction
-- **Location:** `src/llm_circuit_breaker/agent/context.py:105`
+- **Location:** `src/durallm/agent/context.py:105`
 - **Impact:** Context compaction currently truncates tool outputs using character slicing (`[:200] + ... + [-200:]`), which can discard critical error messages, return codes, and file paths located in the middle of command logs.
 - **Resolution:** Implement structured tool result summarization extracting exit codes, error lines, paths, and status keys.
 
@@ -43,7 +43,7 @@
 - **Resolution:** Implement all 6 baselines in `benchmarks/harness.py`.
 
 ### GAP-H03: Security Hardening (SSRF, Request/Response Size Exhaustion)
-- **Location:** `src/llm_circuit_breaker/providers/adapters.py` & `proxy.py`
+- **Location:** `src/durallm/providers/adapters.py` & `proxy.py`
 - **Impact:** While Gemini header authentication is secured, there is no validation restricting upstream URLs to authorized HTTPS schemes or domains, nor is there explicit defense against response size bombs.
 - **Resolution:** Add URL domain allowlisting/validation, max request body limits, and max response stream size limits.
 
@@ -56,23 +56,23 @@
 
 ## 3. MEDIUM Gaps
 
-### GAP-M01: Missing Local Zero-API-Key Demo (`python -m llm_circuit_breaker.demo`)
+### GAP-M01: Missing Local Zero-API-Key Demo (`python -m durallm.demo`)
 - **Location:** Package root
 - **Impact:** The release standard requires a complete, deterministic, runnable local demonstration without API keys showing primary failure, breaker trip, context compaction, tool validation, fallback recovery, and probe closure.
-- **Resolution:** Implement `src/llm_circuit_breaker/demo.py`.
+- **Resolution:** Implement `src/durallm/demo.py`.
 
 ### GAP-M02: Multi-Dimensional Resource Concept Model
-- **Location:** `src/llm_circuit_breaker/capability/profile.py`
+- **Location:** `src/durallm/capability/profile.py`
 - **Impact:** The resource model requires `Deployment`, `QuotaBucket`, `PricingProfile`, `PrivacyProfile`, and combining `provider × deployment × endpoint × credential` identities.
 - **Resolution:** Expand resource model with explicit deployment, quota bucket, and pricing abstractions.
 
 ### GAP-M03: Cost Modeling & Budget Enforcement
-- **Location:** `src/llm_circuit_breaker/execution/`
+- **Location:** `src/durallm/execution/`
 - **Impact:** Pricing per 1M tokens exists in profiles, but there is no `max_request_cost` or accumulated agent budget checking in `AttemptLedger`.
 - **Resolution:** Add cost estimation and budget ceiling checks to `AttemptLedger`.
 
 ### GAP-M04: Structured JSON Observability & Credential Redaction
-- **Location:** `src/llm_circuit_breaker/proxy.py` & logging
+- **Location:** `src/durallm/proxy.py` & logging
 - **Impact:** Standard logging format is used. Structured JSON event logging with automatic redaction of API keys, Authorization headers, and raw prompts is required.
 - **Resolution:** Implement `StructuredLogger` with JSON formatting and redaction filter.
 
@@ -82,12 +82,12 @@
 
 ### GAP-L01: Granular Connect, Write, TTFT, and Idle Stream Timeouts
 - **Status:** Partially resolved for opt-in native streaming.
-- **Location:** `src/llm_circuit_breaker/execution/deadline.py` & `providers/adapters.py`
+- **Location:** `src/durallm/execution/deadline.py` & `providers/adapters.py`
 - **Evidence:** `TransportTimeouts` enforces separate direct HTTP(S) TCP-connect, TLS-handshake, first-byte, idle-read, and total budgets. The native reader is cancellable and capped at 10 MB; `tests/test_native_streaming.py` covers socket-level forwarding and disconnect boundaries.
 - **Remaining gap:** Atomic buffered requests continue to use the standard-library one-attempt transport timeout. Direct native streaming does not yet support proxy tunnels or a distinct configurable write-phase deadline.
 
 ### GAP-L02: Optional Persistence Abstraction (SQLite)
-- **Location:** `src/llm_circuit_breaker/health/` & `breaker/`
+- **Location:** `src/durallm/health/` & `breaker/`
 - **Impact:** State is in-memory by default. An optional SQLite storage backend for persistence across restarts is required.
 - **Resolution:** Implement `SQLiteBreakerStore` and `SQLiteHealthStore` with clean interface.
 

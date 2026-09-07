@@ -126,10 +126,10 @@ class CircuitBreaker:
             try:
                 remote = self.cluster_store.get_cluster_breaker_state(self.id)
                 if remote and remote.get("state") == CircuitBreakerState.OPEN.value:
-                    prev = self._state
+                    prev_closed = self._state
                     self._state = CircuitBreakerState.OPEN
                     self._opened_at_monotonic = now
-                    self._emit_transition(prev, CircuitBreakerState.OPEN, "Synchronized trip from remote cluster node")
+                    self._emit_transition(prev_closed, CircuitBreakerState.OPEN, "Synchronized trip from remote cluster node")
                     return
             except Exception as e:
                 logger.warning("Error reading cluster breaker state: %s", e)
@@ -138,12 +138,12 @@ class CircuitBreaker:
             wait_seconds = self.config.wait_duration_open_ms / 1000.0
             if now >= (self._opened_at_monotonic + wait_seconds):
                 # Transition OPEN -> HALF_OPEN
-                prev: CircuitBreakerState = self._state
+                prev_open = self._state
                 self._state = CircuitBreakerState.HALF_OPEN
                 self._half_open_entered_at_monotonic = now
                 self._half_open_in_flight = 0
                 self._half_open_successes = 0
-                self._emit_transition(prev, CircuitBreakerState.HALF_OPEN, f"Wait duration of {wait_seconds:.1f}s elapsed")
+                self._emit_transition(prev_open, CircuitBreakerState.HALF_OPEN, f"Wait duration of {wait_seconds:.1f}s elapsed")
 
         elif self._state == CircuitBreakerState.HALF_OPEN:
             max_half_open_seconds = self.config.max_half_open_duration_ms / 1000.0

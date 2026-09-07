@@ -7,7 +7,7 @@ This guide outlines deployment topologies, configuration management, health tele
 ## 1. Deployment Topologies
 
 1. **In-Process Python SDK (Zero Daemon):**
-   Integrated directly into Python agent processes (`from llm_circuit_breaker import GatewayExecutor`). Zero external dependencies, minimal latency overhead (<1ms).
+   Integrated directly into Python agent processes (`from durallm import GatewayExecutor`). Zero external dependencies, minimal latency overhead (<1ms).
 2. **Local Sidecar / Gateway Server:**
    Runs as a lightweight HTTP microservice on `127.0.0.1:4001` (the default for `llm-proxy`, `GatewayConfig.port` and `LLM_BREAKER_PORT`) mediating requests for multi-process or multi-language agents.
 3. **Optional SQLite Persistence:**
@@ -22,11 +22,11 @@ This guide outlines deployment topologies, configuration management, health tele
 ## 2. Telemetry and Prometheus Metrics
 
 The gateway exposes Prometheus metrics:
-- `llm_circuit_breaker_calls_total{endpoint, status}`
-- `llm_circuit_breaker_latency_ms{endpoint}`
-- `llm_circuit_breaker_state{endpoint, state}`
-- `llm_circuit_breaker_failover_plans_total{source, target, reason}`
-- `llm_circuit_breaker_tool_idempotency_hits_total{tool_name}`
+- `durallm_calls_total{endpoint, status}`
+- `durallm_latency_ms{endpoint}`
+- `durallm_state{endpoint, state}`
+- `durallm_failover_plans_total{source, target, reason}`
+- `durallm_tool_idempotency_hits_total{tool_name}`
 
 ---
 

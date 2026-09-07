@@ -3,7 +3,7 @@
 **Author:** Antigravity (Principal Engineer)  
 **Date:** 2026-09-03  
 **Status:** Approved for Execution  
-**Reference Specification:** `LLM_CIRCUIT_BREAKER_V2_LONG_HORIZON_SPEC.md`  
+**Reference Specification:** `DURALLM_V2_LONG_HORIZON_SPEC.md`  
 **Baseline Audit:** `docs/IMPLEMENTATION_BASELINE.md`
 
 ---
@@ -36,9 +36,9 @@ flowchart TD
 ### Phase 1: Core Domain Models & Structured Failure Taxonomy
 - **Objective:** Establish formal failure classification, error types, and core domain primitives, replacing ad-hoc string regexes.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/errors.py` [NEW]
-  - `src/llm_circuit_breaker/classifier.py` [MODIFY]
-  - `src/llm_circuit_breaker/models.py` [NEW]
+  - `src/durallm/errors.py` [NEW]
+  - `src/durallm/classifier.py` [MODIFY]
+  - `src/durallm/models.py` [NEW]
 - **Tests Required:**
   - `tests/unit/test_classifier_v2.py`: Verification of failure classes (infrastructure, rate-limit, request incompatibility, semantic/agent failure, client fault).
 - **Acceptance Criteria:**
@@ -53,10 +53,10 @@ flowchart TD
 ### Phase 2: Formal Circuit Breaker State Machine
 - **Objective:** Implement a Resilience4j-grade circuit breaker with sliding windows (count and time-based), failure-rate and slow-call thresholds, bounded half-open probe admission, thread safety, and monotonic clock injection.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/breaker/state.py` [NEW]
-  - `src/llm_circuit_breaker/breaker/metrics.py` [NEW]
-  - `src/llm_circuit_breaker/breaker/circuit_breaker.py` [NEW]
-  - `src/llm_circuit_breaker/breaker/registry.py` [NEW]
+  - `src/durallm/breaker/state.py` [NEW]
+  - `src/durallm/breaker/metrics.py` [NEW]
+  - `src/durallm/breaker/circuit_breaker.py` [NEW]
+  - `src/durallm/breaker/registry.py` [NEW]
 - **Tests Required:**
   - `tests/unit/test_circuit_breaker.py`: 12 test cases specified in section 5 of V2 spec (thresholds, slow calls, probe limits, transitions, clock injection, events).
 - **Acceptance Criteria:**
@@ -72,9 +72,9 @@ flowchart TD
 ### Phase 3: Provider & Model Capability Registry
 - **Objective:** Create canonical profiles for models and providers describing context windows, output token limits, tool-calling support, parallel tools, structured output, vision, reasoning, streaming, and pricing.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/capability/profile.py` [NEW]
-  - `src/llm_circuit_breaker/capability/registry.py` [NEW]
-  - `src/llm_circuit_breaker/capability/pricing.py` [NEW]
+  - `src/durallm/capability/profile.py` [NEW]
+  - `src/durallm/capability/registry.py` [NEW]
+  - `src/durallm/capability/pricing.py` [NEW]
 - **Tests Required:**
   - `tests/unit/test_capability_registry.py`: Registry queries, fallback matching, incomplete metadata handling, pricing calculation.
 - **Acceptance Criteria:**
@@ -88,11 +88,11 @@ flowchart TD
 ### Phase 4: Normalized Protocol Intermediate Representation (IR)
 - **Objective:** Prevent N² translation complexity by implementing a canonical request/response IR with bidirectional translators to/from Anthropic Messages, OpenAI Chat Completions, and Gemini REST protocols.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/protocol/ir.py` [NEW]
-  - `src/llm_circuit_breaker/protocol/anthropic.py` [NEW]
-  - `src/llm_circuit_breaker/protocol/openai.py` [NEW]
-  - `src/llm_circuit_breaker/protocol/gemini.py` [NEW]
-  - `src/llm_circuit_breaker/translators.py` [MODIFY - delegate to IR]
+  - `src/durallm/protocol/ir.py` [NEW]
+  - `src/durallm/protocol/anthropic.py` [NEW]
+  - `src/durallm/protocol/openai.py` [NEW]
+  - `src/durallm/protocol/gemini.py` [NEW]
+  - `src/durallm/translators.py` [MODIFY - delegate to IR]
 - **Tests Required:**
   - `tests/unit/test_protocol_ir.py`: Full round-trip translations, tool definitions, tool results, thinking/reasoning blocks, system instructions.
 - **Acceptance Criteria:**
@@ -107,10 +107,10 @@ flowchart TD
 ### Phase 5: Candidate Selection & Routing/Scoring Engine
 - **Objective:** Implement hard-constraint filtering (tools, vision, reasoning, context size, cost ceiling) followed by soft multi-objective scoring (quality, latency, cost, reliability, tool success).
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/routing/requirements.py` [NEW]
-  - `src/llm_circuit_breaker/routing/scorer.py` [NEW]
-  - `src/llm_circuit_breaker/routing/strategies.py` [NEW]
-  - `src/llm_circuit_breaker/routing/decision.py` [NEW]
+  - `src/durallm/routing/requirements.py` [NEW]
+  - `src/durallm/routing/scorer.py` [NEW]
+  - `src/durallm/routing/strategies.py` [NEW]
+  - `src/durallm/routing/decision.py` [NEW]
 - **Tests Required:**
   - `tests/unit/test_routing_engine.py`: Hard constraints disqualifying cheaper candidates, soft scoring weights, explainable decision records, strategy implementations (priority, round-robin, latency-aware, cost-aware, balanced).
 - **Acceptance Criteria:**
@@ -124,10 +124,10 @@ flowchart TD
 ### Phase 6: Execution Engine, Deadlines & Policy Engine
 - **Objective:** Implement deadline-aware request execution, bounded retries with jittered exponential backoff, circuit-breaker-aware fallback policies, cycle detection, and attempt ledgers.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/execution/deadline.py` [NEW]
-  - `src/llm_circuit_breaker/execution/policy.py` [NEW]
-  - `src/llm_circuit_breaker/execution/executor.py` [NEW]
-  - `src/llm_circuit_breaker/execution/ledger.py` [NEW]
+  - `src/durallm/execution/deadline.py` [NEW]
+  - `src/durallm/execution/policy.py` [NEW]
+  - `src/durallm/execution/executor.py` [NEW]
+  - `src/durallm/execution/ledger.py` [NEW]
 - **Tests Required:**
   - `tests/unit/test_execution_policy.py`: Retry policies, backoff calculation, Retry-After honoring, deadline exhaustion aborting fallback, cycle prevention.
 - **Acceptance Criteria:**
@@ -142,7 +142,7 @@ flowchart TD
 ### Phase 7: Tool Validation & Safety Layer
 - **Objective:** Validate tool invocations against tool schema before commitment. Implement deterministic syntactic normalization while strictly prohibiting semantic guessing or argument hallucination.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/agent/tool_validation.py` [NEW]
+  - `src/durallm/agent/tool_validation.py` [NEW]
 - **Tests Required:**
   - `tests/unit/test_tool_validation.py`: Syntactic JSON repair (fences, trailing commas), rejection of missing required fields, rejection of invented tool names, classification into `valid`, `normalized`, `invalid`, `unsafe_to_repair`.
 - **Acceptance Criteria:**
@@ -156,10 +156,10 @@ flowchart TD
 ### Phase 8: Agent Semantic State & Context Adaptation
 - **Objective:** Provide a provider-neutral `AgentState` and `StateSnapshot` representation, coupled with a budget-aware context manager that compacts history hierarchically without losing essential task goals.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/agent/state.py` [NEW]
-  - `src/llm_circuit_breaker/agent/snapshots.py` [NEW]
-  - `src/llm_circuit_breaker/agent/context.py` [NEW]
-  - `src/llm_circuit_breaker/pruner.py` [MODIFY - delegate to context manager]
+  - `src/durallm/agent/state.py` [NEW]
+  - `src/durallm/agent/snapshots.py` [NEW]
+  - `src/durallm/agent/context.py` [NEW]
+  - `src/durallm/pruner.py` [MODIFY - delegate to context manager]
 - **Tests Required:**
   - `tests/unit/test_agent_state.py`: Serialization/deserialization of agent state, invariant preservation.
   - `tests/unit/test_context_manager.py`: Token budget math, output reservations, compaction preserving goal and active tools, context-overflow recovery path.
@@ -174,9 +174,9 @@ flowchart TD
 ### Phase 9: Streaming Architecture & Mid-Stream Semantics
 - **Objective:** Support both Mode A (True streaming passthrough) and Mode B (Synthetic / buffered streaming for atomic validation and failover replay). Establish explicit mid-stream failure recovery policies.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/streaming/modes.py` [NEW]
-  - `src/llm_circuit_breaker/streaming/buffer.py` [NEW]
-  - `src/llm_circuit_breaker/streaming/events.py` [NEW]
+  - `src/durallm/streaming/modes.py` [NEW]
+  - `src/durallm/streaming/buffer.py` [NEW]
+  - `src/durallm/streaming/events.py` [NEW]
 - **Tests Required:**
   - `tests/unit/test_streaming.py`: True stream event forwarding, synthetic stream event generation, mid-stream disconnect handling, failure policy execution.
 - **Acceptance Criteria:**
@@ -191,10 +191,10 @@ flowchart TD
 ### Phase 10: Provider Adapters & Health Telemetry
 - **Objective:** Implement isolated provider adapters (Anthropic, OpenAI, Gemini, Cerebras, Groq, Mistral, OpenRouter, NVIDIA) and real-time health telemetry tracking availability, latency, TTFT, token counts, and costs.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/providers/base.py` [NEW]
-  - `src/llm_circuit_breaker/providers/adapters.py` [NEW]
-  - `src/llm_circuit_breaker/health/telemetry.py` [NEW]
-  - `src/llm_circuit_breaker/health/store.py` [NEW]
+  - `src/durallm/providers/base.py` [NEW]
+  - `src/durallm/providers/adapters.py` [NEW]
+  - `src/durallm/health/telemetry.py` [NEW]
+  - `src/durallm/health/store.py` [NEW]
 - **Tests Required:**
   - `tests/unit/test_providers.py`: Request preparation, header auth (fixing Gemini URL secret vulnerability), response extraction, mock execution.
   - `tests/unit/test_health_telemetry.py`: Metric rollups, EMA latency, error tracking.
@@ -244,20 +244,20 @@ flowchart TD
 ### Phase 13: Gateway Server, Configuration & Compatibility Layer
 - **Objective:** Build canonical configuration parser, backward-compatible facades for `UniversalFailoverRouter` and `IsolatedPoolManager`, and update standard library HTTP server + ASGI app.
 - **Affected Modules:**
-  - `src/llm_circuit_breaker/config.py` [NEW]
-  - `src/llm_circuit_breaker/server/handler.py` [NEW]
-  - `src/llm_circuit_breaker/server/server.py` [NEW]
-  - `src/llm_circuit_breaker/router.py` [MODIFY - delegate to V2 engine]
-  - `src/llm_circuit_breaker/pools.py` [MODIFY - delegate to V2 engine]
-  - `src/llm_circuit_breaker/proxy.py` [MODIFY - delegate to V2 server]
-  - `src/llm_circuit_breaker/__init__.py` [MODIFY - export V2 + compat]
+  - `src/durallm/config.py` [NEW]
+  - `src/durallm/server/handler.py` [NEW]
+  - `src/durallm/server/server.py` [NEW]
+  - `src/durallm/router.py` [MODIFY - delegate to V2 engine]
+  - `src/durallm/pools.py` [MODIFY - delegate to V2 engine]
+  - `src/durallm/proxy.py` [MODIFY - delegate to V2 server]
+  - `src/durallm/__init__.py` [MODIFY - export V2 + compat]
 - **Tests Required:**
   - All 14 original tests (`tests/test_*.py`) pass unchanged.
   - `tests/integration/test_server_compat.py`: End-to-end HTTP tests for `/v1/messages`, `/v1/chat/completions`, `/health`.
 - **Acceptance Criteria:**
   - 100% backward compatibility with V1 API contracts.
   - Zero global socket timeout mutation.
-  - One-command local demo `python -m llm_circuit_breaker.demo` working with zero keys.
+  - One-command local demo `python -m durallm.demo` working with zero keys.
 - **Risks:** Inadvertent breaking change to legacy parameter signatures.
 - **Dependencies:** Phase 8, Phase 9, Phase 10.
 

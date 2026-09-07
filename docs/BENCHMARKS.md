@@ -36,11 +36,11 @@ Seven systems run every scenario through the same harness and are scored by the 
 - **Baseline-D-Breaker-Static-Fallback:** Baseline C guarded by one circuit breaker per provider with V3's configuration; nothing else.
 - **Baseline-E-V1-Prototype:** the v0.1 `UniversalFailoverRouter` (round-robin pools, cooldown timers, payload pruning) driven through its real `dispatch` loop, with its upstream HTTP call redirected to the mock providers.
 - **Baseline-F-Standard-Router:** an in-process standard router instance configuring primary-to-fallback routing through an extensible provider seam onto the mock providers.
-- **LLM-Circuit-Breaker-V3:** the current gateway.
+- **DuraLLM-V3:** the current gateway.
 
 | Baseline / System | Completion Rate | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **12.12 ms** | **313.64 ms** | **0.0%** |
+| **DuraLLM-V3** | **100.0%** | **80.0%** | **12.12 ms** | **313.64 ms** | **0.0%** |
 | **Baseline-A-Direct** | 0.0% | 0.0% | 0.02 ms | 0.40 ms | 20.0% |
 | **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.05 ms | 0.57 ms | 20.0% |
 | **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.03 ms | 0.32 ms | 20.0% |

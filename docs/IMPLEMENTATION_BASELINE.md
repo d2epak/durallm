@@ -2,14 +2,14 @@
 
 **Date:** 2026-09-03  
 **Auditor:** Antigravity (Principal Engineer)  
-**Target Specification:** `LLM_CIRCUIT_BREAKER_V2_LONG_HORIZON_SPEC.md`  
+**Target Specification:** `DURALLM_V2_LONG_HORIZON_SPEC.md`  
 **Current Repository Commit:** `1fc6f93` (v0.2.0 prototype)
 
 ---
 
 ## 1. Executive Summary
 
-The existing repository (`llm-circuit-breaker` v0.2.0) is a functional prototype proxy that translates requests between Anthropic's Messages API and OpenAI's Chat Completions API, targeting free-tier open-weights models and aggregators.
+The existing repository (`durallm` v0.2.0) is a functional prototype proxy that translates requests between Anthropic's Messages API and OpenAI's Chat Completions API, targeting free-tier open-weights models and aggregators.
 
 While it addresses several practical integration issues (such as Google AI Studio protobuf sanitization and basic JSON markdown stripping), **it does not yet implement a formal circuit breaker**. Instead, it implements simple cooldown timers mislabeled as a circuit breaker. Furthermore, model routing relies on static lists and round-robin index bumping rather than capability matching; context pruning relies on naive character heuristics; tool repair violates semantic safety by synthesizing missing fields; socket timeouts mutate global process state; and streaming is strictly synthetic (buffered).
 
@@ -34,7 +34,7 @@ V2 requires evolving this prototype into a production-grade, self-hostable **age
 
 ## 3. Public API Surface & Backward Compatibility Constraints
 
-The following public APIs are exported in `llm_circuit_breaker/__init__.py` and documented in `README.md`:
+The following public APIs are exported in `durallm/__init__.py` and documented in `README.md`:
 
 1. **Router & Execution**:
    - `UniversalFailoverRouter`: `dispatch(pool, openai_payload, requested_model, max_attempts)` -> `(status, response, route)`
@@ -100,7 +100,7 @@ All 14 existing unit tests pass:
 2. **Global State Mutation**: `router.py` (line 24) calls `socket.setdefaulttimeout(DEFAULT_TIMEOUT)`. This alters socket timeouts for any other library running within the same Python process. Timeouts must be per-request.
 3. **Semantic Uncertainty Mutation**: `translators.py` (lines 34-37) invents JSON structure (`{"command": ...}` or `{"text": ...}`) when unparseable strings are encountered. This can cause autonomous agents to execute hallucinated commands.
 4. **CI Configuration Error**: `.github/workflows/ci.yml` runs `pip install .[dev,proxy]`. `proxy` is not defined in `pyproject.toml` (only `asgi` is defined).
-5. **Impure Imports / Side Effects**: Importing `llm_circuit_breaker.proxy` initializes `ROUTER = UniversalFailoverRouter(auto_discover_free=True)` which triggers background discovery network calls to OpenRouter.
+5. **Impure Imports / Side Effects**: Importing `durallm.proxy` initializes `ROUTER = UniversalFailoverRouter(auto_discover_free=True)` which triggers background discovery network calls to OpenRouter.
 6. **Cooldown Thrashing / No True Breaker**: When all endpoints in a pool are on cooldown, the pool manager unconditionally deletes the oldest cooldown (`del self.cooldowns[oldest_key]`), immediately re-hammering a known failing provider.
 
 ---
@@ -127,6 +127,6 @@ All 14 existing unit tests pass:
 
 ## 7. Baseline Conclusion & Entry into Phase Planning
 
-The prototype code base provides a clean starting point and demonstrates the utility of protocol translation and context pruning. However, all core reliability mechanisms require complete modular implementation to fulfill the requirements of `LLM_CIRCUIT_BREAKER_V2_LONG_HORIZON_SPEC.md`.
+The prototype code base provides a clean starting point and demonstrates the utility of protocol translation and context pruning. However, all core reliability mechanisms require complete modular implementation to fulfill the requirements of `DURALLM_V2_LONG_HORIZON_SPEC.md`.
 
 All 14 current tests must remain green as regression anchors, augmented by comprehensive test suites for each new subsystem.

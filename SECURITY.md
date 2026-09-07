@@ -2,7 +2,7 @@
 
 ## 1. Security Architecture Principles
 
-`llm-circuit-breaker` is designed to be a lightweight, self-hostable resilience gateway for autonomous AI agents. Its architecture adheres to strict security invariants:
+`durallm` is designed to be a lightweight, self-hostable resilience gateway for autonomous AI agents. Its architecture adheres to strict security invariants:
 
 1. **Zero Phone-Home / Air-Gapped Operation**:
    The gateway contains zero third-party telemetry, analytics, or remote tracking. Telemetry stays entirely in-process and in your local environment.
@@ -19,11 +19,11 @@
 
 ## 2. Reporting a Vulnerability
 
-If you discover a security vulnerability in `llm-circuit-breaker`, please do not open a public issue.
+If you discover a security vulnerability in `durallm`, please do not open a public issue.
 
 Please report security concerns responsibly:
 - **Email:** `deepak@users.noreply.github.com`
-- **Subject:** `[SECURITY] llm-circuit-breaker Vulnerability Report`
+- **Subject:** `[SECURITY] durallm Vulnerability Report`
 
 Please include:
 - A description of the vulnerability and its potential impact.

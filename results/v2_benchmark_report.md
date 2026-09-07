@@ -1,7 +1,7 @@
 # LLM Circuit Breaker V2 — Benchmark Report
 
 **Date:** 2026-09-03  
-**Test Target:** `llm-circuit-breaker` v0.2.0 -> V2 Architecture  
+**Test Target:** `durallm` v0.2.0 -> V2 Architecture  
 **Harness:** Deterministic Fault Injection & Scenario Suite (B1-B10)  
 
 ---

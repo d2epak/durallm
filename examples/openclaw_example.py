@@ -1,4 +1,4 @@
-"""OpenClaw Integration Example using llm-circuit-breaker."""
+"""OpenClaw Integration Example using durallm."""
 
 import os
 

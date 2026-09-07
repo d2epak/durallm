@@ -81,7 +81,7 @@ class PromptCacheTracker:
         with self._lock:
             self._warm_entries[(endpoint_id, prefix_hash)] = expires_at
             logger.debug(
-                "[llm-circuit-breaker] WARM CACHE RECORDED for %s (prefix=%s, ttl=%.0fs)",
+                "[durallm] WARM CACHE RECORDED for %s (prefix=%s, ttl=%.0fs)",
                 endpoint_id,
                 prefix_hash[:8],
                 self.ttl_seconds,

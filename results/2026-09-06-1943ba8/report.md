@@ -2,7 +2,7 @@
 
 **Generated:** 2026-09-06T20:36:28+00:00  
 **Commit:** `1943ba8`  
-**Environment:** llm-circuit-breaker 0.2.0 · Python 3.11.15 · macOS-26.6.2-arm64-arm-64bit  
+**Environment:** durallm 0.2.0 · Python 3.11.15 · macOS-26.6.2-arm64-arm-64bit  
 **Runs:** 3 (seed 42; run *i* re-seeds `random` with seed + *i*, which fixes the jittered backoff draws)  
 **Test Suite:** Scenarios B1 through B15 + Primary Research Benchmark  
 
@@ -14,7 +14,7 @@ Values are the mean over 3 run(s); ± is the half-width of the 95% confidence in
 
 | Baseline / System | Completion Rate | Recovery Rate | Median Latency | P95 Latency | Avg Attempts/Req | Semantic Error Rate |
 |---|---|---|---|---|---|---|
-| **LLM-Circuit-Breaker-V3** | 100.0% | 80.0% | 12.12 ± 1.35 ms | 313.64 ± 3.95 ms | 2.60 | 0.0% |
+| **DuraLLM-V3** | 100.0% | 80.0% | 12.12 ± 1.35 ms | 313.64 ± 3.95 ms | 2.60 | 0.0% |
 | **Baseline-A-Direct** | 0.0% | 0.0% | 0.02 ± 0.01 ms | 0.40 ± 1.45 ms | 1.20 | 20.0% |
 | **Baseline-B-Same-Provider-Retry** | 20.0% | 20.0% | 0.05 ± 0.11 ms | 0.57 ± 1.02 ms | 2.33 | 20.0% |
 | **Baseline-C-Static-Fallback** | 33.3% | 33.3% | 0.03 ± 0.02 ms | 0.32 ± 0.41 ms | 2.20 | 20.0% |

@@ -11,7 +11,7 @@
 
 States evaluated:
 - `DOCUMENTED`: Appears in README, docstrings, or architecture specs.
-- `IMPLEMENTED`: Concrete code exists in `src/llm_circuit_breaker/`.
+- `IMPLEMENTED`: Concrete code exists in `src/durallm/`.
 - `INTEGRATED`: Actively called by the main dispatch/gateway execution path.
 - `TESTED`: Covered by deterministic unit/functional test in `tests/`.
 - `FAULT-TESTED`: Verified under injected fault scenarios.
@@ -20,10 +20,10 @@ States evaluated:
 
 | Capability | Documented | Implemented | Integrated | Tested | Fault-tested | Benchmarked | Evidence |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :--- |
-| **Resilience4j Circuit Breaker FSM** | YES | YES | YES | YES | YES | YES | `src/llm_circuit_breaker/breaker/`, `tests/unit/test_circuit_breaker.py` |
-| **Sliding Window Metrics (Count & Time)** | YES | YES | YES | YES | YES | YES | `src/llm_circuit_breaker/breaker/metrics.py` |
+| **Resilience4j Circuit Breaker FSM** | YES | YES | YES | YES | YES | YES | `src/durallm/breaker/`, `tests/unit/test_circuit_breaker.py` |
+| **Sliding Window Metrics (Count & Time)** | YES | YES | YES | YES | YES | YES | `src/durallm/breaker/metrics.py` |
 | **Bounded Half-Open Probe Permits** | YES | YES | YES | YES | YES | YES | `CircuitBreaker.acquire_permission()`, `test_10_concurrent_callers` |
-| **Hierarchical Failure Taxonomy** | YES | YES | YES | YES | YES | YES | `src/llm_circuit_breaker/classifier.py`, `models.py` |
+| **Hierarchical Failure Taxonomy** | YES | YES | YES | YES | YES | YES | `src/durallm/classifier.py`, `models.py` |
 | **Non-Poisoning Fault Separation** | YES | YES | YES | YES | YES | YES | `test_9_ignored_exceptions`, `classifier.py:poisons_health` |
 | **Multi-Dimensional Resource Model** | PARTIAL | PARTIAL | PARTIAL | NO | NO | NO | `ModelProfile` exists, but explicit `Deployment`, `QuotaBucket`, `PricingProfile`, `PrivacyProfile` concepts are absent |
 | **Capability Registry & Hard Constraints** | YES | YES | YES | YES | NO | YES | `capability/registry.py`, `routing/requirements.py` |
@@ -57,7 +57,7 @@ States evaluated:
 | **Multi-Baseline Comparison (Baselines A–F)**| PARTIAL | PARTIAL | YES | YES | YES | YES | Currently compares V2 vs Direct Baseline; needs Baselines B, C, D, E, F |
 | **Primary Research Benchmark** | NO | NO | NO | NO | NO | NO | **CRITICAL GAP**: Dedicated `benchmarks/semantic_failover/` multi-turn compound failure scenario missing |
 | **Architecture Decision Records (ADRs 1–10)**| YES | YES | YES | YES | NO | NO | 10 ADRs written in `docs/adr/` |
-| **Local Zero-API-Key Demo (`demo.py`)** | NO | NO | NO | NO | NO | NO | `python -m llm_circuit_breaker.demo` does not exist |
+| **Local Zero-API-Key Demo (`demo.py`)** | NO | NO | NO | NO | NO | NO | `python -m durallm.demo` does not exist |
 
 ---
 
@@ -71,6 +71,6 @@ States evaluated:
   5. Expand benchmark suite to full B1–B15 scenarios with 6 fair baselines (A through F).
   6. Build primary research benchmark in `benchmarks/semantic_failover/`.
   7. Implement structured JSON observability with credential redaction.
-  8. Implement deterministic local demo `python -m llm_circuit_breaker.demo`.
+  8. Implement deterministic local demo `python -m durallm.demo`.
   9. Add security hardening against SSRF, request/response size bombs, and malicious tool schemas.
   10. Conduct forced high-concurrency load testing (100+ simultaneous operations).
