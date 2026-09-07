@@ -54,6 +54,31 @@ class CapabilityRouter:
 
         self._lock = threading.RLock()
         self._round_robin_indices: Dict[str, int] = {}
+        self.dead_list: set[str] = set()
+
+    def mark_dead(self, endpoint_id: str, provider: str = "", model: str = "", reason: str = "") -> None:
+        """Permanently mark an endpoint or provider:model as dead/blacklisted."""
+        with self._lock:
+            self.dead_list.add(endpoint_id)
+            if provider and model:
+                self.dead_list.add(f"{provider}:{model}")
+            self.health_store.mark_dead(endpoint_id, provider=provider, model=model, reason=reason)
+            logger.warning("[llm-circuit-breaker] BLACKLISTED PERMANENT DEAD ENDPOINT: %s (%s)", endpoint_id, reason)
+
+    def clear_dead_list(self) -> None:
+        """Reset permanent dead list."""
+        with self._lock:
+            self.dead_list.clear()
+            self.health_store.clear_dead_list()
+
+    def is_dead(self, endpoint_id: str, provider: str = "", model: str = "") -> bool:
+        with self._lock:
+            if endpoint_id in self.dead_list:
+                return True
+            if provider and model and f"{provider}:{model}" in self.dead_list:
+                return True
+            health_snap = self.health_store.get_or_create(endpoint_id, provider=provider, model=model)
+            return health_snap.is_dead
 
     def select_candidate(
         self,
@@ -91,6 +116,21 @@ class CapabilityRouter:
                         model=ep.model,
                         eligible=False,
                         exclusion_reason="Excluded by attempt ledger or recent failure",
+                    )
+                )
+                continue
+
+            # Check permanent DeadList / EOL / Blacklist pre-flight short circuit
+            if self.is_dead(ep.id, provider=ep.provider, model=ep.model):
+                health_snap = self.health_store.get_or_create(ep.id, provider=ep.provider, model=ep.model)
+                reason = health_snap.dead_reason or "Permanently blacklisted dead model / configuration error"
+                evaluations.append(
+                    CandidateEvaluation(
+                        endpoint_id=ep.id,
+                        provider=ep.provider,
+                        model=ep.model,
+                        eligible=False,
+                        exclusion_reason=f"DeadList pre-flight short-circuit: {reason}",
                     )
                 )
                 continue

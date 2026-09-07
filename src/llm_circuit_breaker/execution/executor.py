@@ -173,7 +173,7 @@ class GatewayExecutor:
         self.capability_registry = capability_registry or DEFAULT_CAPABILITY_REGISTRY
         self.breaker_registry = breaker_registry or DEFAULT_BREAKER_REGISTRY
         self.adapter_registry = adapter_registry or DEFAULT_ADAPTER_REGISTRY
-        self.health_store = health_store or DEFAULT_HEALTH_STORE
+        self.health_store = health_store if health_store is not None else HealthTelemetryStore()
         self.policy = policy or ExecutionPolicy()
         self.context_manager = context_manager or ContextManager()
         self.tool_validator = tool_validator or ToolCallValidator(strict=True)
@@ -183,6 +183,7 @@ class GatewayExecutor:
         self.budget_store = budget_store if budget_store is not None else BudgetReservationStore()
         self._sleep = sleeper
         self.events = events or DEFAULT_STRUCTURED_LOGGER
+        self.failover_listeners: List[Callable[[Dict[str, Any]], None]] = []
         # The router must read the same telemetry this executor writes, or scoring never sees it.
         self.router = router or CapabilityRouter(
             capability_registry=self.capability_registry,
@@ -190,6 +191,10 @@ class GatewayExecutor:
             health_store=self.health_store,
             lane_store=lane_store,
         )
+
+    def on_failover(self, listener: Callable[[Dict[str, Any]], None]) -> None:
+        """Register a callback listener for failover telemetry events."""
+        self.failover_listeners.append(listener)
 
     @staticmethod
     def _attempt_payload(attempt: AttemptRecord, status: str, detail: str = "") -> Dict[str, object]:
@@ -531,6 +536,25 @@ class GatewayExecutor:
                 )
                 ledger.record_failover_plan(fplan)
                 logger.info("Semantic FailoverPlan created: %s -> %s (reason: %s)", last_endpoint.id, endpoint.id, fplan.failover_reason)
+                self.events.warning(
+                    "failover_triggered",
+                    request_id=request.request_id,
+                    source_endpoint=last_endpoint.id,
+                    target_endpoint=endpoint.id,
+                    reason=fplan.failover_reason,
+                )
+                event_data = {
+                    "request_id": request.request_id,
+                    "source_endpoint": last_endpoint.id,
+                    "target_endpoint": endpoint.id,
+                    "reason": fplan.failover_reason,
+                    "timestamp": time.time(),
+                }
+                for listener in list(self.failover_listeners):
+                    try:
+                        listener(event_data)
+                    except Exception as listener_err:
+                        logger.warning("Error in failover listener: %s", listener_err)
 
             last_endpoint = endpoint
 
@@ -747,9 +771,13 @@ class GatewayExecutor:
             self.health_store.record_failure(
                 endpoint_id=endpoint.id,
                 latency_ms=exec_result.duration_ms,
+                status_code=exec_result.status_code,
                 error_message=classified.message[:160],
                 cooldown_seconds=classified.retry_after_seconds or (60.0 if classified.reason == FailoverReason.rate_limit else None),
+                is_permanent=classified.is_permanent,
             )
+            if classified.is_permanent:
+                self.router.mark_dead(endpoint.id, provider=endpoint.provider, model=endpoint.model, reason=classified.message[:160])
             self._record_lane_outcome(endpoint, classified)
 
             attempt_rec.finish(success=False, status_code=exec_result.status_code, failure=classified)

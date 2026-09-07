@@ -48,7 +48,7 @@ class TestExecutorEvents(unittest.TestCase):
 
         ex.execute(make_request(), pool="coding", strategy="priority", api_keys={"K": "sk-" + "z" * 30})
 
-        events = _events(buf)
+        events = [e for e in _events(buf) if e["event"] in ("upstream_attempt_failed", "upstream_attempt_succeeded")]
         self.assertEqual([e["event"] for e in events], ["upstream_attempt_failed", "upstream_attempt_succeeded"])
         failed, ok = events
         self.assertEqual((failed["level"], failed["data"]["endpoint_id"], failed["data"]["status_code"]), ("WARNING", "ep-a", 503))

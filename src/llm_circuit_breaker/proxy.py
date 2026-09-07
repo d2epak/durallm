@@ -93,22 +93,66 @@ def _attach_tool_operation_metadata(body: Dict[str, Any], response: Any) -> Dict
     return body
 
 
+def build_failover_telemetry(
+    requested_model: str,
+    decision: Any,
+    ledger: Any,
+) -> Tuple[Dict[str, str], Optional[Dict[str, Any]]]:
+    """Construct failover telemetry headers and response metadata."""
+    selected_ep = decision.selected_endpoint if decision else None
+    active_model = selected_ep.model if selected_ep else "unknown"
+    selected_id = selected_ep.id if selected_ep else "unknown"
+
+    headers = {
+        "X-LCB-Requested-Model": requested_model,
+        "X-LCB-Active-Model": active_model,
+        "X-LCB-Selected-Endpoint": selected_id,
+    }
+
+    has_failover = (
+        (ledger and getattr(ledger, "fallback_count", 0) > 0)
+        or any(not getattr(c, "eligible", True) for c in getattr(decision, "evaluated_candidates", []))
+        or (requested_model not in ("auto-coding-agent", "hermes-default", "openclaw-default", "default") and active_model != requested_model)
+    )
+
+    if has_failover:
+        reason = getattr(decision, "fallback_reason", None) or "upstream_failover"
+        headers["X-LCB-Failover"] = "true"
+        headers["X-LCB-Failover-Reason"] = reason
+        metadata = {
+            "triggered": True,
+            "requested_model": requested_model,
+            "active_model": active_model,
+            "selected_endpoint": selected_id,
+            "failover_reason": reason,
+            "attempts": getattr(ledger, "total_attempts", 1) if ledger else 1,
+        }
+        return headers, metadata
+
+    return headers, None
+
+
 def serve_messages(
     body: Dict[str, Any],
     continuation: Optional[ContinuationRequest] = None,
     logical_operation_id: Optional[str] = None,
 ):
-    """Anthropic /v1/messages body -> (status, response dict, selected endpoint, ACP event)."""
+    """Anthropic /v1/messages body -> (status, response dict, selected endpoint, ACP event, failover headers)."""
     requested_model = body.get("model", "auto-coding-agent")
     try:
         request = anthropic_request_to_ir(body)
         if logical_operation_id:
             request.request_id = logical_operation_id
-        response, decision, _, event = GATEWAY.complete_turn(request, pool="coding", continuation=continuation)
+        response, decision, ledger, event = GATEWAY.complete_turn(request, pool="coding", continuation=continuation)
     except CircuitBreakerGatewayError as exc:
         status, kind = http_error_for(exc)
-        return status, {"type": "error", "error": {"type": kind, "message": str(exc)}}, None, None
-    return 200, _attach_tool_operation_metadata(ir_to_anthropic_response(response, requested_model), response), decision.selected_endpoint, event
+        return status, {"type": "error", "error": {"type": kind, "message": str(exc)}}, None, None, {}
+
+    telemetry_headers, failover_meta = build_failover_telemetry(requested_model, decision, ledger)
+    resp_dict = ir_to_anthropic_response(response, requested_model)
+    if failover_meta:
+        resp_dict["lcb_failover"] = failover_meta
+    return 200, _attach_tool_operation_metadata(resp_dict, response), decision.selected_endpoint, event, telemetry_headers
 
 
 def serve_chat_completions(
@@ -116,19 +160,24 @@ def serve_chat_completions(
     continuation: Optional[ContinuationRequest] = None,
     logical_operation_id: Optional[str] = None,
 ):
-    """OpenAI /v1/chat/completions body -> (status, response dict, selected endpoint, ACP event)."""
+    """OpenAI /v1/chat/completions body -> (status, response dict, selected endpoint, ACP event, failover headers)."""
     requested_model = body.get("model", "hermes-default")
     try:
         request = openai_request_to_ir(body)
         if logical_operation_id:
             request.request_id = logical_operation_id
-        response, decision, _, event = GATEWAY.complete_turn(
+        response, decision, ledger, event = GATEWAY.complete_turn(
             request, pool=pool_for_model(requested_model), continuation=continuation
         )
     except CircuitBreakerGatewayError as exc:
         status, kind = http_error_for(exc)
-        return status, {"error": {"type": kind, "message": str(exc)}}, None, None
-    return 200, _attach_tool_operation_metadata(ir_to_openai_response(response, requested_model), response), decision.selected_endpoint, event
+        return status, {"error": {"type": kind, "message": str(exc)}}, None, None, {}
+
+    telemetry_headers, failover_meta = build_failover_telemetry(requested_model, decision, ledger)
+    resp_dict = ir_to_openai_response(response, requested_model)
+    if failover_meta:
+        resp_dict["lcb_failover"] = failover_meta
+    return 200, _attach_tool_operation_metadata(resp_dict, response), decision.selected_endpoint, event, telemetry_headers
 
 
 def continuation_request_from_headers(headers: Any) -> Optional[ContinuationRequest]:
@@ -452,8 +501,8 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
                 self._route = native_stream.endpoint
                 self._emit_native_stream(native_stream, "anthropic")
                 return
-            status, anthropic_resp, self._route, event = serve_messages(body, continuation, logical_operation_id)
-            headers = continuation_headers(event)
+            status, anthropic_resp, self._route, event, telemetry_headers = serve_messages(body, continuation, logical_operation_id)
+            headers = {**continuation_headers(event), **telemetry_headers}
             if status != 200:
                 self._send_json(status, anthropic_resp, headers)
             elif body.get("stream", False):
@@ -490,8 +539,8 @@ class CircuitBreakerGatewayHandler(BaseHTTPRequestHandler):
                 self._route = native_stream.endpoint
                 self._emit_native_stream(native_stream, "openai")
                 return
-            status, openai_resp, self._route, event = serve_chat_completions(body, continuation, logical_operation_id)
-            headers = continuation_headers(event)
+            status, openai_resp, self._route, event, telemetry_headers = serve_chat_completions(body, continuation, logical_operation_id)
+            headers = {**continuation_headers(event), **telemetry_headers}
             if status == 200 and body.get("stream", False):
                 self._emit_synthetic_openai_stream(openai_resp, body.get("model", "hermes-default"), headers)
             else:
@@ -719,12 +768,12 @@ def create_proxy_app():
                     "X-LCB-Selected-Endpoint": native_stream.endpoint.id,
                 },
             )
-        status, anthropic_resp, _, event = serve_messages(body, continuation, logical_operation_id)
+        status, anthropic_resp, _, event, telemetry_headers = serve_messages(body, continuation, logical_operation_id)
         return Response(
             content=json.dumps(anthropic_resp),
             status_code=status,
             media_type="application/json",
-            headers=continuation_headers(event),
+            headers={**continuation_headers(event), **telemetry_headers},
         )
 
     @app.post("/v1/chat/completions")
@@ -776,12 +825,12 @@ def create_proxy_app():
                     "X-LCB-Selected-Endpoint": native_stream.endpoint.id,
                 },
             )
-        status, openai_resp, _, event = serve_chat_completions(body, continuation, logical_operation_id)
+        status, openai_resp, _, event, telemetry_headers = serve_chat_completions(body, continuation, logical_operation_id)
         return Response(
             content=json.dumps(openai_resp),
             status_code=status,
             media_type="application/json",
-            headers=continuation_headers(event),
+            headers={**continuation_headers(event), **telemetry_headers},
         )
 
     @app.post("/v1/continuations/ack")

@@ -217,6 +217,8 @@ print(f"Response: {response.content}")
 ### 1. Formal 6-State Circuit Breaker FSM
 Implements an industrial-grade finite state machine (`CLOSED`, `OPEN`, `HALF_OPEN`, `FORCED_OPEN`, `DISABLED`, `METRICS_ONLY`) with:
 - **Time- and count-based sliding error windows**: Evaluates failure rate thresholds without bias from stale errors.
+- **Permanent Error Taxonomy & Dead-List Pruning**: Distinguishes permanent configuration & lifecycle errors (401 Bad Key, 402 Out of Credits, 404/410 EOL) from transient network failures (429, 503). Instantly blacklists dead models pre-flight to short-circuit future failing HTTP calls.
+- **Failover Telemetry & Transparency**: Surfaces `X-LCB-Failover`, `X-LCB-Active-Model`, `X-LCB-Selected-Endpoint` HTTP headers and attaches `lcb_failover` payload metadata so agents/UIs know when failovers occur.
 - **Bounded Half-Open Probes**: Strictly enforces `active_probes <= max_half_open_calls` to prevent thundering herds from overwhelming recovering providers.
 - **`Retry-After` Compliance**: Automatically extracts and honors upstream rate-limit headers.
 - Learn more in [Reliability Model](docs/RELIABILITY_MODEL.md).

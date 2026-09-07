@@ -50,6 +50,7 @@ class FailureClassification:
     should_fallback: bool
     retryable: bool
     poisons_health: bool = True
+    is_permanent: bool = False
     status_code: Optional[int] = None
     retry_after_seconds: Optional[float] = None
     message: str = ""
@@ -69,6 +70,7 @@ class ClassifiedError(FailureClassification):
         message: str = "",
         category: FailureCategory = FailureCategory.UNKNOWN,
         poisons_health: bool = True,
+        is_permanent: bool = False,
         retry_after_seconds: Optional[float] = None,
         details: Optional[Dict[str, Any]] = None,
     ):
@@ -78,6 +80,7 @@ class ClassifiedError(FailureClassification):
             should_fallback=should_fallback,
             retryable=retryable,
             poisons_health=poisons_health,
+            is_permanent=is_permanent,
             status_code=status_code,
             retry_after_seconds=retry_after_seconds,
             message=message,

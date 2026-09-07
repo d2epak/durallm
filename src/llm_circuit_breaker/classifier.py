@@ -26,17 +26,26 @@ _BILLING_PATTERNS = [
     "out of credits",
     "usage limit reached",
     "monthly spending cap",
+    "insufficient_quota",
+    "quota_exceeded",
+    "account_deactivated",
+    "balance is too low",
 ]
 
 _DEPRECATION_PATTERNS = [
     "deprecated",
     "decommissioned",
     "model does not exist",
-    "not found",
+    "model not found",
     "model_not_found",
     "has been removed",
     "is no longer available",
     "is not found for api version",
+    "end of life",
+    "eol",
+    "has reached its end of life",
+    "sunset",
+    "no longer supported",
 ]
 
 _UPSTREAM_429_PATTERNS = [
@@ -185,6 +194,7 @@ def classify_api_error(
         message=classification.message,
         category=classification.category,
         poisons_health=classification.poisons_health,
+        is_permanent=classification.is_permanent,
         retry_after_seconds=classification.retry_after_seconds,
         details=classification.details,
     )
@@ -268,6 +278,7 @@ def classify_failure(
             should_fallback=True,
             retryable=False,
             poisons_health=True,
+            is_permanent=True,
             status_code=402,
             message=msg,
         )
@@ -286,15 +297,16 @@ def classify_failure(
             message=msg,
         )
 
-    # 6. HTTP 404 Model Deprecation or Sunset
-    if code in (404, 400) and any(p in msg for p in _DEPRECATION_PATTERNS):
+    # 6. HTTP 404 / 410 Model Deprecation, Sunset or End of Life
+    if (code in (404, 410, 400) and any(p in msg for p in _DEPRECATION_PATTERNS)) or code == 410:
         return FailureClassification(
             category=FailureCategory.REQUEST_INCOMPATIBILITY,
             reason=FailoverReason.model_not_found,
             should_fallback=True,
             retryable=False,
             poisons_health=False,  # Specific model missing does not imply entire provider is dead
-            status_code=code,
+            is_permanent=True,
+            status_code=code or 410,
             message=msg,
         )
     if code == 404:
@@ -304,6 +316,7 @@ def classify_failure(
             should_fallback=True,
             retryable=False,
             poisons_health=False,
+            is_permanent=True,
             status_code=404,
             message=msg,
         )
@@ -334,12 +347,14 @@ def classify_failure(
 
     # 9. Upstream / Client Auth Failures (401, 403)
     if code in (401, 403) or "access denied" in msg or "forbidden" in msg or any(p in msg for p in _CLIENT_FAULT_PATTERNS):
+        is_perm = code in (401, 403) or any(k in msg for k in ("access denied", "forbidden", "invalid api key", "incorrect api key", "unauthorized"))
         return FailureClassification(
             category=FailureCategory.CLIENT_FAULT if any(p in msg for p in _CLIENT_FAULT_PATTERNS) else FailureCategory.INFRASTRUCTURE,
             reason=FailoverReason.auth,
             should_fallback=True,  # Fallback to alternate provider with valid key
             retryable=False,
             poisons_health=False,  # Bad credentials do NOT mean provider is down
+            is_permanent=is_perm,
             status_code=code or 403,
             message=msg,
         )

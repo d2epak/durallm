@@ -39,6 +39,8 @@ class EndpointHealthSnapshot:
     # Availability & Cooldown
     cooldown_until_monotonic: float = 0.0
     quota_exhausted_until: float = 0.0
+    is_dead: bool = False
+    dead_reason: Optional[str] = None
     last_error_message: Optional[str] = None
     last_updated: float = field(default_factory=time.time)
 
@@ -127,6 +129,22 @@ class HealthTelemetryStore:
 
             snap.last_updated = time.time()
 
+    def mark_dead(self, endpoint_id: str, provider: str = "", model: str = "", reason: str = "") -> None:
+        """Permanently mark an endpoint as dead/blacklisted."""
+        with self._lock:
+            snap = self.get_or_create(endpoint_id, provider=provider, model=model)
+            snap.is_dead = True
+            snap.dead_reason = reason
+            snap.last_error_message = reason
+            snap.last_updated = time.time()
+
+    def clear_dead_list(self) -> None:
+        """Reset permanent dead markings on all endpoint snapshots."""
+        with self._lock:
+            for snap in self._snapshots.values():
+                snap.is_dead = False
+                snap.dead_reason = None
+
     def record_failure(
         self,
         endpoint_id: str,
@@ -135,6 +153,7 @@ class HealthTelemetryStore:
         error_message: str = "",
         cooldown_seconds: Optional[float] = None,
         quota_exhausted_seconds: Optional[float] = None,
+        is_permanent: bool = False,
     ) -> None:
         with self._lock:
             snap = self.get_or_create(endpoint_id)
@@ -144,6 +163,10 @@ class HealthTelemetryStore:
             snap.last_latency_ms = latency_ms
             snap.last_error_message = error_message
             snap.last_updated = time.time()
+
+            if is_permanent:
+                snap.is_dead = True
+                snap.dead_reason = error_message
 
             if status_code in (408, 504) or "timeout" in error_message.lower():
                 snap.timeout_count += 1
