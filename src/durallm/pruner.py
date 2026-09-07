@@ -115,7 +115,21 @@ def prune_openai_request(
 
     req = copy.deepcopy(request)
     messages: List[Dict[str, Any]] = req.get("messages", [])
+    if not messages:
+        return req
+
     if len(messages) <= 2:
+        for msg in messages:
+            if msg.get("role") in ("tool", "user"):
+                c = msg.get("content")
+                if isinstance(c, str) and len(c) > 2000:
+                    msg["content"] = extract_diagnostic_summary(c, max_chars=1500)
+                elif isinstance(c, list):
+                    for part in c:
+                        if isinstance(part, dict) and part.get("type") == "tool_result":
+                            tc = part.get("content", "")
+                            if isinstance(tc, str) and len(tc) > 1000:
+                                part["content"] = extract_diagnostic_summary(tc, max_chars=800)
         return req
 
     preserve_tail = 6
@@ -208,6 +222,8 @@ def prune_for_groq_tpm(
     max_input_tokens: int = 3800,
 ) -> Dict[str, Any]:
     """Prune and compact an OpenAI-format chat completion payload specifically for Groq's 6,000 TPM limit."""
+    from durallm.agent.context import extract_diagnostic_summary
+
     req = copy.deepcopy(payload)
     current_tokens = estimate_tokens(req)
     if current_tokens <= max_input_tokens:
@@ -232,31 +248,64 @@ def prune_for_groq_tpm(
         if isinstance(sys_content, str) and len(sys_content) > 1500:
             lines = [line.strip() for line in sys_content.splitlines() if line.strip()]
             condensed = "\n".join(lines)
-            if len(condensed) > 2000:
-                condensed = condensed[:2000] + "\n... [System prompt formatting rules compacted for Groq execution] ..."
+            if len(condensed) > 1800:
+                condensed = condensed[:1800] + "\n... [System prompt formatting rules compacted for Groq execution] ..."
             messages[0]["content"] = condensed
             if estimate_tokens(req) <= max_input_tokens:
                 return req
 
-    # Step 3: Run sliding-window message pruning with adaptive tail down to 2 turns
-    req = prune_openai_request(req, max_context_tokens=max_input_tokens, safety_margin_tokens=200, min_preserve_tail=2)
+    # Step 3: Compact all tool results (both role="tool" and type="tool_result" parts)
+    for msg in messages:
+        role = msg.get("role")
+        if role == "tool":
+            content = msg.get("content", "")
+            if isinstance(content, str) and len(content) > 600:
+                msg["content"] = extract_diagnostic_summary(content, max_chars=500)
+        elif role == "user":
+            content = msg.get("content")
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get("type") == "tool_result":
+                        t_content = part.get("content", "")
+                        if isinstance(t_content, str) and len(t_content) > 600:
+                            part["content"] = extract_diagnostic_summary(t_content, max_chars=500)
+                        elif isinstance(t_content, list):
+                            for sub in t_content:
+                                if isinstance(sub, dict) and "text" in sub and len(sub["text"]) > 600:
+                                    sub["text"] = extract_diagnostic_summary(sub["text"], max_chars=500)
+            elif isinstance(content, str) and len(content) > 2000:
+                msg["content"] = extract_diagnostic_summary(content, max_chars=1500)
+
     if estimate_tokens(req) <= max_input_tokens:
         return req
 
-    # Step 4: If single-turn/root message is still oversized, compact user prompt content
+    # Step 4: Run sliding-window message pruning with adaptive tail down to 2 turns
+    req = prune_openai_request(req, max_context_tokens=max_input_tokens, safety_margin_tokens=150, min_preserve_tail=2)
+    if estimate_tokens(req) <= max_input_tokens:
+        return req
+
+    # Step 5: Aggressive compaction of user/tool messages if still over ceiling
     for msg in req.get("messages", []):
-        if msg.get("role") == "user":
+        if msg.get("role") in ("tool", "user"):
             content = msg.get("content")
-            if isinstance(content, str) and len(content) > 3000:
-                from durallm.agent.context import extract_diagnostic_summary
-                msg["content"] = extract_diagnostic_summary(content, max_chars=2500)
+            if isinstance(content, str) and len(content) > 1000:
+                msg["content"] = extract_diagnostic_summary(content, max_chars=800)
             elif isinstance(content, list):
                 for part in content:
-                    if isinstance(part, dict) and part.get("type") == "text":
-                        text_val = part.get("text", "")
-                        if len(text_val) > 3000:
-                            from durallm.agent.context import extract_diagnostic_summary
-                            part["text"] = extract_diagnostic_summary(text_val, max_chars=2500)
+                    if isinstance(part, dict):
+                        if part.get("type") == "text" and len(part.get("text", "")) > 1000:
+                            part["text"] = extract_diagnostic_summary(part["text"], max_chars=800)
+                        elif part.get("type") == "tool_result":
+                            tc = part.get("content", "")
+                            if isinstance(tc, str) and len(tc) > 400:
+                                part["content"] = extract_diagnostic_summary(tc, max_chars=300)
+
+    # Step 6: If still oversized, evict down to minimum tail (1 user turn + 1 assistant turn)
+    msgs = req.get("messages", [])
+    start_evict = 1 if msgs and msgs[0].get("role") == "system" else 0
+    start_evict += 1  # keep root user
+    while len(msgs) > (start_evict + 2) and estimate_tokens(req) > max_input_tokens:
+        msgs.pop(start_evict)
 
     return req
 

@@ -605,7 +605,7 @@ class GatewayExecutor:
 
             max_supported_out = profile.max_output_tokens or 4096
             desired_output = min(request.max_output_tokens or max_supported_out, max_supported_out)
-            safety_margin = 2048
+            safety_margin = 2048 if target_context > 8000 else min(512, int(target_context * 0.1))
             est_in = estimate_tokens(request)
             if target_context - safety_margin - desired_output < est_in and desired_output > 1024:
                 desired_output = max(1024, min(desired_output, target_context - safety_margin - est_in))

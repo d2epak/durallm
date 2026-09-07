@@ -8,6 +8,7 @@ providing hierarchical taxonomy for the V2 Circuit Breaker and Routing engines.
 from __future__ import annotations
 
 import email.utils
+import re
 import time
 from typing import Any, Dict, Optional
 
@@ -307,6 +308,30 @@ def classify_failure(
             retryable=True,
             poisons_health=False,
             status_code=code or 502,
+            message=msg,
+        )
+
+    # 3b. Groq TPM Rate Limit (Groq returns HTTP 413 for tokens per minute rate limits)
+    if ("tokens per minute" in msg or "tpm" in msg or "try again in" in msg) and ("rate" in msg or "limit" in msg or code in (413, 429)):
+        delay = retry_after
+        if not delay:
+            m_wait = re.search(r"try again in (\d+(?:\.\d+)?)s?", msg)
+            if m_wait:
+                try:
+                    delay = float(m_wait.group(1))
+                except ValueError:
+                    delay = 3.0
+            else:
+                delay = 3.0
+        return FailureClassification(
+            category=FailureCategory.RATE_LIMIT,
+            reason=FailoverReason.rate_limit,
+            should_fallback=True,
+            retryable=True,
+            poisons_health=True,
+            is_permanent=False,
+            status_code=code or 429,
+            retry_after_seconds=delay,
             message=msg,
         )
 

@@ -66,7 +66,7 @@ class Deadline:
         rem_seconds = self.remaining_ms() / 1000.0
         p = (provider or "").lower()
         if p == "nvidia":
-            target_sec = max(120.0, self.per_attempt_timeout_ms / 1000.0)
+            target_sec = min(60.0, max(30.0, self.per_attempt_timeout_ms / 1000.0))
         elif p == "groq":
             target_sec = min(30.0, self.per_attempt_timeout_ms / 1000.0)
         else:

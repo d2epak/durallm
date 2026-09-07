@@ -387,6 +387,10 @@ class OpenAICompatibleAdapter(BaseHTTPAdapter):
                 payload["max_completion_tokens"] = min(payload["max_completion_tokens"], 950)
             # Compact input payload so input (3800) + output (950) <= 4,750 < 6,000 TPM limit.
             payload = prune_for_groq_tpm(payload, max_input_tokens=3800)
+        elif endpoint.provider.lower() == "nvidia":
+            from durallm.pruner import prune_openai_request
+            # Free NVIDIA NIM nodes suffer extreme queuing or timeouts on payloads > 16k tokens
+            payload = prune_openai_request(payload, max_context_tokens=16000, safety_margin_tokens=500, min_preserve_tail=2)
 
         body_bytes = json.dumps(payload, ensure_ascii=False).encode("utf-8")
 

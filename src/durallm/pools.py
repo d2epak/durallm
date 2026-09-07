@@ -213,6 +213,19 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         max_output_tokens=8192,
         headers={"User-Agent": _BROWSER_UA}
     ),
+    # 10. Groq: Llama 3.3 70B Versatile (128k context, high-intelligence reasoning & code)
+    RouteDefinition(
+        id="groq-llama33-coding",
+        provider="groq",
+        model="llama-3.3-70b-versatile",
+        pool="coding",
+        base_url="https://api.groq.com/openai/v1",
+        api_format="openai",
+        env_key="GROQ_API_KEY",
+        context_length=131072,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA}
+    ),
 ]
 
 # Default General Agent Pool (Hermes Agent, OpenClaw) - Core Providers: NVIDIA, Groq, OpenRouter
