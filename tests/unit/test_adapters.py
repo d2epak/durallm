@@ -119,7 +119,7 @@ class TestStreamingDemuxAndStreamFalse(unittest.TestCase):
     """Verify adapters enforce stream=False for buffered execution and demux SSE chunks safely."""
 
     def test_openai_stream_false_enforced(self):
-        from durallm.protocol.ir import NormalizedRequest, NormalizedMessage
+        from durallm.protocol.ir import NormalizedMessage, NormalizedRequest
         req = NormalizedRequest(
             request_id="r1",
             model="gpt-4o",
@@ -132,7 +132,7 @@ class TestStreamingDemuxAndStreamFalse(unittest.TestCase):
         self.assertFalse(body.get("stream", False), "stream=False must be enforced for buffered execution")
 
     def test_anthropic_stream_false_enforced(self):
-        from durallm.protocol.ir import NormalizedRequest, NormalizedMessage
+        from durallm.protocol.ir import NormalizedMessage, NormalizedRequest
         req = NormalizedRequest(
             request_id="r2",
             model="claude-3-7-sonnet-20250219",

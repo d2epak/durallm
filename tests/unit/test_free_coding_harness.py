@@ -200,11 +200,10 @@ class TestFreeCodingHarness(unittest.TestCase):
     # ------------------------------------------------------------------
     def test_claude_code_goal_session_budget_and_preflight_do_not_collapse(self):
         from durallm.capability.profile import ModelProfile
+        from durallm.execution.executor import GatewayExecutor
         from durallm.protocol.anthropic import anthropic_request_to_ir
         from durallm.protocol.openai import openai_request_to_ir
         from durallm.routing.tokenizer import preflight_context
-        from durallm.execution.executor import GatewayExecutor
-        from durallm.protocol.ir import NormalizedMessage
 
         profile = ModelProfile(
             provider="groq",
@@ -277,8 +276,8 @@ class TestFreeCodingHarness(unittest.TestCase):
     # 7. Context-Adaptive Dynamic Routing for Large Goal Sessions
     # ------------------------------------------------------------------
     def test_context_adaptive_routing_prioritizes_high_context_routes_for_large_prompts(self):
-        from durallm.capability.registry import CapabilityRegistry
         from durallm.capability.profile import Endpoint, ModelProfile
+        from durallm.capability.registry import CapabilityRegistry
         from durallm.routing import CapabilityRouter, RequirementVector
 
         reg = CapabilityRegistry()
@@ -319,8 +318,8 @@ class TestFreeCodingHarness(unittest.TestCase):
     # 8. Fallback Hop Budget Permits Traversing All 6 Pool Routes
     # ------------------------------------------------------------------
     def test_default_fallback_policy_permits_traversing_six_routes(self):
-        from durallm.execution.policy import ExecutionPolicy
         from durallm.execution.ledger import AttemptLedger
+        from durallm.execution.policy import ExecutionPolicy
 
         policy = ExecutionPolicy()
         self.assertGreaterEqual(policy.fallback.max_fallback_hops, 6)
@@ -339,6 +338,7 @@ class TestFreeCodingHarness(unittest.TestCase):
     # ------------------------------------------------------------------
     def test_groq_tpm_defense_throttles_max_tokens_for_large_inputs(self):
         import json
+
         from durallm.capability.profile import ModelProfile
         adapter = OpenAICompatibleAdapter()
         ep_groq = Endpoint(
@@ -376,7 +376,7 @@ class TestFreeCodingHarness(unittest.TestCase):
     # 11. Deep Tail Tool Compaction for 55m /goal Sessions (14k Tokens)
     # ------------------------------------------------------------------
     def test_deep_tail_tool_compaction_for_long_horizon_sessions(self):
-        from durallm.pruner import prune_for_groq_tpm, estimate_tokens
+        from durallm.pruner import estimate_tokens, prune_for_groq_tpm
         messages = [
             {"role": "system", "content": "You are Claude Code, an expert coding assistant."},
             {"role": "user", "content": "Build the full stack task manager application in FastAPI and React."},
@@ -432,8 +432,8 @@ class TestFreeCodingHarness(unittest.TestCase):
     # 14. AttemptLedger Rate Limit Reset Allows Rollover Without Cycle Error
     # ------------------------------------------------------------------
     def test_attempt_ledger_reset_for_rate_limit_retry(self):
-        from durallm.execution.policy import ExecutionPolicy
         from durallm.execution.ledger import AttemptLedger
+        from durallm.execution.policy import ExecutionPolicy
         from durallm.models import AttemptRecord
 
         policy = ExecutionPolicy()
