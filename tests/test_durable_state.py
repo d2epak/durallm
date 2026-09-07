@@ -4,13 +4,13 @@ import os
 import tempfile
 import unittest
 
-from llm_circuit_breaker.agent.idempotency import ToolExecutionStatus
-from llm_circuit_breaker.continuation import ContinuationRequest, SQLiteContinuationStore
-from llm_circuit_breaker.errors import ContinuationProtocolError
-from llm_circuit_breaker.execution.policy import RetryPolicy
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedResponse
-from llm_circuit_breaker.proxy import build_proxy_gateway
-from llm_circuit_breaker.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
+from durallm.agent.idempotency import ToolExecutionStatus
+from durallm.continuation import ContinuationRequest, SQLiteContinuationStore
+from durallm.errors import ContinuationProtocolError
+from durallm.execution.policy import RetryPolicy
+from durallm.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedResponse
+from durallm.proxy import build_proxy_gateway
+from durallm.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
 from tests.faults.mock_provider import MockFaultAction
 from tests.faults.test_executor_backoff import build_executor
 

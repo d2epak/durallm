@@ -5,9 +5,9 @@ import json
 import logging
 import unittest
 
-from llm_circuit_breaker.errors import NoHealthyRouteError
-from llm_circuit_breaker.execution.policy import RetryPolicy
-from llm_circuit_breaker.observability.logger import StructuredJsonLogger
+from durallm.errors import NoHealthyRouteError
+from durallm.execution.policy import RetryPolicy
+from durallm.observability.logger import StructuredJsonLogger
 from tests.faults.mock_provider import MockFaultAction
 from tests.faults.test_executor_backoff import build_executor, make_request
 
@@ -31,7 +31,7 @@ class TestStructuredJsonLogger(unittest.TestCase):
 
     def test_default_sink_is_the_stdlib_logger_so_hosts_control_handlers(self):
         log = StructuredJsonLogger()
-        with self.assertLogs("llm_circuit_breaker.events", level="INFO") as cm:
+        with self.assertLogs("durallm.events", level="INFO") as cm:
             log.warning("slow", latency_ms=900)
         self.assertEqual(cm.records[0].levelno, logging.WARNING)
         self.assertEqual(json.loads(cm.records[0].getMessage())["data"], {"latency_ms": 900})

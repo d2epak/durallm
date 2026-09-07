@@ -2,8 +2,8 @@
 
 import unittest
 
-from llm_circuit_breaker.execution.policy import RetryPolicy
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolDefinition
+from durallm.execution.policy import RetryPolicy
+from durallm.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolDefinition
 from tests.faults.mock_provider import MockFaultAction
 from tests.faults.test_executor_backoff import build_executor
 

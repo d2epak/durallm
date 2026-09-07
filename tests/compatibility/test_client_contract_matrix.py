@@ -17,16 +17,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import patch
 
-from llm_circuit_breaker.agent.context import estimate_tokens
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.gateway import ProxyGateway
-from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
-from llm_circuit_breaker.proxy import start_proxy_server
+from durallm.agent.context import estimate_tokens
+from durallm.breaker.circuit_breaker import CircuitBreakerConfig
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from durallm.gateway import ProxyGateway
+from durallm.pools import IsolatedPoolManager, RouteDefinition
+from durallm.providers.adapters import ProviderAdapterRegistry
+from durallm.proxy import start_proxy_server
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 FIXTURE_PATH = Path(__file__).parents[1] / "fixtures" / "compatibility" / "client_contracts.v1.json"
@@ -96,7 +96,7 @@ class TestClientContractMatrix(unittest.TestCase):
             sleeper=lambda _: None,
         )
         self.gateway = ProxyGateway(pool_manager=pools, executor=executor)
-        self.gateway_patch = patch("llm_circuit_breaker.proxy.GATEWAY", self.gateway)
+        self.gateway_patch = patch("durallm.proxy.GATEWAY", self.gateway)
         self.gateway_patch.start()
 
     def tearDown(self) -> None:

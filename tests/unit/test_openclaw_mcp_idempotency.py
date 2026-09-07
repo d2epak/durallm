@@ -7,15 +7,15 @@ import unittest
 import urllib.request
 from typing import Any, Dict
 
-from llm_circuit_breaker.agent.idempotency import ToolExecutionLedger
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, RetryPolicy
-from llm_circuit_breaker.mcp.proxy import MCPProxy, MCPToolDefinition
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
-from llm_circuit_breaker.proxy import start_proxy_server
+from durallm.agent.idempotency import ToolExecutionLedger
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.execution.policy import ExecutionPolicy, RetryPolicy
+from durallm.mcp.proxy import MCPProxy, MCPToolDefinition
+from durallm.protocol.ir import NormalizedMessage, NormalizedRequest
+from durallm.providers.adapters import ProviderAdapterRegistry
+from durallm.proxy import start_proxy_server
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 

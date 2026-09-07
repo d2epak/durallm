@@ -2,8 +2,8 @@
 
 import unittest
 
-from llm_circuit_breaker.agent.idempotency import ToolExecutionRecord, ToolExecutionStatus
-from llm_circuit_breaker.storage.sqlite import SQLitePersistenceStore
+from durallm.agent.idempotency import ToolExecutionRecord, ToolExecutionStatus
+from durallm.storage.sqlite import SQLitePersistenceStore
 
 
 class TestSQLitePersistence(unittest.TestCase):

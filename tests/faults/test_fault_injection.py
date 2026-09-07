@@ -2,18 +2,18 @@
 
 import unittest
 
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.protocol.ir import (
+from durallm.breaker.circuit_breaker import CircuitBreakerConfig
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from durallm.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedToolDefinition,
 )
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
+from durallm.providers.adapters import ProviderAdapterRegistry
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 

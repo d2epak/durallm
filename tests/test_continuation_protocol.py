@@ -2,9 +2,9 @@
 
 import unittest
 
-from llm_circuit_breaker.continuation import ACP_VERSION, ContinuationRequest, InMemoryContinuationStore
-from llm_circuit_breaker.errors import ContinuationProtocolError
-from llm_circuit_breaker.protocol.ir import (
+from durallm.continuation import ACP_VERSION, ContinuationRequest, InMemoryContinuationStore
+from durallm.errors import ContinuationProtocolError
+from durallm.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedResponse,

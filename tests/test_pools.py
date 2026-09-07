@@ -2,7 +2,7 @@
 
 import unittest
 
-from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
+from durallm.pools import IsolatedPoolManager, RouteDefinition
 
 
 class TestIsolatedPools(unittest.TestCase):

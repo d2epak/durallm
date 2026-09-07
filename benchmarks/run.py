@@ -23,7 +23,7 @@ from typing import Dict, List, Optional, Sequence
 
 from benchmarks.harness import BenchmarkHarness, SystemBenchmarkSummary
 from benchmarks.semantic_failover.runner import SemanticFailoverMetrics, run_semantic_failover_benchmark
-from llm_circuit_breaker import __version__
+from durallm import __version__
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

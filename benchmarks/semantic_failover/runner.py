@@ -28,17 +28,17 @@ from typing import Dict, Tuple
 from benchmarks.harness import tool_calls_are_valid
 from benchmarks.scenarios import BASH_TOOL, SECONDARY_CONTEXT_WINDOW, padded_history
 from benchmarks.tool_runner import ToolRunner
-from llm_circuit_breaker.agent.context import estimate_tokens
-from llm_circuit_breaker.agent.idempotency import ToolExecutionLedger
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
-from llm_circuit_breaker.protocol.ir import NormalizedRequest
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
+from durallm.agent.context import estimate_tokens
+from durallm.agent.idempotency import ToolExecutionLedger
+from durallm.breaker.circuit_breaker import CircuitBreakerConfig
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from durallm.health.telemetry import HealthTelemetryStore
+from durallm.protocol.ir import NormalizedRequest
+from durallm.providers.adapters import ProviderAdapterRegistry
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 PLANTED_SECRET = "CRITICAL_AUTH_SECRET: vault_key_sec_999123847"

@@ -2,13 +2,13 @@
 
 import unittest
 
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.policy import RetryPolicy
-from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
-from llm_circuit_breaker.routing.requirements import RequirementVector
-from llm_circuit_breaker.routing.router import CapabilityRouter
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.policy import RetryPolicy
+from durallm.health.telemetry import HealthTelemetryStore
+from durallm.routing.requirements import RequirementVector
+from durallm.routing.router import CapabilityRouter
 from tests.faults.test_executor_backoff import build_executor, make_request
 
 

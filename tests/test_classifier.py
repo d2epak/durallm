@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock
 
-from llm_circuit_breaker.classifier import FailoverReason, classify_api_error
+from durallm.classifier import FailoverReason, classify_api_error
 
 
 class MockAPIError(Exception):

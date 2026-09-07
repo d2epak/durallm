@@ -15,21 +15,21 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
 
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.gateway import ProxyGateway
-from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
-from llm_circuit_breaker.providers.adapters import OpenAICompatibleAdapter, ProviderAdapterRegistry
-from llm_circuit_breaker.providers.base import (
+from durallm.breaker.circuit_breaker import CircuitBreakerConfig
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from durallm.gateway import ProxyGateway
+from durallm.pools import IsolatedPoolManager, RouteDefinition
+from durallm.providers.adapters import OpenAICompatibleAdapter, ProviderAdapterRegistry
+from durallm.providers.base import (
     PreparedRequest,
     ProviderStreamError,
     RequestCancellation,
     TransportTimeouts,
 )
-from llm_circuit_breaker.proxy import start_proxy_server
+from durallm.proxy import start_proxy_server
 
 
 class _UpstreamHandler(BaseHTTPRequestHandler):
@@ -198,7 +198,7 @@ class TestNativeProxyNoSplice(unittest.TestCase):
         gateway = _gateway([_route("broken", broken.base_url), _route("healthy", healthy.base_url)])
         try:
             with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
-                "llm_circuit_breaker.proxy.GATEWAY", gateway
+                "durallm.proxy.GATEWAY", gateway
             ):
                 status, headers, raw = self._post("/v1/chat/completions", {
                     "model": "hermes-default",
@@ -220,7 +220,7 @@ class TestNativeProxyNoSplice(unittest.TestCase):
         gateway = _gateway([_route("broken", broken.base_url), _route("healthy", healthy.base_url)])
         try:
             with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
-                "llm_circuit_breaker.proxy.GATEWAY", gateway
+                "durallm.proxy.GATEWAY", gateway
             ):
                 status, _, raw = self._post("/v1/chat/completions", {
                     "model": "hermes-default",
@@ -246,7 +246,7 @@ class TestNativeProxyNoSplice(unittest.TestCase):
         ])
         try:
             with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
-                "llm_circuit_breaker.proxy.GATEWAY", gateway
+                "durallm.proxy.GATEWAY", gateway
             ):
                 status, _, raw = self._post("/v1/messages", {
                     "model": "claude-code-compatible",

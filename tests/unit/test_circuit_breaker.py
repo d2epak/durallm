@@ -4,18 +4,18 @@ import threading
 import unittest
 from typing import List
 
-from llm_circuit_breaker.breaker import (
+from durallm.breaker import (
     CircuitBreaker,
     CircuitBreakerConfig,
     CircuitBreakerState,
     SlidingWindowType,
     StateTransitionEvent,
 )
-from llm_circuit_breaker.errors import (
+from durallm.errors import (
     BreakerOpenError,
     ProbeAdmissionDeniedError,
 )
-from llm_circuit_breaker.models import (
+from durallm.models import (
     FailoverReason,
     FailureCategory,
     FailureClassification,

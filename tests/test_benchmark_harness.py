@@ -5,14 +5,14 @@ import unittest
 from benchmarks.harness import SYSTEMS, V3_NAME, BenchmarkHarness, build_fixture, percentile
 from benchmarks.scenarios import BenchmarkScenario, ScenarioTurn
 from benchmarks.tool_runner import ToolRunner
-from llm_circuit_breaker.capability.profile import Endpoint
-from llm_circuit_breaker.protocol.ir import (
+from durallm.capability.profile import Endpoint
+from durallm.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedToolCall,
     NormalizedToolDefinition,
 )
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
+from durallm.providers.adapters import ProviderAdapterRegistry
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 BASH = NormalizedToolDefinition(
@@ -146,7 +146,7 @@ class TestAddedBaselines(unittest.TestCase):
         self.assertEqual(resp.content, "via v1")
         self.assertEqual(fx.call_log, ["provider_a", "provider_b"])
         # The pool manager is private to the run; the process-wide POOL_MANAGER is untouched.
-        from llm_circuit_breaker.pools import POOL_MANAGER
+        from durallm.pools import POOL_MANAGER
         self.assertIsNot(runner.router.pool_manager, POOL_MANAGER)
         self.assertEqual({r.provider for r in runner.router.pool_manager.coding_routes}, {"provider_a", "provider_b"})
 

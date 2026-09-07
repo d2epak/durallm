@@ -1,15 +1,15 @@
 import unittest
 from unittest.mock import MagicMock
 
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
-from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
-from llm_circuit_breaker.protocol.ir import NormalizedResponse
-from llm_circuit_breaker.providers.base import ProviderExecutionResult
-from llm_circuit_breaker.proxy import ProxyGateway, serve_chat_completions
-from llm_circuit_breaker.routing.router import CapabilityRouter
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.health.telemetry import HealthTelemetryStore
+from durallm.pools import IsolatedPoolManager, RouteDefinition
+from durallm.protocol.ir import NormalizedResponse
+from durallm.providers.base import ProviderExecutionResult
+from durallm.proxy import ProxyGateway, serve_chat_completions
+from durallm.routing.router import CapabilityRouter
 
 
 class TestProxyFailoverTelemetry(unittest.TestCase):
@@ -23,7 +23,7 @@ class TestProxyFailoverTelemetry(unittest.TestCase):
 
         health = HealthTelemetryStore()
         router = CapabilityRouter(capability_registry=reg, health_store=health)
-        from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
+        from durallm.providers.adapters import ProviderAdapterRegistry
         adapters = ProviderAdapterRegistry()
         executor = GatewayExecutor(capability_registry=reg, router=router, health_store=health, adapter_registry=adapters)
 
@@ -65,7 +65,7 @@ class TestProxyFailoverTelemetry(unittest.TestCase):
 
         gateway = ProxyGateway(pool_manager=pm, executor=executor)
 
-        from llm_circuit_breaker import proxy
+        from durallm import proxy
         old_gateway = proxy.GATEWAY
         try:
             proxy.GATEWAY = gateway

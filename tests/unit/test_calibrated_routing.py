@@ -3,22 +3,22 @@
 import time
 import unittest
 
-from llm_circuit_breaker.capability.profile import (
+from durallm.capability.profile import (
     CapabilityVerificationStatus,
     Endpoint,
     ModelProfile,
     PrivacyProfile,
 )
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
-from llm_circuit_breaker.routing.budget import BudgetReservationStore
-from llm_circuit_breaker.routing.quality import ShadowQualityPolicy
-from llm_circuit_breaker.routing.requirements import RequirementVector
-from llm_circuit_breaker.routing.resources import ResourceLaneStore
-from llm_circuit_breaker.routing.router import CapabilityRouter
-from llm_circuit_breaker.routing.tokenizer import preflight_context
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.protocol.ir import NormalizedMessage, NormalizedRequest
+from durallm.providers.adapters import ProviderAdapterRegistry
+from durallm.routing.budget import BudgetReservationStore
+from durallm.routing.quality import ShadowQualityPolicy
+from durallm.routing.requirements import RequirementVector
+from durallm.routing.resources import ResourceLaneStore
+from durallm.routing.router import CapabilityRouter
+from durallm.routing.tokenizer import preflight_context
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 

@@ -25,9 +25,9 @@ socket.socket = _blocked
 socket.create_connection = _blocked
 urllib.request.urlopen = _blocked
 
-import llm_circuit_breaker
-import llm_circuit_breaker.proxy
-from llm_circuit_breaker.pools import POOL_MANAGER, load_all_env_keys
+import durallm
+import durallm.proxy
+from durallm.pools import POOL_MANAGER, load_all_env_keys
 
 print(json.dumps({
     "keys_at_import": POOL_MANAGER.keys,

@@ -1,14 +1,14 @@
 import unittest
 from unittest.mock import patch
 
-from llm_circuit_breaker.classifier import (
+from durallm.classifier import (
     FailoverReason,
     classify_api_error,
     classify_failure,
     parse_output_cap_from_error,
 )
-from llm_circuit_breaker.pools import RouteDefinition
-from llm_circuit_breaker.router import UniversalFailoverRouter
+from durallm.pools import RouteDefinition
+from durallm.router import UniversalFailoverRouter
 
 
 class TestOutputCapHandling(unittest.TestCase):
@@ -75,7 +75,7 @@ class TestOutputCapHandling(unittest.TestCase):
                 return 400, {}, groq_err_body
             return 200, {}, success_body
 
-        with patch("llm_circuit_breaker.router.execute_upstream_request", side_effect=mock_exec):
+        with patch("durallm.router.execute_upstream_request", side_effect=mock_exec):
             with patch.object(router.pool_manager, "select_route", return_value=mock_route):
                 status, resp, route = router.dispatch("coding", {"max_tokens": 32768, "messages": []})
 

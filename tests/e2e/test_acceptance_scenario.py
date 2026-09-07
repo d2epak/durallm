@@ -17,18 +17,18 @@ import urllib.request
 from typing import Any, Dict, List
 from unittest.mock import patch
 
-from llm_circuit_breaker.agent.context import estimate_tokens
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.breaker.state import CircuitBreakerState
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.gateway import ProxyGateway
-from llm_circuit_breaker.observability.logger import StructuredJsonLogger
-from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
-from llm_circuit_breaker.proxy import start_proxy_server
+from durallm.agent.context import estimate_tokens
+from durallm.breaker.circuit_breaker import CircuitBreakerConfig
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.breaker.state import CircuitBreakerState
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from durallm.gateway import ProxyGateway
+from durallm.observability.logger import StructuredJsonLogger
+from durallm.pools import IsolatedPoolManager, RouteDefinition
+from durallm.providers.adapters import ProviderAdapterRegistry
+from durallm.proxy import start_proxy_server
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 
@@ -117,7 +117,7 @@ class TestAcceptanceScenario(unittest.TestCase):
             events=StructuredJsonLogger(name="acceptance.events", stream=self.audit_log),
         )
         self.gateway = ProxyGateway(pool_manager=pools, executor=executor)
-        self.patch = patch("llm_circuit_breaker.proxy.GATEWAY", self.gateway)
+        self.patch = patch("durallm.proxy.GATEWAY", self.gateway)
         self.patch.start()
 
     def tearDown(self) -> None:

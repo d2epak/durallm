@@ -2,14 +2,14 @@
 
 import unittest
 
-from llm_circuit_breaker.agent.context import (
+from durallm.agent.context import (
     ContextBudget,
     ContextManager,
     estimate_tokens,
     extract_diagnostic_summary,
 )
-from llm_circuit_breaker.errors import ContextOverflowError
-from llm_circuit_breaker.protocol.ir import (
+from durallm.errors import ContextOverflowError
+from durallm.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedToolResult,

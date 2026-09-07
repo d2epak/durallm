@@ -2,7 +2,7 @@
 
 import os
 
-from llm_circuit_breaker import FailoverReason, UniversalFailoverRouter, classify_api_error
+from durallm import FailoverReason, UniversalFailoverRouter, classify_api_error
 
 # Initialize router with priority providers + auto-discovered free backups
 router = UniversalFailoverRouter(configured_fallbacks=[

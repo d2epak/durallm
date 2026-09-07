@@ -2,10 +2,10 @@
 
 import unittest
 
-from llm_circuit_breaker.agent.context import ContextBudget, ContextManager
-from llm_circuit_breaker.errors import ContextOverflowError, NoHealthyRouteError
-from llm_circuit_breaker.execution.policy import RetryPolicy
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest
+from durallm.agent.context import ContextBudget, ContextManager
+from durallm.errors import ContextOverflowError, NoHealthyRouteError
+from durallm.execution.policy import RetryPolicy
+from durallm.protocol.ir import NormalizedMessage, NormalizedRequest
 from tests.faults.mock_provider import MockFaultAction
 from tests.faults.test_executor_backoff import build_executor, make_request
 

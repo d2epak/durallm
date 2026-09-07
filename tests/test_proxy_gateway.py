@@ -10,15 +10,15 @@ import urllib.error
 import urllib.request
 from unittest.mock import patch
 
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.gateway import ProxyGateway
-from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
-from llm_circuit_breaker.proxy import start_proxy_server
+from durallm.breaker.circuit_breaker import CircuitBreakerConfig
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.capability.registry import CapabilityRegistry
+from durallm.execution.executor import GatewayExecutor
+from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from durallm.gateway import ProxyGateway
+from durallm.pools import IsolatedPoolManager, RouteDefinition
+from durallm.providers.adapters import ProviderAdapterRegistry
+from durallm.proxy import start_proxy_server
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 
@@ -62,7 +62,7 @@ class TestProxyServedByExecutor(unittest.TestCase):
 
     def setUp(self):
         self.gateway, self.mock_a, self.mock_b = build_gateway()
-        self._patch = patch("llm_circuit_breaker.proxy.GATEWAY", self.gateway)
+        self._patch = patch("durallm.proxy.GATEWAY", self.gateway)
         self._patch.start()
 
     def tearDown(self):

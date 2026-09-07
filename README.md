@@ -1,12 +1,13 @@
 <div align="center">
 
-# ⚡ LLM Circuit Breaker
+# ⚡ DuraLLM
 
-**The Agent-Resilient Gateway for Autonomous AI Systems**
+**The Durable Gateway & Circuit Breaker for Autonomous AI Agents**
 
-*Zero-loss semantic failover • Idempotent tool ledger • Formal 6-state FSM • Protocol IR • Diagnostic context compaction*
+*LiteLLM is lightweight. DuraLLM is durable. Zero-loss semantic failover • Idempotent tool ledger • Formal 6-state FSM • Protocol IR • Diagnostic context compaction*
 
-[![CI](https://github.com/d2epak/llm-circuit-breaker/actions/workflows/ci.yml/badge.svg)](https://github.com/d2epak/llm-circuit-breaker/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/durallm?color=blue)](https://pypi.org/project/durallm/)
+[![CI](https://github.com/d2epak/durallm/actions/workflows/ci.yml/badge.svg)](https://github.com/d2epak/durallm/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Circuit Breaker: 6-State FSM](https://img.shields.io/badge/Circuit%20Breaker-6--State%20FSM-emerald.svg)]()
@@ -42,7 +43,7 @@ Modern LLM proxies (**LiteLLM**, **Portkey**, **Cloudflare AI Gateway**) were ar
 Simulate provider outages, semantic failover, circuit tripping, and self-healing recovery in under **2 seconds** without installing dependencies or setting API keys:
 
 ```bash
-python -m llm_circuit_breaker.demo
+python -m durallm.demo
 ```
 
 ```text
@@ -121,7 +122,7 @@ flowchart TD
 Install the package directly (requires **Python 3.10+**):
 
 ```bash
-pip install llm-circuit-breaker
+pip install durallm
 ```
 
 *(Zero third-party core dependencies. The base package runs purely on the Python standard library with optional SQLite WAL durability).*
@@ -131,15 +132,15 @@ pip install llm-circuit-breaker
 Start the resilience proxy locally on port 4001:
 
 ```bash
-llm-proxy --port 4001
+durallm --port 4001
 # Or run as a module:
-python -m llm_circuit_breaker.proxy --port 4001
+python -m durallm.proxy --port 4001
 ```
 
 By default, the proxy runs fully isolated. If you want automatic credential discovery from local environment files, use `--discover`:
 
 ```bash
-llm-proxy --port 4001 --discover
+durallm --port 4001 --discover
 ```
 
 ---
@@ -180,7 +181,7 @@ Use the deterministic gateway directly within Python agent applications:
 ```python
 import os
 
-from llm_circuit_breaker import Endpoint, GatewayExecutor, ModelProfile, NormalizedMessage, NormalizedRequest
+from durallm import Endpoint, GatewayExecutor, ModelProfile, NormalizedMessage, NormalizedRequest
 
 executor = GatewayExecutor()
 
@@ -265,7 +266,7 @@ Results from official reproducible run (`results/2026-09-06-1943ba8/report.md`, 
 
 | System Architecture | Request Completion | Autonomous Recovery | Median Latency | P95 Latency | Semantic Error Rate |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **⚡ LLM-Circuit-Breaker-V3** | **100.0%** | **80.0%** | **12.12 ms** | **313.64 ms** | **0.0%** |
+| **⚡ DuraLLM-V3** | **100.0%** | **80.0%** | **12.12 ms** | **313.64 ms** | **0.0%** |
 | **Baseline-A (Direct Provider)** | 0.0% | 0.0% | 0.02 ms | 0.40 ms | 20.0% |
 | **Baseline-B (Same-Provider Retry)** | 20.0% | 20.0% | 0.05 ms | 0.57 ms | 20.0% |
 | **Baseline-C (Static Fallback)** | 33.3% | 33.3% | 0.03 ms | 0.32 ms | 20.0% |
@@ -274,7 +275,7 @@ Results from official reproducible run (`results/2026-09-06-1943ba8/report.md`, 
 | **Baseline-F (Standard Router Seam)** | 33.3% | 33.3% | 7.98 ms | 24.68 ms | 20.0% |
 
 > **Key Takeaways**:
-> 1. **Zero Semantic Errors**: LLM-Circuit-Breaker-V3 achieves 0.0% semantic error rate by strictly failing closed on invalid tool arguments (B6, B7, B14), whereas all baselines forward malformed tool calls that crash agent loops.
+> 1. **Zero Semantic Errors**: DuraLLM-V3 achieves 0.0% semantic error rate by strictly failing closed on invalid tool arguments (B6, B7, B14), whereas all baselines forward malformed tool calls that crash agent loops.
 > 2. **100% Completion**: Only V3 survives context overflows (via diagnostic compaction) and rate limits (via sliding-window failover and `Retry-After` backoff).
 > 3. **Reproduce Locally**: Run `python -m benchmarks.run` to execute the full test harness. Detailed methodology available in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
@@ -282,9 +283,9 @@ Results from official reproducible run (`results/2026-09-06-1943ba8/report.md`, 
 
 ## 🥊 Architectural Comparison
 
-How **LLM Circuit Breaker** compares to industry proxies and edge gateways:
+How **DuraLLM** compares to industry proxies and edge gateways:
 
-| Architectural Dimension | **⚡ LLM Circuit Breaker** | **LiteLLM Proxy** | **Cloudflare AI Gateway** | **Portkey Gateway** | **OpenRouter** |
+| Architectural Dimension | **⚡ DuraLLM** | **LiteLLM Proxy** | **Cloudflare AI Gateway** | **Portkey Gateway** | **OpenRouter** |
 |---|:---:|:---:|:---:|:---:|:---:|
 | **Circuit Breaker Engine** | **6-State FSM** with bounded half-open probe permits & sliding windows | Cooldown timer (`time + 60s`), no permit concurrency limits | Dynamic retry policy | Proprietary cloud breaker (enterprise tier) | Static upstream server retry |
 | **Agent Tool Execution Ledger** | **Yes**: Tracks lifecycle receipts, prevents duplicate execution on retry | ❌ No: Blind replay on 5xx drops | ❌ No | ❌ No | ❌ No |
@@ -300,11 +301,11 @@ How **LLM Circuit Breaker** compares to industry proxies and edge gateways:
 
 ## 🛡️ Security & Operational Hardening
 
-LLM Circuit Breaker is built defensively for mission-critical self-hosted environments:
+DuraLLM is built defensively for mission-critical self-hosted environments:
 
 - **SSRF Defense**: Automatically blocks upstream URLs resolving to loopback (`127.0.0.1`) or RFC 1918 private subnets unless explicitly enabled via `LLM_BREAKER_ALLOW_LOCAL_UPSTREAM=1`. Cloud metadata endpoints (`169.254.169.254`) are **permanently refused**.
 - **Payload Limits**: Rejects requests and responses exceeding 10 MB to prevent memory exhaustion attacks.
-- **Credential Redaction**: Emits structured JSON events on the `llm_circuit_breaker.events` logger with API keys and bearer tokens strictly masked.
+- **Credential Redaction**: Emits structured JSON events on the `durallm.events` logger with API keys and bearer tokens strictly masked.
 - **Clean Environment Separation**: Zero network calls or file scans on import. Credential discovery is strictly opt-in.
 
 ---

@@ -33,7 +33,7 @@ jobs:
         
     - name: Run test suite with coverage
       run: |
-        python -m pytest -q --cov=llm_circuit_breaker --cov-report=term-missing
+        python -m pytest -q --cov=durallm --cov-report=term-missing
 
     - name: Lint
       run: |

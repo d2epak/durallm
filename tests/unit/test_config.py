@@ -2,8 +2,8 @@
 
 import unittest
 
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreakerConfig
-from llm_circuit_breaker.config import GatewayConfig
+from durallm.breaker.circuit_breaker import CircuitBreakerConfig
+from durallm.config import GatewayConfig
 
 
 class TestGatewayConfig(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestGatewayConfig(unittest.TestCase):
         # README, docs, GatewayConfig and the proxy CLI used to disagree (8000 / 8080 / 4001).
         import inspect
 
-        from llm_circuit_breaker.proxy import start_proxy_server
+        from durallm.proxy import start_proxy_server
 
         self.assertEqual(GatewayConfig().port, 4001)
         self.assertEqual(inspect.signature(start_proxy_server).parameters["port"].default, GatewayConfig().port)

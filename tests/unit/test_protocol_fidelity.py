@@ -3,20 +3,20 @@
 import time
 import unittest
 
-from llm_circuit_breaker.protocol.anthropic import (
+from durallm.protocol.anthropic import (
     anthropic_request_to_ir,
     ir_to_anthropic_request,
     ir_to_anthropic_response,
 )
-from llm_circuit_breaker.protocol.gemini import clean_gemini_schema, gemini_response_to_ir, ir_to_gemini_request
-from llm_circuit_breaker.protocol.ir import (
+from durallm.protocol.gemini import clean_gemini_schema, gemini_response_to_ir, ir_to_gemini_request
+from durallm.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedResponse,
     NormalizedToolDefinition,
     NormalizedToolResult,
 )
-from llm_circuit_breaker.protocol.openai import ir_to_openai_request, ir_to_openai_response, openai_request_to_ir
+from durallm.protocol.openai import ir_to_openai_request, ir_to_openai_response, openai_request_to_ir
 
 TOOL = NormalizedToolDefinition(name="bash", description="run", parameters={"type": "object", "properties": {}})
 

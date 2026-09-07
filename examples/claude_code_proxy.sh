@@ -2,7 +2,7 @@
 # Quickstart script to start LLM Circuit Breaker Proxy and launch Claude Code
 
 echo "🚀 Starting LLM Circuit Breaker Local Proxy on http://127.0.0.1:8000..."
-python3 -m llm_circuit_breaker.proxy --port 8000 &
+python3 -m durallm.proxy --port 8000 &
 PROXY_PID=$!
 
 sleep 2

@@ -3,31 +3,31 @@
 import time
 import unittest
 
-from llm_circuit_breaker.agent.context import ContextBudget, ContextManager, estimate_tokens
-from llm_circuit_breaker.agent.idempotency import ToolExecutionLedger
-from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
-from llm_circuit_breaker.breaker.state import CircuitBreakerState
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.classifier import classify_failure
-from llm_circuit_breaker.errors import (
+from durallm.agent.context import ContextBudget, ContextManager, estimate_tokens
+from durallm.agent.idempotency import ToolExecutionLedger
+from durallm.agent.tool_validation import ToolCallValidator
+from durallm.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from durallm.breaker.state import CircuitBreakerState
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.classifier import classify_failure
+from durallm.errors import (
     CycleDetectedError,
     DeadlineExceededError,
     FallbackBudgetExhaustedError,
     ProbeAdmissionDeniedError,
 )
-from llm_circuit_breaker.execution.deadline import Deadline
-from llm_circuit_breaker.execution.ledger import AttemptLedger
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.models import FailoverReason, FailureCategory
-from llm_circuit_breaker.protocol.ir import (
+from durallm.execution.deadline import Deadline
+from durallm.execution.ledger import AttemptLedger
+from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from durallm.models import FailoverReason, FailureCategory
+from durallm.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedToolResult,
 )
-from llm_circuit_breaker.routing.requirements import RequirementVector
-from llm_circuit_breaker.routing.router import CapabilityRouter
+from durallm.routing.requirements import RequirementVector
+from durallm.routing.router import CapabilityRouter
 
 
 class TestRedTeamAdversarial(unittest.TestCase):
@@ -182,7 +182,7 @@ class TestRedTeamAdversarial(unittest.TestCase):
         ledger = AttemptLedger(policy)
 
         # Attempt A -> B -> A is prohibited
-        from llm_circuit_breaker.models import AttemptRecord
+        from durallm.models import AttemptRecord
         ledger.record_attempt(AttemptRecord(endpoint_id="ep-a"))
         ledger.record_attempt(AttemptRecord(endpoint_id="ep-b"))
 

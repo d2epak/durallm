@@ -4,7 +4,7 @@ import io
 import unittest
 from unittest.mock import MagicMock
 
-from llm_circuit_breaker.proxy import CircuitBreakerGatewayHandler
+from durallm.proxy import CircuitBreakerGatewayHandler
 
 
 class MockSocket:

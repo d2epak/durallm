@@ -2,20 +2,20 @@
 
 import unittest
 
-from llm_circuit_breaker.errors import CircuitBreakerGatewayError
-from llm_circuit_breaker.observability.logger import redact_sensitive_data
-from llm_circuit_breaker.protocol.ir import (
+from durallm.errors import CircuitBreakerGatewayError
+from durallm.observability.logger import redact_sensitive_data
+from durallm.protocol.ir import (
     NormalizedRequest,
     NormalizedResponse,
     NormalizedToolCall,
     NormalizedToolDefinition,
 )
-from llm_circuit_breaker.security.defense import (
+from durallm.security.defense import (
     enforce_payload_limit,
     sanitize_headers,
     validate_upstream_url,
 )
-from llm_circuit_breaker.validation.response import ResponseValidator
+from durallm.validation.response import ResponseValidator
 
 
 class TestSecurityAndValidation(unittest.TestCase):

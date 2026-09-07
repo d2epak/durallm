@@ -2,8 +2,8 @@
 
 import unittest
 
-from llm_circuit_breaker.execution.policy import RetryPolicy
-from llm_circuit_breaker.models import FailoverReason
+from durallm.execution.policy import RetryPolicy
+from durallm.models import FailoverReason
 from tests.faults.mock_provider import MockFaultAction
 from tests.faults.test_executor_backoff import build_executor, make_request
 

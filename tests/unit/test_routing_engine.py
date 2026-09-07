@@ -2,10 +2,10 @@
 
 import unittest
 
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.routing import (
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.routing import (
     CapabilityRouter,
     RequirementVector,
 )

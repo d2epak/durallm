@@ -44,7 +44,7 @@ def ensure_gateway_running(port: int = DEFAULT_GATEWAY_PORT) -> Optional[subproc
     print(f"[⚡] Starting LLM Circuit Breaker Gateway on port {port}...")
     log_file = open("gateway.log", "a", encoding="utf-8")
     proc = subprocess.Popen(
-        [sys.executable, "-m", "llm_circuit_breaker.proxy", "--port", str(port)],
+        [sys.executable, "-m", "durallm.proxy", "--port", str(port)],
         stdout=log_file,
         stderr=subprocess.STDOUT,
         start_new_session=True,

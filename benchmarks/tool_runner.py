@@ -11,7 +11,7 @@ import hashlib
 import json
 from typing import Any, Dict, List, Tuple
 
-from llm_circuit_breaker.protocol.ir import NormalizedToolCall
+from durallm.protocol.ir import NormalizedToolCall
 
 
 class ToolRunner:

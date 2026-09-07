@@ -4,9 +4,9 @@ import threading
 import unittest
 from typing import List
 
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
-from llm_circuit_breaker.breaker.state import CircuitBreakerState
-from llm_circuit_breaker.errors import BreakerOpenError, ProbeAdmissionDeniedError
+from durallm.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from durallm.breaker.state import CircuitBreakerState
+from durallm.errors import BreakerOpenError, ProbeAdmissionDeniedError
 
 
 class ControlledClock:

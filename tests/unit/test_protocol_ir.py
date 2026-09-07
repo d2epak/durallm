@@ -2,7 +2,7 @@
 
 import unittest
 
-from llm_circuit_breaker.protocol import (
+from durallm.protocol import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedToolCall,

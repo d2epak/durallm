@@ -8,12 +8,12 @@ import unittest
 import urllib.error
 from unittest.mock import patch
 
-from llm_circuit_breaker.capability.profile import Endpoint
-from llm_circuit_breaker.classifier import classify_failure
-from llm_circuit_breaker.errors import CircuitBreakerGatewayError, ConfigurationError
-from llm_circuit_breaker.models import FailoverReason
-from llm_circuit_breaker.providers.adapters import AnthropicAdapter, OpenAICompatibleAdapter, ProviderAdapterRegistry
-from llm_circuit_breaker.providers.base import PreparedRequest, ProviderExecutionResult
+from durallm.capability.profile import Endpoint
+from durallm.classifier import classify_failure
+from durallm.errors import CircuitBreakerGatewayError, ConfigurationError
+from durallm.models import FailoverReason
+from durallm.providers.adapters import AnthropicAdapter, OpenAICompatibleAdapter, ProviderAdapterRegistry
+from durallm.providers.base import PreparedRequest, ProviderExecutionResult
 
 PREPARED = PreparedRequest(url="https://api.example.com/v1/chat/completions", headers={}, body_bytes=b"{}")
 ENV_NO_LOCAL = {k: v for k, v in os.environ.items() if k != "LLM_BREAKER_ALLOW_LOCAL_UPSTREAM"}

@@ -11,8 +11,8 @@ import re
 import unittest
 from pathlib import Path
 
-from llm_circuit_breaker.capability.registry import DEFAULT_CAPABILITY_REGISTRY
-from llm_circuit_breaker.providers.adapters import DEFAULT_ADAPTER_REGISTRY
+from durallm.capability.registry import DEFAULT_CAPABILITY_REGISTRY
+from durallm.providers.adapters import DEFAULT_ADAPTER_REGISTRY
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 README = Path(__file__).resolve().parents[1] / "README.md"

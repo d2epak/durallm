@@ -4,11 +4,11 @@ import os
 import tempfile
 import unittest
 
-from llm_circuit_breaker.agent.idempotency import ToolExecutionStatus
-from llm_circuit_breaker.errors import IndeterminateToolOperationError
-from llm_circuit_breaker.execution.policy import RetryPolicy
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolDefinition
-from llm_circuit_breaker.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
+from durallm.agent.idempotency import ToolExecutionStatus
+from durallm.errors import IndeterminateToolOperationError
+from durallm.execution.policy import RetryPolicy
+from durallm.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolDefinition
+from durallm.storage import SQLitePersistenceStore, SQLiteToolExecutionLedger
 from tests.faults.mock_provider import MockFaultAction
 from tests.faults.test_executor_backoff import build_executor
 

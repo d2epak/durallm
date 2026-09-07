@@ -1,15 +1,15 @@
 import unittest
 from unittest.mock import MagicMock
 
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.classifier import FailoverReason, classify_api_error
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest
-from llm_circuit_breaker.providers.base import ProviderExecutionResult
-from llm_circuit_breaker.routing.requirements import RequirementVector
-from llm_circuit_breaker.routing.router import CapabilityRouter
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.classifier import FailoverReason, classify_api_error
+from durallm.execution.executor import GatewayExecutor
+from durallm.health.telemetry import HealthTelemetryStore
+from durallm.protocol.ir import NormalizedMessage, NormalizedRequest
+from durallm.providers.base import ProviderExecutionResult
+from durallm.routing.requirements import RequirementVector
+from durallm.routing.router import CapabilityRouter
 
 
 class TestDeadListPruning(unittest.TestCase):

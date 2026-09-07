@@ -2,17 +2,17 @@
 
 import unittest
 
-from llm_circuit_breaker.capability.profile import Endpoint
-from llm_circuit_breaker.health import HealthTelemetryStore
-from llm_circuit_breaker.protocol.ir import (
+from durallm.capability.profile import Endpoint
+from durallm.health import HealthTelemetryStore
+from durallm.protocol.ir import (
     NormalizedRequest,
     NormalizedResponse,
     NormalizedToolCall,
 )
-from llm_circuit_breaker.providers import (
+from durallm.providers import (
     GeminiAdapter,
 )
-from llm_circuit_breaker.streaming import (
+from durallm.streaming import (
     synthesize_anthropic_sse,
     synthesize_openai_sse,
 )

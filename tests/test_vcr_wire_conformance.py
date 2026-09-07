@@ -10,7 +10,7 @@ Tests streaming resilience against real-world provider wire quirks:
 import json
 import unittest
 
-from llm_circuit_breaker.streaming.parser import ParsedSSEEvent, SSEStreamParser, WireStreamAssembler
+from durallm.streaming.parser import ParsedSSEEvent, SSEStreamParser, WireStreamAssembler
 
 
 class TestVCRWireConformance(unittest.TestCase):

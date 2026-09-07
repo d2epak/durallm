@@ -2,13 +2,13 @@
 
 import unittest
 
-from llm_circuit_breaker.agent import (
+from durallm.agent import (
     AgentState,
     ContextBudget,
     ContextManager,
     estimate_tokens,
 )
-from llm_circuit_breaker.protocol.ir import (
+from durallm.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedToolDefinition,

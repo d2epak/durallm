@@ -2,19 +2,19 @@
 
 import unittest
 
-from llm_circuit_breaker.errors import (
+from durallm.errors import (
     CycleDetectedError,
     DeadlineExceededError,
     FallbackBudgetExhaustedError,
 )
-from llm_circuit_breaker.execution import (
+from durallm.execution import (
     AttemptLedger,
     Deadline,
     ExecutionPolicy,
     FallbackPolicy,
     RetryPolicy,
 )
-from llm_circuit_breaker.models import AttemptRecord
+from durallm.models import AttemptRecord
 
 
 class MockClock:

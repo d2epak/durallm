@@ -13,14 +13,14 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from benchmarks.tool_runner import ToolRunner
-from llm_circuit_breaker.agent.context import estimate_tokens
-from llm_circuit_breaker.protocol.ir import (
+from durallm.agent.context import estimate_tokens
+from durallm.protocol.ir import (
     NormalizedMessage,
     NormalizedRequest,
     NormalizedResponse,
     NormalizedToolDefinition,
 )
-from llm_circuit_breaker.routing.requirements import RequirementVector
+from durallm.routing.requirements import RequirementVector
 from tests.faults.mock_provider import MockFaultAction, ProgrammableMockAdapter
 
 SECONDARY_CONTEXT_WINDOW = 32768

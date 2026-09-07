@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from llm_circuit_breaker.discovery import (
+from durallm.discovery import (
     discover_models,
     is_model_free,
     supports_tool_calling,
@@ -32,7 +32,7 @@ class TestModelDiscovery(unittest.TestCase):
             {"id": "paid/model-2", "context_length": 65536, "pricing": {"prompt": "0.01", "completion": "0.02"}, "supported_parameters": ["tools"]},
             {"id": "small/model-3:free", "context_length": 4096, "pricing": {"prompt": "0", "completion": "0"}, "supported_parameters": ["tools"]},
         ]
-        with patch("llm_circuit_breaker.discovery.fetch_openrouter_catalog", return_value=raw):
+        with patch("durallm.discovery.fetch_openrouter_catalog", return_value=raw):
             catalog = discover_models(force=True, catalog_path=self.test_path)
 
         self.assertEqual(catalog["total_free_models_discovered"], 1)

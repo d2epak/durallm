@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llm-circuit-breaker"
+name = "durallm"
 version = "0.2.0"
 authors = [
   { name="Deepak", email="deepak@users.noreply.github.com" },
 ]
-description = "Zero-downtime, self-healing multi-provider LLM failover engine with autonomous free-model discovery and multi-agent isolation for AI agents (Claude Code, Hermes, OpenClaw)."
+description = "Durable, self-healing multi-provider LLM gateway and circuit breaker with autonomous failover, tool idempotency, and context compaction for AI agents (Claude Code, Hermes, OpenClaw, OpenCode)."
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
@@ -47,7 +47,7 @@ testpaths = ["tests"]
 
 [tool.coverage.run]
 branch = true
-source = ["llm_circuit_breaker"]
+source = ["durallm"]
 
 [tool.coverage.report]
 # The existing full suite establishes a measured 77% baseline; keep CI above
@@ -74,14 +74,16 @@ python_version = "3.10"
 # dependencies remain runtime-tested, but are outside this incremental typing
 # boundary; without this MyPy recursively applies --strict to the whole proxy.
 follow_imports = "skip"
-files = ["src/llm_circuit_breaker/breaker"]
+files = ["src/durallm/breaker"]
 strict = true
 warn_unused_configs = true
 
 [project.scripts]
-llm-proxy = "llm_circuit_breaker.proxy:main"
-llm-discover = "llm_circuit_breaker.discovery:main"
+durallm = "durallm.proxy:main"
+durallm-discover = "durallm.discovery:main"
+llm-proxy = "durallm.proxy:main"
+llm-discover = "durallm.discovery:main"
 
 [project.urls]
-"Homepage" = "https://github.com/d2epak/llm-circuit-breaker"
-"Bug Tracker" = "https://github.com/d2epak/llm-circuit-breaker/issues"
+"Homepage" = "https://github.com/d2epak/durallm"
+"Bug Tracker" = "https://github.com/d2epak/durallm/issues"

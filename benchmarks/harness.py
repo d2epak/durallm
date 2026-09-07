@@ -26,26 +26,26 @@ from unittest.mock import patch
 
 from benchmarks.scenarios import BenchmarkScenario, ScenarioRun, ScenarioTurn, get_all_scenarios
 from benchmarks.tool_runner import ToolRunner
-from llm_circuit_breaker.agent.idempotency import ToolExecutionLedger
-from llm_circuit_breaker.agent.tool_validation import ToolCallValidator
-from llm_circuit_breaker.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
-from llm_circuit_breaker.breaker.registry import CircuitBreakerRegistry
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.errors import CircuitBreakerGatewayError
-from llm_circuit_breaker.execution.executor import GatewayExecutor
-from llm_circuit_breaker.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
-from llm_circuit_breaker.health.telemetry import HealthTelemetryStore
-from llm_circuit_breaker.pools import IsolatedPoolManager, RouteDefinition
-from llm_circuit_breaker.protocol.ir import NormalizedRequest, NormalizedResponse, NormalizedToolCall
-from llm_circuit_breaker.protocol.openai import (
+from durallm.agent.idempotency import ToolExecutionLedger
+from durallm.agent.tool_validation import ToolCallValidator
+from durallm.breaker.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from durallm.breaker.registry import CircuitBreakerRegistry
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.errors import CircuitBreakerGatewayError
+from durallm.execution.executor import GatewayExecutor
+from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolicy
+from durallm.health.telemetry import HealthTelemetryStore
+from durallm.pools import IsolatedPoolManager, RouteDefinition
+from durallm.protocol.ir import NormalizedRequest, NormalizedResponse, NormalizedToolCall
+from durallm.protocol.openai import (
     ir_to_openai_request,
     ir_to_openai_response,
     openai_request_to_ir,
     openai_response_to_ir,
 )
-from llm_circuit_breaker.providers.adapters import ProviderAdapterRegistry
-from llm_circuit_breaker.router import UniversalFailoverRouter
+from durallm.providers.adapters import ProviderAdapterRegistry
+from durallm.router import UniversalFailoverRouter
 from tests.faults.mock_provider import ProgrammableMockAdapter
 
 V3_NAME = "LLM-Circuit-Breaker-V3"
@@ -314,7 +314,7 @@ class V1PrototypeRunner:
 
     def run(self, turn: ScenarioTurn) -> NormalizedResponse:
         payload = ir_to_openai_request(turn.request, "default")
-        with patch("llm_circuit_breaker.router.execute_upstream_request", self._upstream):
+        with patch("durallm.router.execute_upstream_request", self._upstream):
             status, parsed, _ = self.router.dispatch(turn.pool, payload)
         if status != 200:
             raise UpstreamError(f"HTTP {status}")

@@ -3,7 +3,7 @@
 import json
 import unittest
 
-from llm_circuit_breaker.translators import (
+from durallm.translators import (
     anthropic_to_openai_request,
     clean_gemini_schema,
     openai_to_anthropic_response,

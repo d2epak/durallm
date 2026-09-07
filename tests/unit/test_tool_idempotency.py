@@ -2,7 +2,7 @@
 
 import unittest
 
-from llm_circuit_breaker.agent.idempotency import (
+from durallm.agent.idempotency import (
     ToolExecutionLedger,
     ToolExecutionStatus,
 )

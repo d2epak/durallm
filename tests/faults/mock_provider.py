@@ -6,13 +6,13 @@ import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
-from llm_circuit_breaker.agent.context import estimate_tokens
-from llm_circuit_breaker.capability.profile import Endpoint
-from llm_circuit_breaker.protocol.ir import (
+from durallm.agent.context import estimate_tokens
+from durallm.capability.profile import Endpoint
+from durallm.protocol.ir import (
     NormalizedRequest,
     NormalizedResponse,
 )
-from llm_circuit_breaker.providers.base import (
+from durallm.providers.base import (
     PreparedRequest,
     ProviderExecutionResult,
 )
@@ -196,6 +196,6 @@ class ProgrammableMockAdapter:
         endpoint: Endpoint,
         result: ProviderExecutionResult,
     ) -> NormalizedResponse:
-        from llm_circuit_breaker.protocol.openai import openai_response_to_ir
+        from durallm.protocol.openai import openai_response_to_ir
         raw_json = json.loads(result.body.decode("utf-8"))
         return openai_response_to_ir(raw_json)

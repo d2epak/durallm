@@ -40,7 +40,7 @@ pytest
 ```
 To run tests with coverage reporting:
 ```bash
-pytest --cov=llm_circuit_breaker --cov-report=term-missing
+pytest --cov=durallm --cov-report=term-missing
 ```
 
 ### Code Formatting and Linting
@@ -53,7 +53,7 @@ ruff format . --check
 ### Type Checking
 We enforce strict typing with `mypy`:
 ```bash
-mypy src/llm_circuit_breaker
+mypy src/durallm
 ```
 
 ---

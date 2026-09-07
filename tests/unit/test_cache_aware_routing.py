@@ -2,13 +2,13 @@
 
 import unittest
 
-from llm_circuit_breaker.capability.profile import Endpoint, ModelProfile
-from llm_circuit_breaker.capability.registry import CapabilityRegistry
-from llm_circuit_breaker.protocol.anthropic import anthropic_request_to_ir, ir_to_anthropic_request
-from llm_circuit_breaker.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolDefinition
-from llm_circuit_breaker.routing.cache import PromptCacheTracker, compute_prefix_hash
-from llm_circuit_breaker.routing.requirements import RequirementVector
-from llm_circuit_breaker.routing.router import CapabilityRouter
+from durallm.capability.profile import Endpoint, ModelProfile
+from durallm.capability.registry import CapabilityRegistry
+from durallm.protocol.anthropic import anthropic_request_to_ir, ir_to_anthropic_request
+from durallm.protocol.ir import NormalizedMessage, NormalizedRequest, NormalizedToolDefinition
+from durallm.routing.cache import PromptCacheTracker, compute_prefix_hash
+from durallm.routing.requirements import RequirementVector
+from durallm.routing.router import CapabilityRouter
 
 
 class TestCacheAwareRouting(unittest.TestCase):

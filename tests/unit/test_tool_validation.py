@@ -2,7 +2,7 @@
 
 import unittest
 
-from llm_circuit_breaker.agent.tool_validation import (
+from durallm.agent.tool_validation import (
     ToolCallResult,
     ToolCallValidator,
 )

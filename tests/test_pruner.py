@@ -2,7 +2,7 @@
 
 import unittest
 
-from llm_circuit_breaker.pruner import (
+from durallm.pruner import (
     estimate_tokens,
     prune_anthropic_request,
     prune_openai_request,

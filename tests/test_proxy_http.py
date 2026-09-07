@@ -11,7 +11,7 @@ import threading
 import unittest
 import urllib.request
 
-from llm_circuit_breaker.proxy import start_proxy_server
+from durallm.proxy import start_proxy_server
 
 
 class TestProxyHttpEndpoints(unittest.TestCase):
@@ -51,7 +51,7 @@ class TestProxyHttpEndpoints(unittest.TestCase):
         self.assertIn("breakers", body)
 
     def test_every_response_emits_a_structured_event(self):
-        with self.assertLogs("llm_circuit_breaker.events", level="INFO") as cm:
+        with self.assertLogs("durallm.events", level="INFO") as cm:
             self._get("/health")
         events = [json.loads(r.getMessage()) for r in cm.records]
         hit = [e for e in events if e["event"] == "proxy_response" and e["data"]["path"] == "/health"]
