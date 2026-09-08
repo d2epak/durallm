@@ -378,6 +378,9 @@ class IsolatedPoolManager:
         # Quota exhausted models until reset: map (pool, route_id) -> reset_epoch
         self.exhausted_quotas: Dict[tuple[str, str], float] = {}
 
+        # Account-wide daily provider quota lockouts (e.g. OpenRouter free-models-per-day): provider -> reset_epoch
+        self.account_lockouts: Dict[str, float] = {}
+
     def refresh_keys(self) -> None:
         with self._lock:
             self.keys = load_all_env_keys()
@@ -397,14 +400,16 @@ class IsolatedPoolManager:
             logger.warning("[🛑 QUOTA EXHAUSTED] Pool '%s' route '%s' locked out for %.1fh", pool, route_id, seconds / 3600)
 
     def mark_provider_quota_exhausted(self, pool: str, provider: str, seconds: float = 86400.0) -> None:
-        """Mark all routes for a given provider in a pool as having exhausted quota."""
+        """Mark all routes for a given provider in a pool and the entire provider account as having exhausted quota."""
         with self._lock:
+            p = provider.lower()
+            self.account_lockouts[p] = time.time() + seconds
             routes = self.coding_routes if pool == "coding" else self.agent_routes
             for r in routes:
-                if r.provider.lower() == provider.lower():
+                if r.provider.lower() == p:
                     key = (pool.lower(), r.id.lower())
                     self.exhausted_quotas[key] = time.time() + seconds
-            logger.warning("[🛑 PROVIDER QUOTA EXHAUSTED] Pool '%s' all routes for '%s' locked out for %.1fh", pool, provider, seconds / 3600)
+            logger.warning("[🛑 PROVIDER QUOTA EXHAUSTED] Pool '%s' provider '%s' (all routes) locked out for %.1fh", pool, provider, seconds / 3600)
 
     def clear_cooldown(self, provider: str, pool: Optional[str] = None) -> None:
         """Clear active cooldown for a provider."""
@@ -420,14 +425,22 @@ class IsolatedPoolManager:
             key = (pool.lower(), provider.lower())
             return time.monotonic() < self.cooldowns.get(key, 0.0)
 
-    def is_route_quota_exhausted(self, pool: str, route_id: str) -> bool:
-        """Check whether a route is currently locked out by daily quota in the given pool."""
+    def is_route_quota_exhausted(self, pool: str, route_id: str, provider: Optional[str] = None) -> bool:
+        """Check whether a route or its provider account is currently locked out by daily quota."""
         with self._lock:
+            now = time.time()
+            if provider and now < self.account_lockouts.get(provider.lower(), 0.0):
+                return True
             key = (pool.lower(), route_id.lower())
-            return time.time() < self.exhausted_quotas.get(key, 0.0)
+            return now < self.exhausted_quotas.get(key, 0.0)
+
+    def is_provider_quota_exhausted(self, provider: str) -> bool:
+        """Check whether an entire provider account is under daily quota lockout."""
+        with self._lock:
+            return time.time() < self.account_lockouts.get(provider.lower(), 0.0)
 
     def auto_expire_cooldowns(self, pool: Optional[str] = None) -> None:
-        """Purge expired short-term cooldowns and long-term quota lockouts."""
+        """Purge expired short-term cooldowns, long-term route quotas, and provider account lockouts."""
         with self._lock:
             now_mono = time.monotonic()
             now_epoch = time.time()
@@ -441,7 +454,7 @@ class IsolatedPoolManager:
                 del self.cooldowns[k]
                 logger.info("[🔄 RESTORED] Pool '%s' cloud provider '%s' cooldown expired. Route reactivated.", k[0], k[1])
 
-            # 2. Purge expired daily quota lockouts (24h)
+            # 2. Purge expired daily route quota lockouts (24h)
             expired_quotas = [
                 k for k, exp in self.exhausted_quotas.items()
                 if (pool is None or k[0] == pool.lower()) and now_epoch >= exp
@@ -449,6 +462,15 @@ class IsolatedPoolManager:
             for k in expired_quotas:
                 del self.exhausted_quotas[k]
                 logger.info("[🔄 QUOTA RESET] Pool '%s' route '%s' daily lockout expired. Route reactivated.", k[0], k[1])
+
+            # 3. Purge expired provider account lockouts
+            expired_accounts = [
+                p for p, exp in self.account_lockouts.items()
+                if now_epoch >= exp
+            ]
+            for p in expired_accounts:
+                del self.account_lockouts[p]
+                logger.info("[🔄 RESTORED] Provider account '%s' daily quota lockout expired. Routes reactivated.", p)
 
     def mark_deprecated(self, pool: str, model: str) -> None:
         """Permanently skip model in this pool for current process lifecycle."""
@@ -461,7 +483,6 @@ class IsolatedPoolManager:
             self.auto_expire_cooldowns(pool)
             routes = self.coding_routes if pool == "coding" else self.agent_routes
             now_mono = time.monotonic()
-            now_epoch = time.time()
             valid: List[RouteDefinition] = []
 
             for r in routes:
@@ -478,8 +499,7 @@ class IsolatedPoolManager:
                 if (pool.lower(), r.model.lower()) in self.deprecated:
                     continue
 
-                quota_reset = self.exhausted_quotas.get((pool.lower(), r.id.lower()), 0)
-                if now_epoch < quota_reset:
+                if self.is_route_quota_exhausted(pool, r.id, r.provider):
                     continue
 
                 cooldown_exp = self.cooldowns.get((pool.lower(), r.provider.lower()), 0)

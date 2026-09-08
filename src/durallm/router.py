@@ -13,7 +13,9 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from durallm._env import ALLOW_LOCAL_UPSTREAM_ENV
 from durallm.classifier import (
     FailoverReason,
+    calculate_seconds_until_utc_midnight,
     classify_api_error,
+    parse_input_tpm_limit,
     parse_output_cap_from_error,
 )
 from durallm.errors import CircuitBreakerGatewayError
@@ -27,6 +29,20 @@ from durallm.translators import (
 
 logger = logging.getLogger("durallm.router")
 DEFAULT_TIMEOUT = int(os.environ.get("GATEWAY_TIMEOUT", "120"))
+
+
+def calculate_adaptive_timeout(provider: str, payload: Dict[str, Any], default_timeout: float = 120.0) -> float:
+    """Calculate adaptive transport timeout based on provider compute tier and estimated payload tokens."""
+    p = (provider or "").lower()
+    base = 45.0 if p in ("nvidia", "sambanova", "cerebras") else 35.0
+    messages = payload.get("messages", [])
+    char_count = sum(len(str(m.get("content", ""))) for m in messages if isinstance(m, dict))
+    approx_tokens = char_count // 4
+    if approx_tokens > 16000:
+        base += 25.0
+    elif approx_tokens > 8000:
+        base += 15.0
+    return min(default_timeout, base)
 
 
 def resolve_secret(key_name: str) -> Optional[str]:
@@ -286,7 +302,8 @@ class UniversalFailoverRouter:
 
             effective_context = route.context_length
             pruned_payload = prune_openai_request(openai_payload, effective_context)
-            status, headers, body = execute_upstream_request(route, pruned_payload)
+            adaptive_timeout = calculate_adaptive_timeout(route.provider, pruned_payload, default_timeout=float(DEFAULT_TIMEOUT))
+            status, headers, body = execute_upstream_request(route, pruned_payload, timeout=int(adaptive_timeout))
 
             if status == 200:
                 try:
@@ -300,7 +317,7 @@ class UniversalFailoverRouter:
                     logger.warning("Provider %s returned invalid JSON: %s", route.provider, e)
                     status = 502
 
-            classified = classify_api_error(body.decode("utf-8", errors="ignore"), status_code=status)
+            classified = classify_api_error(body.decode("utf-8", errors="ignore"), status_code=status, pool=pool, route_id=route.id, provider=route.provider)
             logger.warning(
                 "[%s] Upstream error from %s (%d): %s (classified as: %s)",
                 pool.upper(), route.provider, status, classified.message[:160], classified.reason
@@ -320,8 +337,26 @@ class UniversalFailoverRouter:
                     openai_payload["max_tokens"] = clamped_tokens
                     continue
 
+            # In-flight compaction if input TPM or size rejection reported
+            if classified.reason in (FailoverReason.payload_too_large, FailoverReason.context_overflow):
+                raw_body = body.decode("utf-8", errors="ignore")
+                in_limit = parse_input_tpm_limit(raw_body)
+                if in_limit and in_limit > 0:
+                    target_tokens = max(1000, int(in_limit * 0.85))
+                    logger.info(
+                        "Input TPM / token limit %d detected from %s; pruning payload to %d tokens and retrying immediately...",
+                        in_limit, route.provider, target_tokens
+                    )
+                    openai_payload = prune_openai_request(openai_payload, target_tokens)
+                    continue
+
             if classified.reason == FailoverReason.billing:
-                self.pool_manager.mark_quota_exhausted(pool, route.id, 86400)
+                msg_lower = (classified.message or "").lower()
+                if "free-models-per-day" in msg_lower or "free model requests" in msg_lower or route.provider.lower() == "openrouter":
+                    reset_sec = calculate_seconds_until_utc_midnight()
+                    self.pool_manager.mark_provider_quota_exhausted(pool, route.provider, reset_sec)
+                else:
+                    self.pool_manager.mark_quota_exhausted(pool, route.id, 86400)
                 continue
 
             if classified.reason in (FailoverReason.rate_limit, FailoverReason.upstream_rate_limit):
@@ -338,7 +373,7 @@ class UniversalFailoverRouter:
                 continue
 
             if classified.reason in (FailoverReason.overloaded, FailoverReason.server_error, FailoverReason.timeout, FailoverReason.connection_refused):
-                self.pool_manager.mark_cooldown(pool, route.provider, 45.0)
+                self.pool_manager.mark_cooldown(pool, route.provider, 30.0)  # Tier 1 transient probe cooldown
                 continue
 
         return 503, {"error": {"message": f"All providers in pool '{pool}' are temporarily unavailable."}}, None

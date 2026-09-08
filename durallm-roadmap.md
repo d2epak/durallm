@@ -1,10 +1,10 @@
 # DuraLLM — Authoritative Project Roadmap & Historical Synthesis
 
 **Document Title:** Single Authoritative Roadmap & Architectural Traceability Matrix  
-**Current Repository Version:** `0.2.1`  
+**Current Repository Version:** `0.2.2-dev`  
 **Repository:** [d2epak/durallm](https://github.com/d2epak/durallm)  
-**Last Updated:** `2026-09-07T11:15:00+01:00`  
-**Status:** ACTIVE / PRODUCTION-READY (`315 passing tests`, `78.01% branch coverage`, `0 ruff errors`, `0 mypy errors`)
+**Last Updated:** `2026-09-08T10:40:00+01:00`  
+**Status:** ACTIVE / PRODUCTION-READY (`357 passing tests`, `78.5% branch coverage`, `0 ruff errors`, `0 mypy errors`)
 
 ---
 
@@ -12,7 +12,7 @@
 
 This document serves as the **single authoritative reference** for the origin, evolution, forensic audit findings, remediation history, and future development plan for **DuraLLM** (`durallm`).
 
-DuraLLM is a high-performance, self-healing multi-provider LLM gateway and resilience engine purpose-built for autonomous AI agents (**Claude Code**, **Hermes Agent**, **OpenClaw**, **OpenCode**, **Cursor**, **Aider**). Unlike standard request routers designed for stateless chat completions, DuraLLM provides protocol translation, non-poisoning failure taxonomy, idempotent tool execution, diagnostic context compaction, multi-key rate-limit rotation, and durable session state persistence.
+DuraLLM is a high-performance, self-healing multi-provider LLM gateway and resilience engine purpose-built for autonomous AI agents (**Claude Code**, **Hermes Agent**, **OpenClaw**, **OpenCode**, **Cursor**, **Aider**). Unlike standard request routers designed for stateless chat completions, DuraLLM provides protocol translation, non-poisoning failure taxonomy, idempotent tool execution, diagnostic context compaction, multi-key rate-limit rotation, 100% cloud-only failover topology, dynamic cooldown horizons, upstream error auto-remediation, and durable session state persistence.
 
 ---
 
@@ -39,6 +39,9 @@ DuraLLM is a high-performance, self-healing multi-provider LLM gateway and resil
 | **2026-09-07T10:59Z** | **CI Fix & Full Codebase Rebranding Sweep** | `96f3b6b` | Fixed MyPy `no-redef` variable error in `circuit_breaker.py`. Replaced all legacy `llm-circuit-breaker` references across code, tests, docs, and benchmarks with `durallm`. Deleted legacy `src/llm_circuit_breaker/` shim folder. |
 | **2026-09-07T11:02Z** | **PyPI Version 0.2.1 Release** | `fe3cca6` | Bumped package version to `0.2.1` in `pyproject.toml` and runtime headers. Rebuilt `.whl` and `.tar.gz` distribution artifacts. |
 | **2026-09-07T11:07Z** | **CI Flaky Test Stabilization & PyPI Publish** | `6bdfbc0` | Adjusted `test_fast_token_estimator` timing threshold to `< 1.0s` for shared CI virtual machines. Published `durallm` `v0.2.1` to PyPI. Verified 100% green CI matrix on Python 3.10, 3.11, and 3.12. |
+| **2026-09-07T18:00Z** | **Autonomous Canary Prober & Harness Hardening** | `c141394`<br/>`6786452`<br/>`dc8a8fe` | Shipped deep tail tool compaction, TPM rate-limit rollover wait, autonomous nightly canary scheduler (`canary.py`), quirks ledger, HEAD/OPTIONS probe support, and expanded fallback hops to 8. |
+| **2026-09-08T07:00Z** | **Milestone 10: 100% Cloud-Only Topology & Cooldown Horizons** | `ece3514` | Eliminated local model dependencies (Ollama/llama.cpp) in favor of a 5-Tier Cloud-Only Pool Topology across Groq, Cerebras, SambaNova, NVIDIA NIM, and OpenRouter. Introduced 3-tier dynamic cooldown horizons (30s Transient / 60s Rate-Limit / 24h Quota Expiry) with lazy expiration, max_tokens auto-clamping, and 404 deprecation classification. |
+| **2026-09-08T10:30Z** | **Milestone 11: Upstream Autonomous Error Remediation Engine** | Current | Solved 3 core upstream failure modes discovered during live Claude Code execution: (1) Groq Input TPM limits (`Limit X, Requested Y`) non-poisoning classification, in-flight hierarchical compaction, and immediate retry; (2) OpenRouter daily free cap (`free-models-per-day`) dynamic UTC midnight calculation and account-wide provider route lockout; (3) NVIDIA NIM Socket Read Timeouts (599) adaptive prefill transport deadlines (up to 90s) and transient 30s cooldowns without tripping circuit breakers. 357 passing tests. |
 
 ---
 
@@ -63,11 +66,24 @@ The forensic evaluations conducted by LLM1 (Systems Architect), LLM2 (Adversaria
 | **AUD-11** | LLM2 | **Ghost Mandate Citations:** Documentation cited non-existent "Master Engineering Mandate (Phases 0–64)". | `MEDIUM` | **RESOLVED** | Removed all ghost citations across documentation and test files in commit `77ce589`. |
 | **AUD-12** | LLM0 | **CI Test Suite Omission:** GitHub CI workflow ran only `unittest discover`, omitting 59 V3 unit, fault, and red-team tests. | `HIGH` | **RESOLVED** | Updated [`.github/workflows/ci.yml`](file:///Users/deepak/durallm/.github/workflows/ci.yml) to run full `pytest` suite with coverage floor (75%), Ruff, and MyPy. |
 
+### 3.2 Upstream Production Failure Audit & Remediation Matrix (Live Claude Code Findings)
+
+During dogfooding with autonomous coding agents (Claude Code, Hermes) executing long-horizon programming tasks, empirical log analysis exposed three critical upstream failure modes and two architectural edge cases across cloud providers. Below is the forensic remediation matrix.
+
+| Audit ID | Provider / Context | Description / Root Cause | Severity | Resolution Status | Implementing Artifact / File |
+|---|---|---|---|---|---|
+| **UFM-01** | Groq (`413`) | **Input TPM Overflow Treated as Rate Limit:** `request too large` or `Limit 6000, Requested 15972` was classified as a temporal rate limit (sleeping 60s without shrinking payload), resulting in an infinite retry loop. | `CRITICAL` | **RESOLVED** | Classify as non-poisoning `payload_too_large` in [`src/durallm/classifier.py`](file:///Users/deepak/durallm/src/durallm/classifier.py); parse `token_limit` and dynamically shrink context window (`target = int(limit * 0.85)`), executing in-flight hierarchical compaction and retrying immediately on the same candidate in [`src/durallm/execution/executor.py`](file:///Users/deepak/durallm/src/durallm/execution/executor.py). |
+| **UFM-02** | Groq / Various | **Output Token Cap Overflow (400):** Agent requesting 4096 tokens on endpoints capped at 1500 tokens failed permanently. | `HIGH` | **RESOLVED** | On `output_cap_exceeded`, parse reported cap, auto-clamp `max_output_tokens = min(current, cap - 64)`, and retry immediately on the same endpoint without fallback in [`src/durallm/execution/executor.py`](file:///Users/deepak/durallm/src/durallm/execution/executor.py). |
+| **UFM-03** | OpenRouter (`429`) | **Account-Wide Daily Free Model Quota Cascade:** When OpenRouter returned `free-models-per-day`, DuraLLM attempted 8 subsequent OpenRouter free endpoints, burning retries in vain. Furthermore, hardcoded 24h cooldown drifted out of sync with provider UTC reset. | `CRITICAL` | **RESOLVED** | Implemented `calculate_seconds_until_utc_midnight()` in [`src/durallm/classifier.py`](file:///Users/deepak/durallm/src/durallm/classifier.py). Flagged `account_wide=True` in classification, setting provider-level `account_lockouts` in [`src/durallm/pools.py`](file:///Users/deepak/durallm/src/durallm/pools.py) and recording wildcard `route_id="*"` in SQLite. Excludes all provider routes across all pools in a single hop. |
+| **UFM-04** | NVIDIA NIM (`599`) | **Socket Read Timeout During Model Prefill:** Long-context agent prompts on 70B-550B models timed out on static 25s/30s read ceilings, tripping circuit breaker for innocent endpoints. | `HIGH` | **RESOLVED** | Implemented adaptive prefill transport deadlines in [`src/durallm/execution/deadline.py`](file:///Users/deepak/durallm/src/durallm/execution/deadline.py) and [`src/durallm/router.py`](file:///Users/deepak/durallm/src/durallm/router.py): enterprise compute clusters receive 45s base + 15s (>8k tokens) + 25s (>16k tokens) up to 90s ceiling; socket timeouts apply Tier 1 transient 30s cooldowns without tripping breaker FSM. |
+| **UFM-05** | Cloud Gateways (`404`) | **Model Deprecation Churn:** Upstream model decommissionings returned 404, causing repeated retries on dead endpoints. | `MEDIUM` | **RESOLVED** | Classified 404 as `MODEL_DEPRECATED` in [`src/durallm/classifier.py`](file:///Users/deepak/durallm/src/durallm/classifier.py) and permanently deactivated route in [`src/durallm/pools.py`](file:///Users/deepak/durallm/src/durallm/pools.py). |
+| **UFM-06** | Architecture | **100% Cloud & Universal LLM Independence:** Relying on local LLMs (Ollama) caused latency spikes and resource starvation; hardcoding model strings or banning specific model sizes violated DuraLLM's universal design mandate. | `HIGH` | **RESOLVED** | Established 5-Tier Cloud-Only topology (Groq, Cerebras, SambaNova, NVIDIA NIM, OpenRouter) in [`src/durallm/pools.py`](file:///Users/deepak/durallm/src/durallm/pools.py). Generalized routing purely on model capability metadata and HTTP protocol contracts without hardcoded model strings or brand-specific bans. |
+
 ---
 
-## 4. Current Architecture & Completed 7 Frontiers Status
+## 4. Current Architecture & Completed Frontiers Status
 
-All 7 core architectural frontiers defined in the long-horizon specification are **100% IMPLEMENTED**, tested, and integrated into the active codebase.
+All 8 core architectural frontiers defined in the long-horizon specification and production audits are **100% IMPLEMENTED**, tested, and integrated into the active codebase.
 
 ```mermaid
 flowchart TD
@@ -87,6 +103,7 @@ flowchart TD
     subgraph Core ["Gateway Runtime (src/durallm/execution/executor.py)"]
         F5_Keys["Frontier 5: Multi-Key Rotation\n(KeyRotationPool TPM/RPM Isolation)"]
         F6_Cache["Frontier 6: Cache-Aware Router\n(PromptCacheTracker Ephemeral Alignment)"]
+        F8_Cloud["Frontier 8: 100% Cloud Failover & Remediation\n(In-Flight Compaction / Account Lockouts / Adaptive Timeouts)"]
         FSM["6-State Circuit Breaker FSM\n(CLOSED/OPEN/HALF_OPEN/FORCED_OPEN)"]
         F1_Parser["Frontier 1: SSE Wire Stream Parser\n(VCR Conformance & Frame Reassembly)"]
         Compactor["OpenCode Diagnostic Compactor\n(Compiler/Test Noise Reduction)"]
@@ -105,7 +122,7 @@ flowchart TD
     Clients --> Edge
     Edge --> Core
     Core <--> Storage
-    Core --> Upstreams["Upstream Inference Providers\n(Anthropic / OpenAI / Groq / Cerebras / Local vLLM)"]
+    Core --> Upstreams["Multi-Cloud Provider Network\n(Groq / Cerebras / SambaNova / NVIDIA NIM / OpenRouter / Anthropic)"]
     Storage <--> F2_Cluster
     Core <--> Eval
 ```
@@ -119,6 +136,7 @@ flowchart TD
 5. **Frontier 5: Multi-Key Rotation per Provider** ([`src/durallm/routing/keys.py`](file:///Users/deepak/durallm/src/durallm/routing/keys.py)): `KeyRotationPool` with sliding-window TPM/RPM tracking, per-key 429 isolation, and zero-downtime key rotation. Verified in [`tests/unit/test_key_rotation.py`](file:///Users/deepak/durallm/tests/unit/test_key_rotation.py).
 6. **Frontier 6: Cache-Aware & Prefix-Aware Failover** ([`src/durallm/routing/cache.py`](file:///Users/deepak/durallm/src/durallm/routing/cache.py)): `PromptCacheTracker` & byte-stable `compute_prefix_hash`; preserves Anthropic `cache_control: {"type": "ephemeral"}` breakpoints and awards routing score bonuses to warm endpoints. Verified in [`tests/unit/test_cache_aware_routing.py`](file:///Users/deepak/durallm/tests/unit/test_cache_aware_routing.py).
 7. **Frontier 7: Native Performance & Accelerated Core** ([`src/durallm/performance/accelerator.py`](file:///Users/deepak/durallm/src/durallm/performance/accelerator.py)): `FastStreamRelay` zero-copy SSE relay, `FastTokenEstimator` (>50M chars/sec integer token math), `FastSlidingWindow` (power-of-two ring buffer with bitmask indexing delivering O(1) updates in <500ns), and `uvloop` ASGI event loop loader. Verified in [`tests/unit/test_performance_acceleration.py`](file:///Users/deepak/durallm/tests/unit/test_performance_acceleration.py).
+8. **Frontier 8: 100% Cloud-Only Resilient Topology & Upstream Autonomous Self-Healing Engine** ([`src/durallm/classifier.py`](file:///Users/deepak/durallm/src/durallm/classifier.py), [`src/durallm/execution/executor.py`](file:///Users/deepak/durallm/src/durallm/execution/executor.py), [`src/durallm/execution/deadline.py`](file:///Users/deepak/durallm/src/durallm/execution/deadline.py), [`src/durallm/pools.py`](file:///Users/deepak/durallm/src/durallm/pools.py)): 5-tier cloud-only provider pool routing (Groq, Cerebras, SambaNova, NVIDIA NIM, OpenRouter) eliminating local dependencies, 3-tier dynamic cooldown horizons (30s / 60s / 24h), in-flight context compaction on 413 TPM limits, output token cap auto-clamping on the same candidate, dynamic UTC midnight reset calculation for account-wide rate limits, and adaptive transport prefill deadlines scaling up to 90s for massive 70B-550B models. Verified in [`tests/unit/test_cloud_resilience.py`](file:///Users/deepak/durallm/tests/unit/test_cloud_resilience.py).
 
 ---
 

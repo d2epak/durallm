@@ -7,6 +7,7 @@ providing hierarchical taxonomy for the V2 Circuit Breaker and Routing engines.
 
 from __future__ import annotations
 
+import datetime
 import email.utils
 import re
 import time
@@ -18,6 +19,37 @@ from durallm.models import (
     FailureCategory,
     FailureClassification,
 )
+
+
+def calculate_seconds_until_utc_midnight() -> float:
+    """Calculate remaining seconds until 00:00:00 UTC when provider daily quotas reset."""
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    tomorrow_utc = (now_utc + datetime.timedelta(days=1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    diff = (tomorrow_utc - now_utc).total_seconds()
+    return max(60.0, diff)
+
+
+def parse_input_tpm_limit(error_msg: str) -> Optional[int]:
+    """Extract integer input token limit from provider error strings.
+
+    Handles Groq and generic TPM error patterns like:
+    - 'on input tokens per minute (TPM): Limit 6000, Requested 15972'
+    - 'input tokens per minute: Limit 6000'
+    - 'TPM: Limit 6000'
+    """
+    msg = str(error_msg).lower()
+    m = re.search(r"(?:input tokens per minute|itpm|tpm)[^0-9]*limit\s*(\d+)", msg)
+    if m:
+        return int(m.group(1))
+
+    if "token" in msg or "tpm" in msg or "request too large" in msg:
+        m = re.search(r"limit\s*(\d+),\s*requested\s*\d+", msg)
+        if m:
+            return int(m.group(1))
+
+    return None
 
 _BILLING_PATTERNS = [
     "insufficient credits",
@@ -217,6 +249,7 @@ def classify_api_error(
     headers: Optional[Dict[str, str]] = None,
     pool: Optional[str] = None,
     route_id: Optional[str] = None,
+    provider: Optional[str] = None,
 ) -> ClassifiedError:
     """Classify an exception or response into a structured ClassifiedError (V1/V2 compatible)."""
     classification = classify_failure(error, status_code=status_code, headers=headers)
@@ -225,6 +258,9 @@ def classify_api_error(
             from durallm.pools import POOL_MANAGER
             seconds = float(classification.retry_after_seconds or 86400.0)
             POOL_MANAGER.mark_quota_exhausted(pool, route_id, seconds=seconds)
+            if classification.details and classification.details.get("account_wide"):
+                prov = provider or route_id.split("-")[0].split(":")[-1]
+                POOL_MANAGER.mark_provider_quota_exhausted(pool, prov, seconds=seconds)
         except Exception:
             pass
     elif (classification.reason == FailoverReason.model_not_found or classification.is_permanent) and pool and route_id:
@@ -317,7 +353,38 @@ def classify_failure(
             message=msg,
         )
 
-    # 3b. Groq TPM Rate Limit (Groq returns HTTP 413 for tokens per minute rate limits)
+    # 3c. Input Tokens Per Minute (TPM) / Request Sizing Rejection
+    # Distinguish input TPM ceilings from temporal request-rate limits (RPM).
+    # When a provider rejects input size because the prompt itself exceeds the limit
+    # (e.g. Groq 413 "request too large ... on input tokens per minute (TPM): Limit 6000, Requested 15972"),
+    # this is payload sizing incompatibility, NOT a temporal rate limit with a retry delay.
+    in_tpm_limit = parse_input_tpm_limit(msg)
+    is_oversized_tpm = False
+    m_req = re.search(r"limit\s*(\d+).*?requested\s*(\d+)", msg)
+    if m_req:
+        try:
+            limit_val = int(m_req.group(1))
+            req_val = int(m_req.group(2))
+            if req_val > limit_val:
+                is_oversized_tpm = True
+        except ValueError:
+            pass
+    if "request too large" in msg and ("tokens per minute" in msg or "tpm" in msg or in_tpm_limit is not None):
+        is_oversized_tpm = True
+
+    if is_oversized_tpm and ("try again in" not in msg or (m_req and req_val > limit_val)):
+        return FailureClassification(
+            category=FailureCategory.REQUEST_INCOMPATIBILITY,
+            reason=FailoverReason.payload_too_large,
+            should_fallback=True,
+            retryable=False,
+            poisons_health=False,
+            status_code=code or 413,
+            message=msg,
+            details={"token_limit": in_tpm_limit} if in_tpm_limit else None,
+        )
+
+    # 3d. Short-term RPM / Temporal Rate Limit
     if ("tokens per minute" in msg or "tpm" in msg or "try again in" in msg) and ("rate" in msg or "limit" in msg or code in (413, 429)):
         delay = retry_after
         if not delay:
@@ -354,7 +421,8 @@ def classify_failure(
         )
 
     # 4a. OpenRouter Daily Free Tier Quota Lockout (free-models-per-day)
-    if "free-models-per-day" in msg:
+    if "free-models-per-day" in msg or "free model requests" in msg:
+        reset_seconds = calculate_seconds_until_utc_midnight()
         return FailureClassification(
             category=FailureCategory.RATE_LIMIT,
             reason=FailoverReason.billing,
@@ -363,8 +431,9 @@ def classify_failure(
             poisons_health=False,
             is_permanent=False,
             status_code=code or 429,
-            retry_after_seconds=86400.0,
+            retry_after_seconds=reset_seconds,
             message=msg,
+            details={"account_wide": True, "reset_seconds": reset_seconds},
         )
 
     # 4b. HTTP 402 Billing / Credits Exhaustion (Rate/Quota Limit)

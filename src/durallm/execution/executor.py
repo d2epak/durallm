@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, replace
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple
 
 from durallm.agent.context import ContextBudget, ContextManager, estimate_tokens
 from durallm.agent.failover_plan import FailoverPlan
@@ -24,7 +24,12 @@ from durallm.capability.registry import (
     DEFAULT_CAPABILITY_REGISTRY,
     CapabilityRegistry,
 )
-from durallm.classifier import classify_failure
+from durallm.classifier import (
+    calculate_seconds_until_utc_midnight,
+    classify_failure,
+    parse_input_tpm_limit,
+    parse_output_cap_from_error,
+)
 from durallm.errors import (
     BreakerOpenError,
     ConfigurationError,
@@ -478,11 +483,19 @@ class GatewayExecutor:
             )
 
             if classified.reason == FailoverReason.billing:
-                retry_sec = quota_seconds or 86400.0
+                msg_lower = (classified.message or "").lower()
+                is_account_wide = "free-models-per-day" in msg_lower or "free model requests" in msg_lower or endpoint.provider.lower() == "openrouter"
+                retry_sec = quota_seconds or (calculate_seconds_until_utc_midnight() if is_account_wide else 86400.0)
                 pm = getattr(self, "pool_manager", None)
                 if pm:
                     route_id = endpoint.id.split(":")[-1]
                     pm.mark_quota_exhausted(pool, route_id, seconds=retry_sec)
+                    if is_account_wide:
+                        pm.mark_provider_quota_exhausted(pool, endpoint.provider, seconds=retry_sec)
+                if is_account_wide:
+                    for ep_item in self.capability_registry.endpoints_for_pool(pool):
+                        if ep_item.provider.lower() == endpoint.provider.lower() and ep_item.id not in excluded_endpoints:
+                            excluded_endpoints.append(ep_item.id)
 
             if classified.is_permanent or classified.reason == FailoverReason.model_not_found:
                 self.router.mark_dead(endpoint.id, provider=endpoint.provider, model=endpoint.model, reason=classified.message[:160])
@@ -565,6 +578,7 @@ class GatewayExecutor:
         fallback_marked = False  # True once the retry loop has already counted the pending hop
         # Spec §15: after a size rejection, shrink the assumed window and retry the same candidate once.
         window_shrink: Dict[str, float] = {}
+        output_cap_retried: Set[str] = set()
         rate_limit_waits = 0
         max_rate_limit_waits = 3
 
@@ -720,7 +734,10 @@ class GatewayExecutor:
                 key_val = keys.get(endpoint.env_key, "") if endpoint.env_key else ""
             prepared = adapter.prepare_request(endpoint, adapted_request, api_key=key_val)
 
-            attempt_timeout_sec = deadline.per_attempt_timeout_seconds(endpoint.provider)
+            attempt_timeout_sec = deadline.per_attempt_timeout_seconds(
+                endpoint.provider,
+                estimated_input_tokens=req_vector.estimated_input_tokens,
+            )
             attempt_rec = AttemptRecord(
                 request_id=request.request_id,
                 endpoint_id=endpoint.id,
@@ -978,11 +995,15 @@ class GatewayExecutor:
             )
 
             if classified.reason == FailoverReason.billing:
-                retry_sec = quota_seconds or 86400.0
+                msg_lower = (classified.message or "").lower()
+                is_account_wide = "free-models-per-day" in msg_lower or "free model requests" in msg_lower or endpoint.provider.lower() == "openrouter"
+                retry_sec = quota_seconds or (calculate_seconds_until_utc_midnight() if is_account_wide else 86400.0)
                 pm = getattr(self, "pool_manager", None)
                 if pm:
                     route_id = endpoint.id.split(":")[-1]
                     pm.mark_quota_exhausted(pool, route_id, seconds=retry_sec)
+                    if is_account_wide:
+                        pm.mark_provider_quota_exhausted(pool, endpoint.provider, seconds=retry_sec)
                 if hasattr(self.attempt_store, "record_quota_lockout"):
                     self.attempt_store.record_quota_lockout(
                         provider_id=endpoint.provider,
@@ -991,10 +1012,15 @@ class GatewayExecutor:
                         expires_at=time.time() + retry_sec,
                         reason=classified.message[:160],
                     )
-                msg_lower = (classified.message or "").lower()
-                if "free-models-per-day" in msg_lower or "free model requests" in msg_lower or endpoint.provider.lower() == "openrouter":
-                    if pm:
-                        pm.mark_provider_quota_exhausted(pool, endpoint.provider, seconds=retry_sec)
+                    if is_account_wide:
+                        self.attempt_store.record_quota_lockout(
+                            provider_id=endpoint.provider,
+                            pool=pool,
+                            route_id="*",
+                            expires_at=time.time() + retry_sec,
+                            reason=classified.message[:160],
+                        )
+                if is_account_wide:
                     for ep_item in self.capability_registry.endpoints_for_pool(pool):
                         if ep_item.provider.lower() == endpoint.provider.lower() and ep_item.id not in excluded_endpoints:
                             excluded_endpoints.append(ep_item.id)
@@ -1018,12 +1044,48 @@ class GatewayExecutor:
 
             last_failure_reason = classified.reason.value
 
+            # In-flight output cap clamping: if model rejected max_tokens/output cap, clamp and retry immediately
+            if (
+                classified.reason == FailoverReason.output_cap_exceeded
+                and endpoint.id not in output_cap_retried
+                and ledger.can_attempt_endpoint(endpoint.id)
+            ):
+                cap = parse_output_cap_from_error(classified.message)
+                current_max = request.max_output_tokens or profile.max_output_tokens or 4096
+                if cap and cap > 0:
+                    clamped = max(1, cap - 64) if cap > 64 else cap
+                else:
+                    clamped = min(current_max, 1024)
+                output_cap_retried.add(endpoint.id)
+                request = replace(request, max_output_tokens=clamped)
+                logger.info(
+                    "Output cap exceeded on %s; clamped max_output_tokens from %d to %d and retrying candidate immediately",
+                    endpoint.id, current_max, clamped,
+                )
+                continue
+
             # Retry / fallback decision is driven by the classification first, budget second.
             size_rejected = classified.reason in (FailoverReason.payload_too_large, FailoverReason.context_overflow)
             if size_rejected and endpoint.id not in window_shrink and ledger.can_attempt_endpoint(endpoint.id):
-                # Spec §15: compact harder and retry this candidate before falling back; no backoff needed.
-                window_shrink[endpoint.id] = 0.5
-                logger.info("Size rejection from %s; compacting and retrying the same candidate", endpoint.id)
+                # Extract explicit input TPM or payload token limit from error message/details
+                token_limit = None
+                if classified.details and isinstance(classified.details, dict) and "token_limit" in classified.details:
+                    token_limit = classified.details["token_limit"]
+                if not token_limit:
+                    token_limit = parse_input_tpm_limit(classified.message)
+
+                if token_limit and token_limit > 0:
+                    target_tokens = max(1000, int(token_limit * 0.85))
+                    shrink_ratio = max(0.1, min(0.95, target_tokens / profile.context_window))
+                    window_shrink[endpoint.id] = shrink_ratio
+                    logger.info(
+                        "Input TPM / token limit %d detected from %s; shrinking window to %d tokens (ratio %.2f) and retrying immediately",
+                        token_limit, endpoint.id, target_tokens, shrink_ratio,
+                    )
+                else:
+                    window_shrink[endpoint.id] = 0.5
+                    logger.info("Size rejection from %s; compacting and retrying the same candidate", endpoint.id)
+                continue
             elif not classified.retryable or not ledger.can_attempt_endpoint(endpoint.id):
                 if not classified.should_fallback:
                     self.events.error(

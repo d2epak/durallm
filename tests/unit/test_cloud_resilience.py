@@ -217,6 +217,163 @@ class TestCloudResilience(unittest.TestCase):
         candidates = local_pm.get_candidate_routes("coding")
         self.assertEqual(len(candidates), 0)
 
+    def test_groq_tpm_input_limit_inflight_compaction_retry(self):
+        """Test Groq TPM input token limit parsing and in-flight payload compaction retry without a 60s cooldown loop."""
+        from durallm.classifier import classify_failure, parse_input_tpm_limit
+        from durallm.models import FailureCategory
+
+        err_msg = (
+            '{"error":{"message":"request too large for model `qwen/qwen3.6-27b` in organization '
+            '`org_01krs77pgdfxg83872v2vtq6ba` service tier `on_demand` on input tokens per minute (TPM): '
+            'Limit 6000, Requested 15972."}}'
+        )
+        limit = parse_input_tpm_limit(err_msg)
+        self.assertEqual(limit, 6000)
+
+        classified = classify_failure(err_msg, status_code=413)
+        self.assertEqual(classified.category, FailureCategory.REQUEST_INCOMPATIBILITY)
+        self.assertEqual(classified.reason, FailoverReason.payload_too_large)
+        self.assertFalse(classified.poisons_health)
+        self.assertEqual(classified.details.get("token_limit"), 6000)
+
+        # Test GatewayExecutor in-flight compaction on TPM limit
+        cap_reg = CapabilityRegistry()
+        adapter_reg = ProviderAdapterRegistry()
+        mock_adapter = ProgrammableMockAdapter("groq")
+        adapter_reg._adapters["groq"] = mock_adapter
+
+        cap_reg.register_profile(
+            ModelProfile(
+                "groq",
+                "qwen/qwen3.6-27b",
+                context_window=32768,
+                max_output_tokens=4096,
+                supports_tools=True,
+            )
+        )
+        cap_reg.register_endpoint(
+            Endpoint(
+                id="groq:qwen36-tpm",
+                provider="groq",
+                model="qwen/qwen3.6-27b",
+                base_url="https://api.groq.com",
+                pool="coding",
+                priority=1,
+            )
+        )
+
+        # Sequence: First attempt fails with 413 input TPM limit, second attempt succeeds with compacted payload
+        mock_adapter.set_sequence([
+            MockFaultAction(status_code=413, body=err_msg.encode("utf-8")),
+            MockFaultAction.success("compacted groq completion"),
+        ])
+
+        executor = GatewayExecutor(
+            capability_registry=cap_reg,
+            adapter_registry=adapter_reg,
+            policy=ExecutionPolicy(retry=RetryPolicy(max_attempts_same_endpoint=2)),
+        )
+
+        # Create request with large multi-turn history (>4000 tokens) that can be compacted
+        req = NormalizedRequest(
+            model="default",
+            messages=[
+                NormalizedMessage(role="user", content="Initial objective: build a compiler"),
+                NormalizedMessage(role="assistant", content="Let's build intermediate representation " + ("x" * 4000)),
+                NormalizedMessage(role="user", content="Here is a huge log trace " + ("error[E0425]: cannot find value in this scope\n" * 1500)),
+                NormalizedMessage(role="user", content="Now fix the compile issue"),
+            ],
+            max_output_tokens=1024,
+        )
+
+        resp, decision, ledger = executor.execute(req, pool="coding", strategy="priority")
+        self.assertEqual(resp.content, "compacted groq completion")
+        # Ensure it attempted the same endpoint twice rather than locking it out for 60s
+        self.assertEqual(len(mock_adapter.request_history), 2)
+        self.assertEqual(ledger.attempts[0].endpoint_id, "groq:qwen36-tpm")
+        self.assertEqual(ledger.attempts[1].endpoint_id, "groq:qwen36-tpm")
+        self.assertTrue(ledger.attempts[1].compacted)
+
+    def test_openrouter_account_wide_daily_quota_lockout_and_utc_reset(self):
+        """Test OpenRouter account-wide daily quota lockout and UTC midnight reset calculation."""
+        from durallm.classifier import calculate_seconds_until_utc_midnight, classify_failure
+        from durallm.models import FailureCategory
+
+        reset_sec = calculate_seconds_until_utc_midnight()
+        self.assertGreater(reset_sec, 60.0)
+        self.assertLessEqual(reset_sec, 86400.0)
+
+        err_msg = (
+            '{"error":{"message":"rate limit exceeded: free-models-per-day. add 5 credits to unlock 1000 free model requests per day",'
+            '"code":429,"metadata":{"headers":{}}}}'
+        )
+        classified = classify_failure(err_msg, status_code=429)
+        self.assertEqual(classified.category, FailureCategory.RATE_LIMIT)
+        self.assertEqual(classified.reason, FailoverReason.billing)
+        self.assertTrue(classified.details.get("account_wide"))
+        self.assertAlmostEqual(classified.retry_after_seconds, reset_sec, delta=5.0)
+
+        # Test executor excludes all OpenRouter models in one hop
+        cap_reg = CapabilityRegistry()
+        adapter_reg = ProviderAdapterRegistry()
+        mock_or = ProgrammableMockAdapter("openrouter")
+        mock_sn = ProgrammableMockAdapter("sambanova")
+        adapter_reg._adapters["openrouter"] = mock_or
+        adapter_reg._adapters["sambanova"] = mock_sn
+
+        cap_reg.register_profile(ModelProfile("openrouter", "model-a", 32768, 4096, True))
+        cap_reg.register_profile(ModelProfile("openrouter", "model-b", 32768, 4096, True))
+        cap_reg.register_profile(ModelProfile("sambanova", "model-c", 32768, 4096, True))
+
+        cap_reg.register_endpoint(Endpoint(id="openrouter:model-a", provider="openrouter", model="model-a", base_url="https://openrouter.ai", pool="coding", priority=1))
+        cap_reg.register_endpoint(Endpoint(id="openrouter:model-b", provider="openrouter", model="model-b", base_url="https://openrouter.ai", pool="coding", priority=2))
+        cap_reg.register_endpoint(Endpoint(id="sambanova:model-c", provider="sambanova", model="model-c", base_url="https://sambanova.ai", pool="coding", priority=3))
+
+        mock_or.set_sequence([MockFaultAction(status_code=429, body=err_msg.encode("utf-8"))])
+        mock_sn.set_sequence([MockFaultAction.success("sambanova fallback success")])
+
+        pm = IsolatedPoolManager()
+        executor = GatewayExecutor(
+            capability_registry=cap_reg,
+            adapter_registry=adapter_reg,
+            pool_manager=pm,
+            policy=ExecutionPolicy(retry=RetryPolicy(max_attempts_same_endpoint=1)),
+        )
+
+        req = NormalizedRequest(model="default", messages=[NormalizedMessage(role="user", content="write code")])
+        resp, decision, ledger = executor.execute(req, pool="coding", strategy="priority")
+
+        # Response succeeded via sambanova without wasting an attempt on openrouter:model-b!
+        self.assertEqual(resp.content, "sambanova fallback success")
+        self.assertEqual(len(mock_or.request_history), 1)  # Only model-a attempted, model-b skipped because account is locked out!
+        self.assertEqual(len(mock_sn.request_history), 1)
+        self.assertTrue(pm.is_provider_quota_exhausted("openrouter"))
+
+    def test_nvidia_adaptive_timeout_and_transient_socket_timeout(self):
+        """Test NVIDIA NIM adaptive timeouts and transient socket read timeout handling."""
+        from durallm.execution.deadline import Deadline
+        from durallm.router import calculate_adaptive_timeout
+
+        # Test Deadline per_attempt_timeout_for_provider scaling for enterprise tier and large input tokens
+        dl = Deadline(total_timeout_ms=300000.0, per_attempt_timeout_ms=50000.0)
+        t_std = dl.per_attempt_timeout_for_provider("openai", estimated_input_tokens=1000)
+        t_nv_small = dl.per_attempt_timeout_for_provider("nvidia", estimated_input_tokens=1000)
+        t_nv_large = dl.per_attempt_timeout_for_provider("nvidia", estimated_input_tokens=20000)
+
+        self.assertGreaterEqual(t_std, 35.0)
+        self.assertGreaterEqual(t_nv_small, 45.0)
+        self.assertGreater(t_nv_large, t_nv_small)
+        self.assertLessEqual(t_nv_large, 90.0)
+
+        # Test calculate_adaptive_timeout in router
+        payload_small = {"messages": [{"role": "user", "content": "hello"}]}
+        payload_large = {"messages": [{"role": "user", "content": "x" * 65000}]}
+        ad_small = calculate_adaptive_timeout("nvidia", payload_small)
+        ad_large = calculate_adaptive_timeout("nvidia", payload_large)
+        self.assertGreaterEqual(ad_small, 45.0)
+        self.assertGreater(ad_large, ad_small)
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -108,15 +108,22 @@ class ProxyGateway:
                 for item in active_lockouts:
                     pool_name = str(item["pool"]).lower()
                     route_id = str(item["route_id"]).lower()
+                    provider_id = str(item.get("provider_id", "")).lower()
                     exp_at = float(item["expires_at"])
                     if exp_at > now_epoch:
-                        self.pool_manager.exhausted_quotas[(pool_name, route_id)] = exp_at
-                        self.executor.health_store.record_failure(
-                            endpoint_id=f"{pool_name}:{route_id}",
-                            latency_ms=0.0,
-                            quota_exhausted_seconds=max(0.0, exp_at - now_epoch),
-                            error_message=f"Persisted daily quota lockout: {item.get('reason', '')}",
-                        )
+                        rem_sec = max(0.0, exp_at - now_epoch)
+                        if route_id == "*" or not route_id:
+                            if provider_id:
+                                self.pool_manager.account_lockouts[provider_id] = exp_at
+                                self.pool_manager.mark_provider_quota_exhausted(pool_name, provider_id, seconds=rem_sec)
+                        else:
+                            self.pool_manager.exhausted_quotas[(pool_name, route_id)] = exp_at
+                            self.executor.health_store.record_failure(
+                                endpoint_id=f"{pool_name}:{route_id}",
+                                latency_ms=0.0,
+                                quota_exhausted_seconds=rem_sec,
+                                error_message=f"Persisted daily quota lockout: {item.get('reason', '')}",
+                            )
             except Exception as e:
                 logging.getLogger("durallm.gateway").warning("Could not sync persisted quota lockouts: %s", e)
 

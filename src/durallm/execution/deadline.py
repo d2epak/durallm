@@ -17,8 +17,8 @@ class Deadline:
     total_timeout_ms: float = 300000.0
     connect_timeout_ms: float = 10000.0
     tls_timeout_ms: float = 10000.0
-    ttft_timeout_ms: float = 45000.0
-    idle_stream_timeout_ms: float = 20000.0
+    ttft_timeout_ms: float = 60000.0
+    idle_stream_timeout_ms: float = 35000.0
     per_attempt_timeout_ms: float = 120000.0
     clock: Callable[[], float] = time.monotonic
     start_time_monotonic: Optional[float] = None
@@ -60,22 +60,42 @@ class Deadline:
                 elapsed_ms=self.elapsed_ms(),
             )
 
-    def per_attempt_timeout_for_provider(self, provider: Optional[str] = None) -> float:
-        """Provider-adaptive attempt timeout bounded by remaining total deadline."""
+    def per_attempt_timeout_for_provider(
+        self,
+        provider: Optional[str] = None,
+        estimated_input_tokens: int = 0,
+    ) -> float:
+        """Provider and payload-size adaptive attempt timeout bounded by remaining total deadline."""
         self.check()
         rem_seconds = self.remaining_ms() / 1000.0
         p = (provider or "").lower()
-        if p == "nvidia":
-            target_sec = min(60.0, max(30.0, self.per_attempt_timeout_ms / 1000.0))
+
+        base_sec = self.per_attempt_timeout_ms / 1000.0
+
+        # Compute architecture tier: enterprise clusters require higher read ceilings for large models
+        if p in ("nvidia", "sambanova", "cerebras"):
+            target_sec = min(90.0, max(base_sec, 45.0 if base_sec >= 45.0 else base_sec))
         elif p == "groq":
-            target_sec = min(30.0, self.per_attempt_timeout_ms / 1000.0)
+            target_sec = min(35.0, base_sec)
         else:
-            target_sec = self.per_attempt_timeout_ms / 1000.0
+            target_sec = base_sec
+
+        # Scale dynamically for large context prefill only if configured attempt ceiling is generous
+        if base_sec >= 30.0:
+            if estimated_input_tokens > 16000:
+                target_sec = min(target_sec + 25.0, 90.0)
+            elif estimated_input_tokens > 8000:
+                target_sec = min(target_sec + 15.0, 75.0)
+
         return max(0.1, min(target_sec, rem_seconds))
 
-    def per_attempt_timeout_seconds(self, provider: Optional[str] = None) -> float:
+    def per_attempt_timeout_seconds(
+        self,
+        provider: Optional[str] = None,
+        estimated_input_tokens: int = 0,
+    ) -> float:
         """Remaining attempt timeout in seconds, bounded by remaining total deadline."""
-        return self.per_attempt_timeout_for_provider(provider)
+        return self.per_attempt_timeout_for_provider(provider, estimated_input_tokens)
 
     def transport_timeouts(self, streaming: bool = False) -> TransportTimeouts:
         """Return phase budgets clipped to the remaining request deadline.

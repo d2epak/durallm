@@ -133,14 +133,17 @@ class TestFreeCodingHarness(unittest.TestCase):
         self.assertFalse(classified.retryable)
         self.assertTrue(classified.should_fallback)
         self.assertFalse(classified.poisons_health)
-        self.assertEqual(classified.retry_after_seconds, 86400.0)
+        self.assertGreater(classified.retry_after_seconds, 60.0)
+        self.assertLessEqual(classified.retry_after_seconds, 86400.0)
+        self.assertTrue(classified.details.get("account_wide"))
 
         # Verify classify_api_error marks quota exhausted in POOL_MANAGER
         test_route_id = "test-openrouter-route"
         classify_api_error(err_msg, status_code=429, pool="coding", route_id=test_route_id)
         import time
         reset_time = POOL_MANAGER.exhausted_quotas.get(("coding", test_route_id), 0)
-        self.assertGreater(reset_time, time.time() + 86000)
+        self.assertGreater(reset_time, time.time())
+        self.assertTrue(POOL_MANAGER.is_provider_quota_exhausted("openrouter") or POOL_MANAGER.is_route_quota_exhausted("coding", test_route_id, "openrouter"))
 
     # ------------------------------------------------------------------
     # 4. Verified Free Coding Routes & Capability Registry
