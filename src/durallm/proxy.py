@@ -68,6 +68,7 @@ def build_proxy_gateway(storage_path: Optional[str] = None) -> ProxyGateway:
         pool_manager=POOL_MANAGER,
         executor=executor,
         continuation_store=SQLiteContinuationStore(store),
+        persistence_store=store,
     )
 
 

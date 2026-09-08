@@ -227,6 +227,12 @@ def classify_api_error(
             POOL_MANAGER.mark_quota_exhausted(pool, route_id, seconds=seconds)
         except Exception:
             pass
+    elif (classification.reason == FailoverReason.model_not_found or classification.is_permanent) and pool and route_id:
+        try:
+            from durallm.pools import POOL_MANAGER
+            POOL_MANAGER.mark_deprecated(pool, route_id)
+        except Exception:
+            pass
     return ClassifiedError(
         reason=classification.reason,
         should_fallback=classification.should_fallback,

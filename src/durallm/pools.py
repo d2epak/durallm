@@ -40,6 +40,8 @@ def load_all_env_keys(target_keys: Optional[List[str]] = None, scan_dotfiles: Op
             "NVIDIA_API_KEY",
             "GROQ_API_KEY",
             "OPENROUTER_API_KEY",
+            "SAMBANOVA_API_KEY",
+            "CEREBRAS_API_KEY",
         ]
     for k in target_keys:
         if os.getenv(k):
@@ -94,9 +96,9 @@ _BROWSER_UA = (
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 )
 
-# Default Coding Pool (Claude Code, Cursor, Aider) - Verified Active Free Coding Models
+# Default Coding Pool (Claude Code, Cursor, Aider) - 5-Tier Cloud-Only Routing Topology
 DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
-    # 1. Groq: Qwen 3.6 27B (7k ITPM / 1k OTPM, ultra-fast agentic coding)
+    # Tier 1 - Groq Ultra-Fast Coding Nodes
     RouteDefinition(
         id="groq-qwen36-coding",
         provider="groq",
@@ -107,22 +109,8 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         env_key="GROQ_API_KEY",
         context_length=7000,
         max_output_tokens=950,
-        headers={"User-Agent": _BROWSER_UA}
+        headers={"User-Agent": _BROWSER_UA},
     ),
-    # 2. OpenRouter: Gemma 4 31B IT Free (262k context, resilient open-weights coding)
-    RouteDefinition(
-        id="openrouter-gemma4-coding",
-        provider="openrouter",
-        model="google/gemma-4-31b-it:free",
-        pool="coding",
-        base_url="https://openrouter.ai/api/v1",
-        api_format="openai",
-        env_key="OPENROUTER_API_KEY",
-        context_length=262144,
-        max_output_tokens=8192,
-        headers={"User-Agent": _BROWSER_UA}
-    ),
-    # 3. Groq: GPT-OSS 120B (8k TPM / 1k OTPM, agentic reasoning MoE with tool calling)
     RouteDefinition(
         id="groq-gpt-oss-coding",
         provider="groq",
@@ -133,22 +121,8 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         env_key="GROQ_API_KEY",
         context_length=7500,
         max_output_tokens=950,
-        headers={"User-Agent": _BROWSER_UA}
+        headers={"User-Agent": _BROWSER_UA},
     ),
-    # 4. OpenRouter: Cohere North Mini Code Free (256k context, terminal & code generation)
-    RouteDefinition(
-        id="openrouter-north-mini-coding",
-        provider="openrouter",
-        model="cohere/north-mini-code:free",
-        pool="coding",
-        base_url="https://openrouter.ai/api/v1",
-        api_format="openai",
-        env_key="OPENROUTER_API_KEY",
-        context_length=256000,
-        max_output_tokens=8192,
-        headers={"User-Agent": _BROWSER_UA}
-    ),
-    # 5. Groq: GPT-OSS 20B (8k TPM / 1k OTPM, ultra-lightweight 0.13s coding model)
     RouteDefinition(
         id="groq-gpt-oss-20b-coding",
         provider="groq",
@@ -159,61 +133,8 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         env_key="GROQ_API_KEY",
         context_length=7500,
         max_output_tokens=950,
-        headers={"User-Agent": _BROWSER_UA}
+        headers={"User-Agent": _BROWSER_UA},
     ),
-    # 6. OpenRouter: Nemotron 3 Super 120B Free (262k context, large open model)
-    RouteDefinition(
-        id="openrouter-nemotron-coding",
-        provider="openrouter",
-        model="nvidia/nemotron-3-super-120b-a12b:free",
-        pool="coding",
-        base_url="https://openrouter.ai/api/v1",
-        api_format="openai",
-        env_key="OPENROUTER_API_KEY",
-        context_length=262144,
-        max_output_tokens=8192,
-        headers={"User-Agent": _BROWSER_UA}
-    ),
-    # 7. NVIDIA NIM: Gemma 4 31B IT (128k context, high-speed coding node)
-    RouteDefinition(
-        id="nvidia-gemma4-coding",
-        provider="nvidia",
-        model="google/gemma-4-31b-it",
-        pool="coding",
-        base_url="https://integrate.api.nvidia.com/v1",
-        api_format="openai",
-        env_key="NVIDIA_API_KEY",
-        context_length=131072,
-        max_output_tokens=8192,
-        headers={"User-Agent": _BROWSER_UA}
-    ),
-    # 8. OpenRouter: Auto Free Router (200k context, automatic fallback)
-    RouteDefinition(
-        id="openrouter-free-coding",
-        provider="openrouter",
-        model="openrouter/free",
-        pool="coding",
-        base_url="https://openrouter.ai/api/v1",
-        api_format="openai",
-        env_key="OPENROUTER_API_KEY",
-        context_length=200000,
-        max_output_tokens=8192,
-        headers={"User-Agent": _BROWSER_UA}
-    ),
-    # 9. NVIDIA NIM: Nemotron-3-Ultra 550B (128k context, agent orchestration)
-    RouteDefinition(
-        id="nvidia-nemotron-coding",
-        provider="nvidia",
-        model="nvidia/nemotron-3-ultra-550b-a55b",
-        pool="coding",
-        base_url="https://integrate.api.nvidia.com/v1",
-        api_format="openai",
-        env_key="NVIDIA_API_KEY",
-        context_length=131072,
-        max_output_tokens=8192,
-        headers={"User-Agent": _BROWSER_UA}
-    ),
-    # 10. Groq: Llama 3.3 70B Versatile (128k context, high-intelligence reasoning & code)
     RouteDefinition(
         id="groq-llama33-coding",
         provider="groq",
@@ -224,11 +145,147 @@ DEFAULT_CODING_ROUTES: List[RouteDefinition] = [
         env_key="GROQ_API_KEY",
         context_length=131072,
         max_output_tokens=8192,
-        headers={"User-Agent": _BROWSER_UA}
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    # Tier 2 - SambaNova High-Speed Inference
+    RouteDefinition(
+        id="sambanova-qwen25-coding",
+        provider="sambanova",
+        model="Qwen2.5-Coder-32B-Instruct",
+        pool="coding",
+        base_url="https://api.sambanova.ai/v1",
+        api_format="openai",
+        env_key="SAMBANOVA_API_KEY",
+        context_length=65536,
+        max_output_tokens=4096,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    RouteDefinition(
+        id="sambanova-llama33-coding",
+        provider="sambanova",
+        model="Meta-Llama-3.3-70B-Instruct",
+        pool="coding",
+        base_url="https://api.sambanova.ai/v1",
+        api_format="openai",
+        env_key="SAMBANOVA_API_KEY",
+        context_length=65536,
+        max_output_tokens=4096,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    # Tier 3 - Cerebras Wafer-Scale Cloud
+    RouteDefinition(
+        id="cerebras-llama33-coding",
+        provider="cerebras",
+        model="llama-3.3-70b",
+        pool="coding",
+        base_url="https://api.cerebras.ai/v1",
+        api_format="openai",
+        env_key="CEREBRAS_API_KEY",
+        context_length=65536,
+        max_output_tokens=4096,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    # Tier 4 - NVIDIA NIM Enterprise Cloud
+    RouteDefinition(
+        id="nvidia-llama33-coding",
+        provider="nvidia",
+        model="meta/llama-3.3-70b-instruct",
+        pool="coding",
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_format="openai",
+        env_key="NVIDIA_API_KEY",
+        context_length=131072,
+        max_output_tokens=4096,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    RouteDefinition(
+        id="nvidia-gemma4-coding",
+        provider="nvidia",
+        model="google/gemma-4-31b-it",
+        pool="coding",
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_format="openai",
+        env_key="NVIDIA_API_KEY",
+        context_length=131072,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    RouteDefinition(
+        id="nvidia-nemotron-coding",
+        provider="nvidia",
+        model="nvidia/nemotron-3-ultra-550b-a55b",
+        pool="coding",
+        base_url="https://integrate.api.nvidia.com/v1",
+        api_format="openai",
+        env_key="NVIDIA_API_KEY",
+        context_length=131072,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    # Tier 5 - OpenRouter Free Community Fallback
+    RouteDefinition(
+        id="openrouter-qwen25-coding",
+        provider="openrouter",
+        model="qwen/qwen-2.5-coder-32b-instruct:free",
+        pool="coding",
+        base_url="https://openrouter.ai/api/v1",
+        api_format="openai",
+        env_key="OPENROUTER_API_KEY",
+        context_length=32768,
+        max_output_tokens=4096,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    RouteDefinition(
+        id="openrouter-gemma4-coding",
+        provider="openrouter",
+        model="google/gemma-4-31b-it:free",
+        pool="coding",
+        base_url="https://openrouter.ai/api/v1",
+        api_format="openai",
+        env_key="OPENROUTER_API_KEY",
+        context_length=262144,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    RouteDefinition(
+        id="openrouter-north-mini-coding",
+        provider="openrouter",
+        model="cohere/north-mini-code:free",
+        pool="coding",
+        base_url="https://openrouter.ai/api/v1",
+        api_format="openai",
+        env_key="OPENROUTER_API_KEY",
+        context_length=256000,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    RouteDefinition(
+        id="openrouter-nemotron-coding",
+        provider="openrouter",
+        model="nvidia/nemotron-3-super-120b-a12b:free",
+        pool="coding",
+        base_url="https://openrouter.ai/api/v1",
+        api_format="openai",
+        env_key="OPENROUTER_API_KEY",
+        context_length=262144,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    RouteDefinition(
+        id="openrouter-free-coding",
+        provider="openrouter",
+        model="openrouter/free",
+        pool="coding",
+        base_url="https://openrouter.ai/api/v1",
+        api_format="openai",
+        env_key="OPENROUTER_API_KEY",
+        context_length=200000,
+        max_output_tokens=8192,
+        headers={"User-Agent": _BROWSER_UA},
     ),
 ]
 
-# Default General Agent Pool (Hermes Agent, OpenClaw) - Core Providers: NVIDIA, Groq, OpenRouter
+# Default General Agent Pool (Hermes Agent, OpenClaw) - Core Providers across 5 Cloud Tiers
 DEFAULT_AGENT_ROUTES: List[RouteDefinition] = [
     # 1. NVIDIA NIM Llama 3.2 Vision (Fast inference, robust multi-turn context)
     RouteDefinition(
@@ -241,9 +298,9 @@ DEFAULT_AGENT_ROUTES: List[RouteDefinition] = [
         env_key="NVIDIA_API_KEY",
         context_length=131072,
         max_output_tokens=4096,
-        headers={"User-Agent": _BROWSER_UA}
+        headers={"User-Agent": _BROWSER_UA},
     ),
-    # 2. Groq Llama 3.1 8B Instant (128k context)
+    # 2. Groq Llama 3.1 8B Instant (128k context, ultra-fast agent responses)
     RouteDefinition(
         id="groq-llama31-agent",
         provider="groq",
@@ -254,9 +311,35 @@ DEFAULT_AGENT_ROUTES: List[RouteDefinition] = [
         env_key="GROQ_API_KEY",
         context_length=131072,
         max_output_tokens=4096,
-        headers={"User-Agent": _BROWSER_UA}
+        headers={"User-Agent": _BROWSER_UA},
     ),
-    # 3. OpenRouter Nemotron Free (Zero-credit resilient route)
+    # 3. Cerebras Llama 3.1 8B (Fast wafer-scale agent responses)
+    RouteDefinition(
+        id="cerebras-llama31-agent",
+        provider="cerebras",
+        model="llama3.1-8b",
+        pool="general_agent",
+        base_url="https://api.cerebras.ai/v1",
+        api_format="openai",
+        env_key="CEREBRAS_API_KEY",
+        context_length=65536,
+        max_output_tokens=4096,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    # 4. SambaNova Meta Llama 3.3 70B Instruct (High-speed large model inference)
+    RouteDefinition(
+        id="sambanova-llama33-agent",
+        provider="sambanova",
+        model="Meta-Llama-3.3-70B-Instruct",
+        pool="general_agent",
+        base_url="https://api.sambanova.ai/v1",
+        api_format="openai",
+        env_key="SAMBANOVA_API_KEY",
+        context_length=65536,
+        max_output_tokens=4096,
+        headers={"User-Agent": _BROWSER_UA},
+    ),
+    # 5. OpenRouter Nemotron Free (Zero-credit resilient agent route)
     RouteDefinition(
         id="openrouter-nemotron-agent",
         provider="openrouter",
@@ -267,7 +350,7 @@ DEFAULT_AGENT_ROUTES: List[RouteDefinition] = [
         env_key="OPENROUTER_API_KEY",
         context_length=131072,
         max_output_tokens=4096,
-        headers={"User-Agent": _BROWSER_UA}
+        headers={"User-Agent": _BROWSER_UA},
     ),
 ]
 
@@ -331,6 +414,42 @@ class IsolatedPoolManager:
             for k in keys_to_del:
                 del self.cooldowns[k]
 
+    def is_provider_in_cooldown(self, pool: str, provider: str) -> bool:
+        """Check whether a provider is currently under short-term cooldown in the given pool."""
+        with self._lock:
+            key = (pool.lower(), provider.lower())
+            return time.monotonic() < self.cooldowns.get(key, 0.0)
+
+    def is_route_quota_exhausted(self, pool: str, route_id: str) -> bool:
+        """Check whether a route is currently locked out by daily quota in the given pool."""
+        with self._lock:
+            key = (pool.lower(), route_id.lower())
+            return time.time() < self.exhausted_quotas.get(key, 0.0)
+
+    def auto_expire_cooldowns(self, pool: Optional[str] = None) -> None:
+        """Purge expired short-term cooldowns and long-term quota lockouts."""
+        with self._lock:
+            now_mono = time.monotonic()
+            now_epoch = time.time()
+
+            # 1. Purge expired short-term cloud provider cooldowns (e.g. 30s probe, 60s TPM)
+            expired_cds = [
+                k for k, exp in self.cooldowns.items()
+                if (pool is None or k[0] == pool.lower()) and now_mono >= exp
+            ]
+            for k in expired_cds:
+                del self.cooldowns[k]
+                logger.info("[🔄 RESTORED] Pool '%s' cloud provider '%s' cooldown expired. Route reactivated.", k[0], k[1])
+
+            # 2. Purge expired daily quota lockouts (24h)
+            expired_quotas = [
+                k for k, exp in self.exhausted_quotas.items()
+                if (pool is None or k[0] == pool.lower()) and now_epoch >= exp
+            ]
+            for k in expired_quotas:
+                del self.exhausted_quotas[k]
+                logger.info("[🔄 QUOTA RESET] Pool '%s' route '%s' daily lockout expired. Route reactivated.", k[0], k[1])
+
     def mark_deprecated(self, pool: str, model: str) -> None:
         """Permanently skip model in this pool for current process lifecycle."""
         with self._lock:
@@ -339,6 +458,7 @@ class IsolatedPoolManager:
 
     def get_candidate_routes(self, pool: str) -> List[RouteDefinition]:
         with self._lock:
+            self.auto_expire_cooldowns(pool)
             routes = self.coding_routes if pool == "coding" else self.agent_routes
             now_mono = time.monotonic()
             now_epoch = time.time()

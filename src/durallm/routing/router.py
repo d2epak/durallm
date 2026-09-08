@@ -143,6 +143,19 @@ class CapabilityRouter:
             profile = ep.profile or self.capability_registry.get_profile(ep.provider, ep.model)
             health_snap = self.health_store.get_or_create(ep.id, provider=ep.provider, model=ep.model)
 
+            if health_snap.is_quota_exhausted:
+                evaluations.append(
+                    CandidateEvaluation(
+                        endpoint_id=ep.id,
+                        provider=ep.provider,
+                        model=ep.model,
+                        eligible=False,
+                        exclusion_reason=f"Endpoint daily quota exhausted (resets at {health_snap.quota_exhausted_until:.0f})",
+                        is_cold_start=health_snap.is_cold_start,
+                    )
+                )
+                continue
+
             # 1. Hard constraint filter (includes cost ceiling and observed-latency budget)
             passed, reason = requirements.matches_hard_constraints(profile, health=health_snap)
             if not passed:

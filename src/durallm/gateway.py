@@ -8,8 +8,10 @@ by GatewayExecutor: classification, breakers, backoff, compaction, ledger and va
 
 from __future__ import annotations
 
+import logging
 import threading
-from typing import Optional, Tuple
+import time
+from typing import Any, Optional, Tuple
 
 from durallm.capability.profile import Endpoint, ModelProfile
 from durallm.continuation import (
@@ -87,14 +89,36 @@ class ProxyGateway:
         pool_manager: Optional[IsolatedPoolManager] = None,
         executor: Optional[GatewayExecutor] = None,
         continuation_store: Optional[ContinuationStore] = None,
+        persistence_store: Optional[Any] = None,
     ):
         self.pool_manager = pool_manager or POOL_MANAGER
-        self.executor = executor or GatewayExecutor()
+        self.executor = executor or GatewayExecutor(pool_manager=self.pool_manager)
+        if not getattr(self.executor, "pool_manager", None):
+            self.executor.pool_manager = self.pool_manager
         self._lock = threading.Lock()
         self._synced: set = set()
         # Process-local by default. A durable store is intentionally injected by
         # the next persistence milestone; ACP headers never imply crash recovery.
         self.continuation_store = continuation_store or InMemoryContinuationStore()
+        self.persistence_store = persistence_store or getattr(self.executor, "attempt_store", None)
+        if self.persistence_store and hasattr(self.persistence_store, "get_active_quota_lockouts"):
+            try:
+                active_lockouts = self.persistence_store.get_active_quota_lockouts()
+                now_epoch = time.time()
+                for item in active_lockouts:
+                    pool_name = str(item["pool"]).lower()
+                    route_id = str(item["route_id"]).lower()
+                    exp_at = float(item["expires_at"])
+                    if exp_at > now_epoch:
+                        self.pool_manager.exhausted_quotas[(pool_name, route_id)] = exp_at
+                        self.executor.health_store.record_failure(
+                            endpoint_id=f"{pool_name}:{route_id}",
+                            latency_ms=0.0,
+                            quota_exhausted_seconds=max(0.0, exp_at - now_epoch),
+                            error_message=f"Persisted daily quota lockout: {item.get('reason', '')}",
+                        )
+            except Exception as e:
+                logging.getLogger("durallm.gateway").warning("Could not sync persisted quota lockouts: %s", e)
 
     def sync_endpoints(self) -> None:
         """Register every usable pool route once; called per request so `--discover` additions are picked up."""

@@ -122,6 +122,7 @@ class NativeStreamHandle:
             endpoint_id=self.endpoint.id,
             latency_ms=self.attempt.latency_ms,
             error_message=classified.message[:160],
+            cooldown_seconds=30.0,
         )
         self.executor._record_lane_outcome(self.endpoint, classified)
         self.ledger.record_attempt(self.attempt)
@@ -171,11 +172,13 @@ class GatewayExecutor:
         key_pool: Optional[KeyRotationPool] = None,
         sleeper: Callable[[float], None] = time.sleep,
         events: Optional[StructuredJsonLogger] = None,
+        pool_manager: Optional[Any] = None,
     ):
         self.capability_registry = capability_registry or DEFAULT_CAPABILITY_REGISTRY
         self.breaker_registry = breaker_registry or DEFAULT_BREAKER_REGISTRY
         self.adapter_registry = adapter_registry or DEFAULT_ADAPTER_REGISTRY
         self.health_store = health_store if health_store is not None else HealthTelemetryStore()
+        self.pool_manager = pool_manager
         self.policy = policy or ExecutionPolicy()
         self.context_manager = context_manager or ContextManager()
         self.tool_validator = tool_validator or ToolCallValidator(strict=True)
@@ -391,6 +394,7 @@ class GatewayExecutor:
             )
             try:
                 adapted_request, was_compacted = self.context_manager.compact(request, budget)
+                adapted_request = replace(adapted_request, max_output_tokens=desired_output)
             except ContextOverflowError:
                 excluded_endpoints.append(endpoint.id)
                 last_failure_reason = "context_overflow"
@@ -453,12 +457,41 @@ class GatewayExecutor:
             classified = classify_failure(failure_source, status_code=failure_status, headers=result.headers)
             attempt.finish(success=False, status_code=failure_status, failure=classified)
             breaker.record_failure(attempt.latency_ms, failure_classification=classified)
+
+            cd_seconds: Optional[float] = None
+            if classified.reason in (FailoverReason.rate_limit, FailoverReason.upstream_rate_limit):
+                cd_seconds = min(120.0, max(30.0, float(classified.retry_after_seconds or 60.0)))
+            elif classified.reason in (FailoverReason.server_error, FailoverReason.timeout, FailoverReason.connection_refused, FailoverReason.overloaded):
+                cd_seconds = 30.0
+
+            quota_seconds: Optional[float] = None
+            if classified.reason == FailoverReason.billing:
+                quota_seconds = float(classified.retry_after_seconds or 86400.0)
+
             self.health_store.record_failure(
                 endpoint_id=endpoint.id,
                 latency_ms=attempt.latency_ms,
                 error_message=classified.message[:160],
-                cooldown_seconds=classified.retry_after_seconds,
+                cooldown_seconds=None,
+                quota_exhausted_seconds=quota_seconds,
+                is_permanent=classified.is_permanent,
             )
+
+            if classified.reason == FailoverReason.billing:
+                retry_sec = quota_seconds or 86400.0
+                pm = getattr(self, "pool_manager", None)
+                if pm:
+                    route_id = endpoint.id.split(":")[-1]
+                    pm.mark_quota_exhausted(pool, route_id, seconds=retry_sec)
+
+            if classified.is_permanent or classified.reason == FailoverReason.model_not_found:
+                self.router.mark_dead(endpoint.id, provider=endpoint.provider, model=endpoint.model, reason=classified.message[:160])
+                pm = getattr(self, "pool_manager", None)
+                if pm:
+                    pm.mark_deprecated(pool, endpoint.model)
+                if endpoint.id not in excluded_endpoints:
+                    excluded_endpoints.append(endpoint.id)
+
             self._record_lane_outcome(endpoint, classified)
             ledger.record_attempt(attempt)
             self._emit_attempt(attempt)
@@ -479,6 +512,18 @@ class GatewayExecutor:
                     self._sleep(backoff_s)
                     self.router.lane_store.set_available(endpoint.lane_key)
                     continue
+
+            # Route has failed over: activate cooldown horizons
+            if cd_seconds:
+                self.health_store.record_failure(
+                    endpoint_id=endpoint.id,
+                    latency_ms=0.0,
+                    cooldown_seconds=cd_seconds,
+                )
+                pm = getattr(self, "pool_manager", None)
+                if pm:
+                    pm.mark_cooldown(pool, endpoint.provider, cd_seconds)
+
             excluded_endpoints.append(endpoint.id)
             ledger.mark_fallback()
 
@@ -617,6 +662,7 @@ class GatewayExecutor:
             )
             try:
                 adapted_request, was_compacted = self.context_manager.compact(request, budget)
+                adapted_request = replace(adapted_request, max_output_tokens=desired_output)
             except ContextOverflowError as c_err:
                 logger.warning("Protected context does not fit %s: %s", endpoint.id, c_err)
                 excluded_endpoints.append(endpoint.id)
@@ -727,11 +773,18 @@ class GatewayExecutor:
                 classified = classify_failure(exec_err, status_code=502)
                 attempt_rec.finish(success=False, status_code=502, failure=classified)
                 breaker.record_failure(attempt_rec.latency_ms, failure_classification=classified)
+                cd_seconds = 30.0  # Tier 1 transient cloud probe cooldown
                 self.health_store.record_failure(
                     endpoint_id=endpoint.id,
                     latency_ms=attempt_rec.latency_ms,
                     error_message=classified.message[:160],
+                    cooldown_seconds=cd_seconds,
                 )
+                try:
+                    from durallm.pools import POOL_MANAGER
+                    POOL_MANAGER.mark_cooldown(pool, endpoint.provider, cd_seconds)
+                except Exception:
+                    pass
                 self._record_lane_outcome(endpoint, classified)
                 ledger.record_attempt(attempt_rec)
                 self._emit_attempt(attempt_rec)
@@ -901,6 +954,17 @@ class GatewayExecutor:
                 self._finish_durable_attempt(attempt_rec, "key_rotated_429", classified.message)
                 continue
 
+            # Cooldown horizons: Tier 1 (30s transient probe), Tier 2 (60s/Retry-After RPM/TPM), Tier 3 (24h Quota)
+            cd_seconds: Optional[float] = None
+            if classified.reason in (FailoverReason.rate_limit, FailoverReason.upstream_rate_limit):
+                cd_seconds = min(120.0, max(30.0, float(classified.retry_after_seconds or 60.0)))
+            elif classified.reason in (FailoverReason.server_error, FailoverReason.timeout, FailoverReason.connection_refused, FailoverReason.overloaded):
+                cd_seconds = 30.0  # Tier 1 transient cloud probe
+
+            quota_seconds: Optional[float] = None
+            if classified.reason == FailoverReason.billing:
+                quota_seconds = float(classified.retry_after_seconds or 86400.0)
+
             # Record failure in breaker & health store
             breaker.record_failure(exec_result.duration_ms, failure_classification=classified)
             self.health_store.record_failure(
@@ -908,25 +972,41 @@ class GatewayExecutor:
                 latency_ms=exec_result.duration_ms,
                 status_code=exec_result.status_code,
                 error_message=classified.message[:160],
-                cooldown_seconds=classified.retry_after_seconds or (60.0 if classified.reason == FailoverReason.rate_limit else None),
+                cooldown_seconds=None,
+                quota_exhausted_seconds=quota_seconds,
                 is_permanent=classified.is_permanent,
             )
+
             if classified.reason == FailoverReason.billing:
-                try:
-                    from durallm.pools import POOL_MANAGER
+                retry_sec = quota_seconds or 86400.0
+                pm = getattr(self, "pool_manager", None)
+                if pm:
                     route_id = endpoint.id.split(":")[-1]
-                    retry_sec = float(classified.retry_after_seconds or 86400.0)
-                    POOL_MANAGER.mark_quota_exhausted(pool, route_id, seconds=retry_sec)
-                    msg_lower = (classified.message or "").lower()
-                    if "free-models-per-day" in msg_lower or "free model requests" in msg_lower or endpoint.provider.lower() == "openrouter":
-                        POOL_MANAGER.mark_provider_quota_exhausted(pool, endpoint.provider, seconds=retry_sec)
-                        for ep_item in self.capability_registry.endpoints_for_pool(pool):
-                            if ep_item.provider.lower() == endpoint.provider.lower() and ep_item.id not in excluded_endpoints:
-                                excluded_endpoints.append(ep_item.id)
-                except Exception:
-                    pass
-            if classified.is_permanent:
+                    pm.mark_quota_exhausted(pool, route_id, seconds=retry_sec)
+                if hasattr(self.attempt_store, "record_quota_lockout"):
+                    self.attempt_store.record_quota_lockout(
+                        provider_id=endpoint.provider,
+                        pool=pool,
+                        route_id=endpoint.id.split(":")[-1],
+                        expires_at=time.time() + retry_sec,
+                        reason=classified.message[:160],
+                    )
+                msg_lower = (classified.message or "").lower()
+                if "free-models-per-day" in msg_lower or "free model requests" in msg_lower or endpoint.provider.lower() == "openrouter":
+                    if pm:
+                        pm.mark_provider_quota_exhausted(pool, endpoint.provider, seconds=retry_sec)
+                    for ep_item in self.capability_registry.endpoints_for_pool(pool):
+                        if ep_item.provider.lower() == endpoint.provider.lower() and ep_item.id not in excluded_endpoints:
+                            excluded_endpoints.append(ep_item.id)
+
+            if classified.is_permanent or classified.reason == FailoverReason.model_not_found:
                 self.router.mark_dead(endpoint.id, provider=endpoint.provider, model=endpoint.model, reason=classified.message[:160])
+                pm = getattr(self, "pool_manager", None)
+                if pm:
+                    pm.mark_deprecated(pool, endpoint.model)
+                if endpoint.id not in excluded_endpoints:
+                    excluded_endpoints.append(endpoint.id)
+
             self._record_lane_outcome(endpoint, classified)
 
             attempt_rec.finish(success=False, status_code=exec_result.status_code, failure=classified)
@@ -955,7 +1035,16 @@ class GatewayExecutor:
                         classification=classified,
                         endpoint_id=endpoint.id,
                     )
-                # Non-retryable, or retries on this endpoint exhausted: exclude and step fallback
+                # Non-retryable, or retries on this endpoint exhausted: activate cooldown, exclude and step fallback
+                if cd_seconds:
+                    self.health_store.record_failure(
+                        endpoint_id=endpoint.id,
+                        latency_ms=0.0,
+                        cooldown_seconds=cd_seconds,
+                    )
+                    pm = getattr(self, "pool_manager", None)
+                    if pm:
+                        pm.mark_cooldown(pool, endpoint.provider, cd_seconds)
                 excluded_endpoints.append(endpoint.id)
                 ledger.mark_fallback()
                 fallback_marked = True
@@ -965,7 +1054,16 @@ class GatewayExecutor:
                     ledger.attempts_on(endpoint.id), retry_after=classified.retry_after_seconds
                 )
                 if backoff_s >= deadline.remaining_ms() / 1000.0:
-                    # Waiting would blow the deadline; abandon this endpoint and fall back now.
+                    # Waiting would blow the deadline; abandon this endpoint, activate cooldown and fall back now.
+                    if cd_seconds:
+                        self.health_store.record_failure(
+                            endpoint_id=endpoint.id,
+                            latency_ms=0.0,
+                            cooldown_seconds=cd_seconds,
+                        )
+                        pm = getattr(self, "pool_manager", None)
+                        if pm:
+                            pm.mark_cooldown(pool, endpoint.provider, cd_seconds)
                     excluded_endpoints.append(endpoint.id)
                     ledger.mark_fallback()
                     fallback_marked = True

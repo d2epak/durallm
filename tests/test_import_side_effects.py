@@ -35,7 +35,13 @@ print(json.dumps({
 }))
 '''
 
-KEY_NAMES = ("GROQ_API_KEY", "NVIDIA_API_KEY", "OPENROUTER_API_KEY")
+KEY_NAMES = (
+    "GROQ_API_KEY",
+    "NVIDIA_API_KEY",
+    "OPENROUTER_API_KEY",
+    "SAMBANOVA_API_KEY",
+    "CEREBRAS_API_KEY",
+)
 
 
 class TestImportSideEffects(unittest.TestCase):

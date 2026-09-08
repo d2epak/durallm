@@ -129,6 +129,17 @@ class SQLitePersistenceStore:
                     expires_at REAL NOT NULL,
                     updated_at REAL NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS provider_quota_lockouts (
+                    provider_id TEXT NOT NULL,
+                    pool TEXT NOT NULL,
+                    route_id TEXT NOT NULL,
+                    expires_at REAL NOT NULL,
+                    reason TEXT,
+                    created_at REAL NOT NULL,
+                    PRIMARY KEY (provider_id, pool, route_id)
+                );
+                CREATE INDEX IF NOT EXISTS idx_quota_expires ON provider_quota_lockouts(expires_at);
                 """
             )
 
@@ -223,6 +234,68 @@ class SQLitePersistenceStore:
                 (logical_operation_id, tool_name, arguments_hash, ToolExecutionStatus.COMMITTED.value),
             ).fetchone()
         return (bool(row and row["execution_receipt_json"]), json.loads(row["execution_receipt_json"]) if row and row["execution_receipt_json"] else None)
+
+    # ------------------------------------------------------------------
+    # Provider Quota Lockouts (Tier 3 Daily Quota Persistence)
+    # ------------------------------------------------------------------
+    def record_quota_lockout(
+        self,
+        provider_id: str,
+        pool: str,
+        route_id: str,
+        expires_at: float,
+        reason: Optional[str] = None,
+    ) -> None:
+        """Persist a Tier 3 daily quota lockout (24h) for a route or provider."""
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO provider_quota_lockouts
+                    (provider_id, pool, route_id, expires_at, reason, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(provider_id, pool, route_id) DO UPDATE SET
+                    expires_at = excluded.expires_at,
+                    reason = excluded.reason,
+                    created_at = excluded.created_at
+                """,
+                (provider_id.lower(), pool.lower(), route_id.lower(), expires_at, reason or "", now),
+            )
+
+    def get_active_quota_lockouts(self, pool: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Retrieve all currently active (unexpired) quota lockouts."""
+        now = time.time()
+        with self._lock:
+            if pool:
+                cur = self._conn.execute(
+                    "SELECT provider_id, pool, route_id, expires_at, reason FROM provider_quota_lockouts WHERE pool = ? AND expires_at > ?",
+                    (pool.lower(), now),
+                )
+            else:
+                cur = self._conn.execute(
+                    "SELECT provider_id, pool, route_id, expires_at, reason FROM provider_quota_lockouts WHERE expires_at > ?",
+                    (now,),
+                )
+            return [
+                {
+                    "provider_id": row["provider_id"],
+                    "pool": row["pool"],
+                    "route_id": row["route_id"],
+                    "expires_at": float(row["expires_at"]),
+                    "reason": row["reason"],
+                }
+                for row in cur.fetchall()
+            ]
+
+    def purge_expired_quota_lockouts(self) -> int:
+        """Delete expired quota lockouts from database."""
+        now = time.time()
+        with self._lock:
+            cur = self._conn.execute(
+                "DELETE FROM provider_quota_lockouts WHERE expires_at <= ?",
+                (now,),
+            )
+            return cur.rowcount
 
     # ------------------------------------------------------------------
     # SessionStore: revisioned payloads for durable continuation state
