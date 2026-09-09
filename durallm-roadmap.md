@@ -3,8 +3,8 @@
 **Document Title:** Single Authoritative Roadmap & Architectural Traceability Matrix  
 **Current Repository Version:** `0.2.2-dev`  
 **Repository:** [d2epak/durallm](https://github.com/d2epak/durallm)  
-**Last Updated:** `2026-09-08T10:40:00+01:00`  
-**Status:** ACTIVE / PRODUCTION-READY (`358 passing tests`, `78.5% branch coverage`, `0 ruff errors`, `0 mypy errors`)
+**Last Updated:** `2026-09-09T19:53:00+01:00`  
+**Status:** ACTIVE / PRODUCTION-READY (`359 passing tests`, `78.5% branch coverage`, `0 ruff errors`, `0 mypy errors`)
 
 ---
 
@@ -43,6 +43,7 @@ DuraLLM is a high-performance, self-healing multi-provider LLM gateway and resil
 | **2026-09-08T07:00Z** | **Milestone 10: 100% Cloud-Only Topology & Cooldown Horizons** | `ece3514` | Eliminated local model dependencies (Ollama/llama.cpp) in favor of a 5-Tier Cloud-Only Pool Topology across Groq, Cerebras, SambaNova, NVIDIA NIM, and OpenRouter. Introduced 3-tier dynamic cooldown horizons (30s Transient / 60s Rate-Limit / 24h Quota Expiry) with lazy expiration, max_tokens auto-clamping, and 404 deprecation classification. |
 | **2026-09-08T10:30Z** | **Milestone 11: Upstream Autonomous Error Remediation Engine** | `824feb3` | Solved 3 core upstream failure modes discovered during live Claude Code execution: (1) Groq Input TPM limits (`Limit X, Requested Y`) non-poisoning classification, in-flight hierarchical compaction, and immediate retry; (2) OpenRouter daily free cap (`free-models-per-day`) dynamic UTC midnight calculation and account-wide provider route lockout; (3) NVIDIA NIM Socket Read Timeouts (599) adaptive prefill transport deadlines (up to 90s) and transient 30s cooldowns without tripping circuit breakers. 357 passing tests. |
 | **2026-09-09T19:49Z** | **Milestone 12: Per-Route Cooldown Granularity** | `c9bda3a` | Re-keyed cooldown map from `(pool, provider)` to `(pool, route_id)` so a 429 on one model (e.g. `openrouter/gemma-4-31b-it:free`) no longer blocks sibling models from the same provider (e.g. `openrouter/qwen-2.5-coder`, `openrouter/north-mini-code`). Updated all 8 callers in `executor.py` and `router.py`. Added `is_route_in_cooldown()` method. 358 passing tests. |
+| **2026-09-09T19:53Z** | **Milestone 13: Sticky Primary Routing with Decay Affinity** | `52a8f75` | Implemented success-weighted sticky primary routing: `select_route()` prefers the last successful route per pool if it succeeded within 120s (`STICKY_AFFINITY_SECONDS`), eliminating unnecessary provider churn. Falls back to round-robin when the affinity window expires or the sticky route enters cooldown. Wired `record_route_success()` into both executor paths (streaming + non-streaming) and router dispatch. 359 passing tests. |
 
 ---
 
