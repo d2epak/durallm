@@ -28,8 +28,8 @@ class TestIsolatedPools(unittest.TestCase):
         self.assertEqual(a_route.id, "agent-groq")
 
     def test_cooldown_in_coding_does_not_affect_agent_pool(self):
-        # Place Cerebras on cooldown in coding pool
-        self.mgr.mark_cooldown("coding", "cerebras", seconds=60.0)
+        # Place Cerebras route on cooldown in coding pool (per-route granularity)
+        self.mgr.mark_cooldown("coding", "code-cerebras", seconds=60.0)
 
         # In coding pool, cerebras is skipped -> mistral selected
         c_route = self.mgr.select_route("coding")

@@ -69,8 +69,10 @@ class TestCloudResilience(unittest.TestCase):
         candidates = pm.get_candidate_routes("coding")
         self.assertEqual(len(candidates), 2)
 
-        # Mark groq in cooldown (e.g. 30s transient probe)
-        pm.mark_cooldown("coding", "groq", seconds=30.0)
+        # Mark groq route in cooldown (e.g. 30s transient probe)
+        pm.mark_cooldown("coding", "route-groq", seconds=30.0)
+        self.assertTrue(pm.is_route_in_cooldown("coding", "route-groq"))
+        # Backward-compat: provider-level check still works
         self.assertTrue(pm.is_provider_in_cooldown("coding", "groq"))
 
         candidates = pm.get_candidate_routes("coding")
@@ -78,8 +80,8 @@ class TestCloudResilience(unittest.TestCase):
         self.assertEqual(candidates[0].provider, "sambanova")
 
         # Expire cooldown artificially
-        pm.cooldowns[("coding", "groq")] = time.monotonic() - 1.0
-        self.assertFalse(pm.is_provider_in_cooldown("coding", "groq"))
+        pm.cooldowns[("coding", "route-groq")] = time.monotonic() - 1.0
+        self.assertFalse(pm.is_route_in_cooldown("coding", "route-groq"))
         pm.auto_expire_cooldowns("coding")
         candidates = pm.get_candidate_routes("coding")
         self.assertEqual(len(candidates), 2)
@@ -90,6 +92,45 @@ class TestCloudResilience(unittest.TestCase):
         candidates = pm.get_candidate_routes("coding")
         self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates[0].id, "route-groq")
+
+    def test_per_route_cooldown_independence(self):
+        """A 429 on openrouter/gemma must NOT block openrouter/qwen or openrouter/north-mini."""
+        pm = IsolatedPoolManager()
+        pm.coding_routes = [
+            RouteDefinition(
+                id="or-gemma", provider="openrouter", model="google/gemma-4-31b-it:free",
+                pool="coding", base_url="https://openrouter.ai/api/v1", api_format="openai", env_key=None,
+            ),
+            RouteDefinition(
+                id="or-qwen", provider="openrouter", model="qwen/qwen-2.5-coder-32b-instruct:free",
+                pool="coding", base_url="https://openrouter.ai/api/v1", api_format="openai", env_key=None,
+            ),
+            RouteDefinition(
+                id="or-north", provider="openrouter", model="cohere/north-mini-code:free",
+                pool="coding", base_url="https://openrouter.ai/api/v1", api_format="openai", env_key=None,
+            ),
+        ]
+
+        # All 3 routes are initially active
+        self.assertEqual(len(pm.get_candidate_routes("coding")), 3)
+
+        # 429 on gemma: only gemma gets cooled down, qwen and north stay active
+        pm.mark_cooldown("coding", "or-gemma", seconds=60.0)
+
+        candidates = pm.get_candidate_routes("coding")
+        self.assertEqual(len(candidates), 2)
+        candidate_ids = {c.id for c in candidates}
+        self.assertIn("or-qwen", candidate_ids)
+        self.assertIn("or-north", candidate_ids)
+        self.assertNotIn("or-gemma", candidate_ids)
+
+        # Verify route-level check
+        self.assertTrue(pm.is_route_in_cooldown("coding", "or-gemma"))
+        self.assertFalse(pm.is_route_in_cooldown("coding", "or-qwen"))
+        self.assertFalse(pm.is_route_in_cooldown("coding", "or-north"))
+
+        # Provider-level check returns True because at least one route is in cooldown
+        self.assertTrue(pm.is_provider_in_cooldown("coding", "openrouter"))
 
     def test_sqlite_persistence_quota_lockout(self, tmp_path=None):
         """Test Tier 3 (24h) quota lockout SQLite persistence and ProxyGateway restoration."""

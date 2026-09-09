@@ -369,7 +369,9 @@ class IsolatedPoolManager:
         self.coding_index = 0
         self.agent_index = 0
 
-        # Cooldowns map: (pool, provider) -> expiration_monotonic
+        # Cooldowns map: (pool, route_id) -> expiration_monotonic
+        # Keyed per-route so a 429 on one model does not block sibling models
+        # from the same provider (e.g. different OpenRouter free models).
         self.cooldowns: Dict[tuple[str, str], float] = {}
 
         # Deprecated / blacklisted models per pool: set of (pool, model_id)
@@ -385,12 +387,16 @@ class IsolatedPoolManager:
         with self._lock:
             self.keys = load_all_env_keys()
 
-    def mark_cooldown(self, pool: str, provider: str, seconds: float = 60.0) -> None:
-        """Place a provider on cooldown for a SPECIFIC pool only."""
+    def mark_cooldown(self, pool: str, route_id: str, seconds: float = 60.0) -> None:
+        """Place a specific route on cooldown for a SPECIFIC pool only.
+
+        Keyed by route_id (not provider) so sibling routes from the same
+        provider remain available when only one model is rate-limited.
+        """
         with self._lock:
-            key = (pool.lower(), provider.lower())
+            key = (pool.lower(), route_id.lower())
             self.cooldowns[key] = time.monotonic() + seconds
-            logger.info("[🛡️ COOLDOWN] Pool '%s' placed provider '%s' on cooldown for %.1fs", pool, provider, seconds)
+            logger.info("[🛡️ COOLDOWN] Pool '%s' placed route '%s' on cooldown for %.1fs", pool, route_id, seconds)
 
     def mark_quota_exhausted(self, pool: str, route_id: str, seconds: float = 86400.0) -> None:
         """Mark a route as having exhausted daily/monthly quota."""
@@ -411,19 +417,33 @@ class IsolatedPoolManager:
                     self.exhausted_quotas[key] = time.time() + seconds
             logger.warning("[🛑 PROVIDER QUOTA EXHAUSTED] Pool '%s' provider '%s' (all routes) locked out for %.1fh", pool, provider, seconds / 3600)
 
-    def clear_cooldown(self, provider: str, pool: Optional[str] = None) -> None:
-        """Clear active cooldown for a provider."""
+    def clear_cooldown(self, route_id: str, pool: Optional[str] = None) -> None:
+        """Clear active cooldown for a route (or all routes matching the id across pools)."""
         with self._lock:
-            p = provider.lower()
-            keys_to_del = [k for k in self.cooldowns if k[1] == p and (pool is None or k[0] == pool.lower())]
+            rid = route_id.lower()
+            keys_to_del = [k for k in self.cooldowns if k[1] == rid and (pool is None or k[0] == pool.lower())]
             for k in keys_to_del:
                 del self.cooldowns[k]
 
-    def is_provider_in_cooldown(self, pool: str, provider: str) -> bool:
-        """Check whether a provider is currently under short-term cooldown in the given pool."""
+    def is_route_in_cooldown(self, pool: str, route_id: str) -> bool:
+        """Check whether a specific route is currently under short-term cooldown."""
         with self._lock:
-            key = (pool.lower(), provider.lower())
+            key = (pool.lower(), route_id.lower())
             return time.monotonic() < self.cooldowns.get(key, 0.0)
+
+    def is_provider_in_cooldown(self, pool: str, provider: str) -> bool:
+        """Check whether ANY route from this provider is currently under cooldown.
+
+        Backward-compatible convenience method. Iterates per-route cooldown entries.
+        """
+        with self._lock:
+            now = time.monotonic()
+            routes = self.coding_routes if pool == "coding" else self.agent_routes
+            for r in routes:
+                if r.provider.lower() == provider.lower():
+                    if now < self.cooldowns.get((pool.lower(), r.id.lower()), 0.0):
+                        return True
+            return False
 
     def is_route_quota_exhausted(self, pool: str, route_id: str, provider: Optional[str] = None) -> bool:
         """Check whether a route or its provider account is currently locked out by daily quota."""
@@ -502,7 +522,7 @@ class IsolatedPoolManager:
                 if self.is_route_quota_exhausted(pool, r.id, r.provider):
                     continue
 
-                cooldown_exp = self.cooldowns.get((pool.lower(), r.provider.lower()), 0)
+                cooldown_exp = self.cooldowns.get((pool.lower(), r.id.lower()), 0)
                 if now_mono < cooldown_exp:
                     continue
 

@@ -535,7 +535,7 @@ class GatewayExecutor:
                 )
                 pm = getattr(self, "pool_manager", None)
                 if pm:
-                    pm.mark_cooldown(pool, endpoint.provider, cd_seconds)
+                    pm.mark_cooldown(pool, endpoint.id, cd_seconds)
 
             excluded_endpoints.append(endpoint.id)
             ledger.mark_fallback()
@@ -799,7 +799,7 @@ class GatewayExecutor:
                 )
                 try:
                     from durallm.pools import POOL_MANAGER
-                    POOL_MANAGER.mark_cooldown(pool, endpoint.provider, cd_seconds)
+                    POOL_MANAGER.mark_cooldown(pool, endpoint.id, cd_seconds)
                 except Exception:
                     pass
                 self._record_lane_outcome(endpoint, classified)
@@ -1106,7 +1106,7 @@ class GatewayExecutor:
                     )
                     pm = getattr(self, "pool_manager", None)
                     if pm:
-                        pm.mark_cooldown(pool, endpoint.provider, cd_seconds)
+                        pm.mark_cooldown(pool, endpoint.id, cd_seconds)
                 excluded_endpoints.append(endpoint.id)
                 ledger.mark_fallback()
                 fallback_marked = True
@@ -1125,7 +1125,7 @@ class GatewayExecutor:
                         )
                         pm = getattr(self, "pool_manager", None)
                         if pm:
-                            pm.mark_cooldown(pool, endpoint.provider, cd_seconds)
+                            pm.mark_cooldown(pool, endpoint.id, cd_seconds)
                     excluded_endpoints.append(endpoint.id)
                     ledger.mark_fallback()
                     fallback_marked = True

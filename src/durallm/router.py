@@ -207,12 +207,17 @@ class UniversalFailoverRouter:
             "context_length": route.context_length,
         }
 
-    def mark_cooldown(self, provider: str, seconds: float = 60.0, pool: Optional[str] = None) -> None:
-        """Place a provider on cooldown to avoid turn-thrashing."""
+    def mark_cooldown(self, provider: str, seconds: float = 60.0, pool: Optional[str] = None, route_id: Optional[str] = None) -> None:
+        """Place a route on cooldown to avoid turn-thrashing.
+
+        If route_id is provided, the cooldown targets that specific route.
+        Otherwise falls back to using provider as a route_id key.
+        """
         self.provider_cooldowns[provider.lower()] = time.monotonic() + seconds
         target_pool = pool or self.default_pool
-        self.pool_manager.mark_cooldown(target_pool, provider, seconds)
-        logger.info("Provider %s placed on cooldown for %.1fs", provider, seconds)
+        cd_key = route_id or provider
+        self.pool_manager.mark_cooldown(target_pool, cd_key, seconds)
+        logger.info("Route/provider %s placed on cooldown for %.1fs", cd_key, seconds)
 
     def mark_deprecated(self, model: str, pool: Optional[str] = None) -> None:
         """Permanently skip model for this session."""
@@ -365,7 +370,7 @@ class UniversalFailoverRouter:
                     cd = min(120, max(30, int(float(retry_after or "60"))))
                 except Exception:
                     cd = 60
-                self.pool_manager.mark_cooldown(pool, route.provider, cd)
+                self.pool_manager.mark_cooldown(pool, route.id, cd)
                 continue
 
             if classified.reason == FailoverReason.model_not_found or status == 404:
@@ -373,7 +378,7 @@ class UniversalFailoverRouter:
                 continue
 
             if classified.reason in (FailoverReason.overloaded, FailoverReason.server_error, FailoverReason.timeout, FailoverReason.connection_refused):
-                self.pool_manager.mark_cooldown(pool, route.provider, 30.0)  # Tier 1 transient probe cooldown
+                self.pool_manager.mark_cooldown(pool, route.id, 30.0)  # Tier 1 transient probe cooldown
                 continue
 
         return 503, {"error": {"message": f"All providers in pool '{pool}' are temporarily unavailable."}}, None
