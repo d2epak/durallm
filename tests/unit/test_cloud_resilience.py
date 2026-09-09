@@ -132,6 +132,52 @@ class TestCloudResilience(unittest.TestCase):
         # Provider-level check returns True because at least one route is in cooldown
         self.assertTrue(pm.is_provider_in_cooldown("coding", "openrouter"))
 
+    def test_sticky_primary_routing_with_decay_affinity(self):
+        """After a success, select_route should prefer the same route until 120s decay."""
+        pm = IsolatedPoolManager()
+        pm.coding_routes = [
+            RouteDefinition(
+                id="groq-a", provider="groq", model="model-a",
+                pool="coding", base_url="https://api.groq.com/openai/v1", api_format="openai", env_key=None,
+            ),
+            RouteDefinition(
+                id="nvidia-b", provider="nvidia", model="model-b",
+                pool="coding", base_url="https://integrate.api.nvidia.com/v1", api_format="openai", env_key=None,
+            ),
+        ]
+
+        # Without any success recorded, first select returns groq-a (round-robin index 0)
+        r1 = pm.select_route("coding")
+        self.assertEqual(r1.id, "groq-a")
+
+        # Next round-robin would return nvidia-b
+        r2 = pm.select_route("coding")
+        self.assertEqual(r2.id, "nvidia-b")
+
+        # Record success on nvidia-b — sticky affinity established
+        pm.record_route_success("coding", "nvidia-b")
+
+        # Now select_route should prefer nvidia-b (sticky) instead of groq-a (round-robin)
+        r3 = pm.select_route("coding")
+        self.assertEqual(r3.id, "nvidia-b")
+        r4 = pm.select_route("coding")
+        self.assertEqual(r4.id, "nvidia-b")
+
+        # Simulate 120s decay by backdating the success timestamp
+        pm.last_success_at["coding"] = time.monotonic() - 121.0
+
+        # Now sticky has expired, should fall back to round-robin
+        r5 = pm.select_route("coding")
+        # Round-robin resumes from its last index
+        self.assertIn(r5.id, {"groq-a", "nvidia-b"})
+
+        # If sticky route goes into cooldown, should fall back to the other
+        pm.record_route_success("coding", "nvidia-b")
+        pm.mark_cooldown("coding", "nvidia-b", seconds=60.0)
+
+        r6 = pm.select_route("coding")
+        self.assertEqual(r6.id, "groq-a")
+
     def test_sqlite_persistence_quota_lockout(self, tmp_path=None):
         """Test Tier 3 (24h) quota lockout SQLite persistence and ProxyGateway restoration."""
         import tempfile

@@ -226,14 +226,20 @@ class UniversalFailoverRouter:
         self.pool_manager.mark_deprecated(target_pool, model)
         logger.warning("Blacklisted deprecated model: %s", model)
 
-    def record_success(self, provider: str, model: str) -> None:
-        """Record a successful execution, clearing cooldowns for this provider."""
+    def record_success(self, provider: str, model: str, pool: Optional[str] = None, route_id: Optional[str] = None) -> None:
+        """Record a successful execution, clearing cooldowns and establishing sticky affinity."""
         p = provider.lower()
         if p in self.provider_cooldowns:
             del self.provider_cooldowns[p]
         if hasattr(self, "auth_failed_providers") and p in self.auth_failed_providers:
             self.auth_failed_providers.remove(p)
-        self.pool_manager.clear_cooldown(p)
+        if route_id:
+            self.pool_manager.clear_cooldown(route_id)
+        else:
+            self.pool_manager.clear_cooldown(p)
+        target_pool = pool or self.default_pool
+        if route_id:
+            self.pool_manager.record_route_success(target_pool, route_id)
         logger.info("Recorded success for %s/%s; cleared cooldowns.", provider, model)
 
     def mark_auth_failed(self, provider: str) -> None:
@@ -317,6 +323,7 @@ class UniversalFailoverRouter:
                         parsed = convert_gemini_to_openai_response(raw_json, route.model)
                     else:
                         parsed = raw_json
+                    self.pool_manager.record_route_success(pool, route.id)
                     return 200, parsed, route
                 except Exception as e:
                     logger.warning("Provider %s returned invalid JSON: %s", route.provider, e)

@@ -440,6 +440,10 @@ class GatewayExecutor:
                     first_error = None
                 if first_chunk:
                     attempt.ttft_ms = max(result.duration_ms, (time.monotonic() - attempt.start_time_monotonic) * 1000.0)
+                    # Record sticky affinity for next request selection
+                    pm = getattr(self, "pool_manager", None)
+                    if pm:
+                        pm.record_route_success(pool, endpoint.id)
                     return NativeStreamHandle(
                         stream=result.stream,
                         stream_iterator=stream_iterator,
@@ -895,6 +899,10 @@ class GatewayExecutor:
                         breaker.record_success(exec_result.duration_ms)
                         self.health_store.record_success(endpoint.id, exec_result.duration_ms)
                         self._record_lane_outcome(endpoint)
+                        # Record sticky affinity for next request selection
+                        pm = getattr(self, "pool_manager", None)
+                        if pm:
+                            pm.record_route_success(pool, endpoint.id)
                         if prefix_hash:
                             self.router.cache_tracker.record_warm_cache(endpoint.id, prefix_hash)
                         attempt_rec.finish(success=True, status_code=200)

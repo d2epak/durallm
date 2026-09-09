@@ -383,6 +383,13 @@ class IsolatedPoolManager:
         # Account-wide daily provider quota lockouts (e.g. OpenRouter free-models-per-day): provider -> reset_epoch
         self.account_lockouts: Dict[str, float] = {}
 
+        # Sticky primary routing: prefer last successful route per pool if it
+        # succeeded recently (within STICKY_AFFINITY_SECONDS).  Falls back to
+        # round-robin when the affinity window expires or the route is in cooldown.
+        self.last_success: Dict[str, str] = {}       # pool -> route_id
+        self.last_success_at: Dict[str, float] = {}  # pool -> monotonic timestamp
+        self.STICKY_AFFINITY_SECONDS: float = 120.0
+
     def refresh_keys(self) -> None:
         with self._lock:
             self.keys = load_all_env_keys()
@@ -529,8 +536,20 @@ class IsolatedPoolManager:
                 valid.append(r)
             return valid
 
+    def record_route_success(self, pool: str, route_id: str) -> None:
+        """Record a successful response from a route, establishing sticky affinity."""
+        with self._lock:
+            p = pool.lower()
+            self.last_success[p] = route_id.lower()
+            self.last_success_at[p] = time.monotonic()
+
     def select_route(self, pool: str, requested_model: Optional[str] = None) -> Optional[RouteDefinition]:
-        """Select next viable route in the requested pool using round-robin fallback."""
+        """Select next viable route using sticky-primary-with-decay affinity.
+
+        1. If the last successful route is still healthy and succeeded within
+           STICKY_AFFINITY_SECONDS (120s), prefer it (eliminates provider churn).
+        2. Otherwise fall back to round-robin across all candidates.
+        """
         with self._lock:
             candidates = self.get_candidate_routes(pool)
             if not candidates:
@@ -544,6 +563,16 @@ class IsolatedPoolManager:
             if not candidates:
                 return None
 
+            # 1. Sticky primary: try last successful route if it's fresh and still a candidate
+            p = pool.lower()
+            last_id = self.last_success.get(p)
+            last_at = self.last_success_at.get(p, 0.0)
+            if last_id and (time.monotonic() - last_at) < self.STICKY_AFFINITY_SECONDS:
+                sticky = next((r for r in candidates if r.id.lower() == last_id), None)
+                if sticky:
+                    return sticky
+
+            # 2. Round-robin fallback
             idx = (self.coding_index if pool == "coding" else self.agent_index) % len(candidates)
             selected = candidates[idx]
 
