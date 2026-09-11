@@ -74,7 +74,7 @@ def prune_anthropic_request(
                         if isinstance(res_content, str) and len(res_content) > 600:
                             block["content"] = (
                                 res_content[:250]
-                                + "\n... [Output compacted by Circuit Breaker to fit context window] ...\n"
+                                + "\n... [Output compacted by DuraLLM to fit context window] ...\n"
                                 + res_content[-250:]
                             )
 

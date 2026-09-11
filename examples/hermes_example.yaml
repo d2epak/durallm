@@ -1,4 +1,4 @@
-# Hermes Agent Configuration Example with LLM Circuit Breaker
+# Hermes Agent Configuration Example with DuraLLM
 fallback_providers:
   - provider: nvidia
     model: nvidia/nemotron-3-ultra-550b-a55b

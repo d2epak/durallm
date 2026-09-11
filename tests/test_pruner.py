@@ -33,7 +33,7 @@ class TestContextPruner(unittest.TestCase):
 
         self.assertLess(pruned_tokens, initial_tokens)
         self.assertEqual(pruned["messages"][0]["content"], "Root goal: test compaction")
-        self.assertIn("compacted by Circuit Breaker", pruned["messages"][2]["content"][0]["content"])
+        self.assertIn("compacted by DuraLLM", pruned["messages"][2]["content"][0]["content"])
 
     def test_openai_pruner_compacts_historical_tool_messages(self):
         req = {
@@ -58,7 +58,7 @@ class TestContextPruner(unittest.TestCase):
         pruned_tokens = estimate_tokens(pruned)
 
         self.assertLess(pruned_tokens, initial_tokens)
-        self.assertIn("compacted by Circuit Breaker", pruned["messages"][3]["content"])
+        self.assertIn("compacted by DuraLLM", pruned["messages"][3]["content"])
 
 
 if __name__ == "__main__":

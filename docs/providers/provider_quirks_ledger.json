@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "last_updated_utc": "2026-09-07T18:43:50.195153+00:00",
+  "last_updated_utc": "2026-09-11T10:16:22.701130+00:00",
   "scheduler": {
     "target_time_local": "01:00",
     "timezone": "Europe/London",
@@ -27,12 +27,12 @@
           "supports_tools": true,
           "supports_streaming": true,
           "status": "active",
-          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "last_verified_utc": "2026-09-11T10:16:22.701130+00:00",
           "quirks": [
             "Clamps max_tokens to 950 to prevent HTTP 429 OTPM limit rejection",
             "Returns 'try again in X.XXs' in body on TPM exhaustion"
           ],
-          "last_probe_latency_ms": 319.0
+          "last_probe_latency_ms": 343.9
         },
         "openai/gpt-oss-120b": {
           "pool": "coding",
@@ -137,10 +137,11 @@
           "supports_tools": true,
           "supports_streaming": true,
           "status": "active",
-          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "last_verified_utc": "2026-09-11T10:16:22.701130+00:00",
           "quirks": [
             "OpenRouter's meta-router that dynamically routes to available free endpoints"
-          ]
+          ],
+          "last_probe_latency_ms": 929.6
         },
         "nvidia/nemotron-3-ultra-550b-a55b:free": {
           "pool": "general_agent",
@@ -349,6 +350,45 @@
           "quirks": [
             "Discovered via live OpenRouter aggregator catalog"
           ]
+        },
+        "inclusionai/ling-3.0-flash-vl:free": {
+          "pool": "general_agent",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-11T08:34:30.427817+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "nex-agi/nex-n2.5-mini:free": {
+          "pool": "general_agent",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-11T08:34:30.427817+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
+        },
+        "nex-agi/nex-n2.5-pro:free": {
+          "pool": "general_agent",
+          "context_window": 262144,
+          "safe_input_tokens": 32000,
+          "max_output_tokens": 8192,
+          "supports_tools": true,
+          "supports_streaming": true,
+          "status": "active",
+          "last_verified_utc": "2026-09-11T08:34:30.427817+00:00",
+          "quirks": [
+            "Discovered via live OpenRouter aggregator catalog"
+          ]
         }
       }
     },
@@ -370,7 +410,7 @@
           "supports_tools": true,
           "supports_streaming": true,
           "status": "active",
-          "last_verified_utc": "2026-09-07T18:43:50.195153+00:00",
+          "last_verified_utc": "2026-09-11T08:34:30.427817+00:00",
           "quirks": [
             "High quality 31B instruction/coding model",
             "Latency can spike to 60s during peak hours"
@@ -384,10 +424,11 @@
           "supports_tools": true,
           "supports_streaming": true,
           "status": "active",
-          "last_verified_utc": "2026-09-07T18:32:00Z",
+          "last_verified_utc": "2026-09-11T10:16:22.701130+00:00",
           "quirks": [
             "Fast multimodal agent model"
-          ]
+          ],
+          "last_probe_latency_ms": 197.4
         },
         "nvidia/nemotron-3-ultra-550b-a55b": {
           "pool": "coding",

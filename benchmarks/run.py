@@ -135,7 +135,7 @@ def build_report(env, harness, suite_runs, research_runs) -> str:
     dirty = " (uncommitted changes present)" if env["dirty_tree"] else ""
 
     lines = [
-        "# LLM Circuit Breaker V3 — Benchmark Report",
+        "# DuraLLM V3 — Benchmark Report",
         "",
         f"**Generated:** {env['generated_at']}  ",
         f"**Commit:** `{env['commit']}`{dirty}  ",
@@ -239,7 +239,7 @@ def main(argv: Optional[Sequence[str]] = None) -> Path:
 
     env = environment(args.runs, args.seed)
     print("\n" + "=" * 85)
-    print("  ⚡ LLM CIRCUIT BREAKER V3 — REPRODUCIBLE AGENT RESILIENCE BENCHMARK SUITE")
+    print("  ⚡ DURALLM V3 — REPRODUCIBLE AGENT RESILIENCE BENCHMARK SUITE")
     print("=" * 85)
     print(f"Commit {env['commit']}{' (dirty)' if env['dirty_tree'] else ''} · Python {env['python']} · "
           f"{args.runs} run(s), seed {args.seed}\n")

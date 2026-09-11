@@ -27,7 +27,7 @@
 
 Modern LLM proxies (**LiteLLM**, **Portkey**, **Cloudflare AI Gateway**) were architected for stateless chat completions. When paired with **autonomous agent loops** (**Claude Code**, **Hermes Agent**, **Cursor**, **Aider**, **OpenClaw**), standard proxies cause silent task corruption:
 
-| Failure Mode | Standard Reverse Proxy Behavior | **LLM Circuit Breaker** Resolution |
+| Failure Mode | Standard Reverse Proxy Behavior | **DuraLLM** Resolution |
 |---|---|---|
 | **Ghost Side-Effects** *(Replay Hazard)* | On upstream 5xx or disconnect, blindly resends payload. A destructive tool call (`execute_bash("rm -rf ...")` or database mutation) executes twice. | **Idempotent Tool Execution Ledger**: Stages calls through `PROPOSED` $\to$ `VALIDATED` $\to$ `SUBMITTED` $\to$ `COMMITTED`. Cached receipts suppress duplicate executions during retries. |
 | **Context Window Overflow** | Failing over from a 128k context provider to a 32k provider triggers HTTP 400. Proxies blindly truncate from the head, erasing system prompts and root instructions. | **Diagnostic Context Compaction**: Preserves root user goal and system prompt; summarizes intermediate tool logs into structured diagnostics (exit codes, error snippets). |
@@ -48,7 +48,7 @@ python -m durallm.demo
 
 ```text
 ===========================================================================
-⚡ LLM CIRCUIT BREAKER — DETERMINISTIC RESILIENCE & SEMANTIC FAILOVER DEMO
+⚡ DURALLM — DETERMINISTIC RESILIENCE & SEMANTIC FAILOVER DEMO
 ===========================================================================
 ▶ STEP 1: Dispatching turn to Primary Provider (Cerebras)...
   ✔ Result: Primary response: Tool code executed successfully
@@ -88,7 +88,7 @@ flowchart TD
         ACP["Agent Continuation Protocol (ACP v1)"]
     end
 
-    subgraph Runtime ["LLM Circuit Breaker Gateway Runtime"]
+    subgraph Runtime ["DuraLLM Gateway Runtime"]
         CB["1. Circuit Breaker FSM\n(CLOSED / OPEN / HALF_OPEN / FORCED_OPEN)"]
         IR["2. Protocol IR\n(Universal Schema Translator)"]
         TL["3. Idempotent Tool Ledger\n(PROPOSED → VALIDATED → COMMITTED)"]

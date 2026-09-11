@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # ============================================================================
-# 1-Click Setup for Claude Code with LLM Circuit Breaker
+# 1-Click Setup for Claude Code with DuraLLM
 # ============================================================================
 set -euo pipefail
 
 GATEWAY_PORT="${1:-4001}"
 GATEWAY_URL="http://127.0.0.1:${GATEWAY_PORT}/v1"
 
-echo "⚡ Configuring Claude Code to use LLM Circuit Breaker on ${GATEWAY_URL}..."
+echo "⚡ Configuring Claude Code to use DuraLLM on ${GATEWAY_URL}..."
 
 # Export Anthropic base URL for Claude Code
 export ANTHROPIC_BASE_URL="${GATEWAY_URL}"

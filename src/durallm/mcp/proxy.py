@@ -198,7 +198,7 @@ class MCPProxy:
                     "code": -32001,
                     "message": (
                         f"Duplicate side-effect hazard: tool '{tool_name}' has indeterminate status from a prior execution. "
-                        "Automatic re-execution prohibited by LLM Circuit Breaker."
+                        "Automatic re-execution prohibited by DuraLLM."
                     ),
                     "data": {"operation_id": operation_id, "indeterminate": True},
                 },

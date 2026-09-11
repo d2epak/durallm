@@ -1,6 +1,6 @@
 # Durable Session, Attempt and Tool-Operation State
 
-Set `LLM_BREAKER_STATE_DB=/absolute/path/gateway.db` when starting
+Set `DURALLM_STATE_DB=/absolute/path/gateway.db` when starting
 `llm-proxy` to opt into the local SQLite/WAL durable backend. Without it, the
 gateway is deliberately process-local and should be treated as best-effort.
 

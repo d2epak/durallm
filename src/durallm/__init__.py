@@ -1,4 +1,4 @@
-"""⚡ LLM Circuit Breaker
+"""⚡ DuraLLM
 
 Self-Hostable Agent Resilience Gateway with Capability-Aware Routing,
 Semantic Failover, and Zero-Dependency Autonomous Recovery.

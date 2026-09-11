@@ -79,7 +79,7 @@ advancing past a result it has not persisted, and it records the actual
 endpoint selected after failover. A failed upstream attempt releases its active
 turn without issuing a checkpoint; a client can retry that same epoch.
 
-Set `LLM_BREAKER_STATE_DB` to use the SQLite/WAL `SQLiteContinuationStore`.
+Set `DURALLM_STATE_DB` to use the SQLite/WAL `SQLiteContinuationStore`.
 It persists the session/checkpoint and uses a fenced session lease, so an
 uncompleted active turn after restart is interrupted rather than advanced. It
 still does not reconstruct a provider request that may have been in flight,

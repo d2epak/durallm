@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-⚡ LLM Circuit Breaker: Durable Autonomous Long-Horizon Runner for Claude Code.
+⚡ DuraLLM: Durable Autonomous Long-Horizon Runner for Claude Code.
 
 Runs Claude Code in an unattended outer control loop:
 1. Executes multi-turn engineering workflows without human intervention
@@ -38,10 +38,10 @@ def is_port_open(port: int, host: str = "127.0.0.1") -> bool:
 
 def ensure_gateway_running(port: int = DEFAULT_GATEWAY_PORT) -> Optional[subprocess.Popen]:
     if is_port_open(port):
-        print(f"[✔] LLM Circuit Breaker Gateway is already active on port {port}")
+        print(f"[✔] DuraLLM Gateway is already active on port {port}")
         return None
 
-    print(f"[⚡] Starting LLM Circuit Breaker Gateway on port {port}...")
+    print(f"[⚡] Starting DuraLLM Gateway on port {port}...")
     log_file = open("gateway.log", "a", encoding="utf-8")
     proc = subprocess.Popen(
         [sys.executable, "-m", "durallm.proxy", "--port", str(port)],

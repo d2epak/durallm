@@ -1,6 +1,6 @@
-# LLM Circuit Breaker Integration Examples
+# DuraLLM Integration Examples
 
-This directory contains reference integration guides and runnable examples for integrating **LLM Circuit Breaker** into popular autonomous agent workflows and proxies.
+This directory contains reference integration guides and runnable examples for integrating **DuraLLM** into popular autonomous agent workflows and proxies.
 
 ---
 

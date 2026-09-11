@@ -55,7 +55,7 @@ class TestImportSideEffects(unittest.TestCase):
 
     def _run(self, **extra_env):
         env = {k: v for k, v in os.environ.items()
-               if k not in KEY_NAMES and not k.startswith("LLM_BREAKER_")}
+               if k not in KEY_NAMES and not k.startswith("LLM_BREAKER_") and not k.startswith("DURALLM_")}
         env.update({"HOME": self.home.name, "PYTHONPATH": str(REPO / "src")}, **extra_env)
         proc = subprocess.run([sys.executable, "-c", PROBE], env=env, capture_output=True, text=True, timeout=60)
         self.assertEqual(proc.returncode, 0, proc.stderr)
@@ -69,12 +69,12 @@ class TestImportSideEffects(unittest.TestCase):
         self.assertEqual(data["explicit_opt_in"], {"GROQ_API_KEY": "leaked-from-dotfile"})
 
     def test_env_opt_in_enables_dotfile_scanning(self):
-        data, _ = self._run(LLM_BREAKER_SCAN_DOTFILES="1")
+        data, _ = self._run(DURALLM_SCAN_DOTFILES="1")
         self.assertEqual(data["keys_at_import"], {"GROQ_API_KEY": "leaked-from-dotfile"})
 
     def test_env_opt_in_enables_discovery_at_import(self):
         # Discovery swallows its own errors, so the blocked socket is the evidence it ran.
-        _, stderr = self._run(LLM_BREAKER_AUTO_DISCOVER="1")
+        _, stderr = self._run(DURALLM_AUTO_DISCOVER="1")
         self.assertIn("NETWORK_ATTEMPTED", stderr)
 
 

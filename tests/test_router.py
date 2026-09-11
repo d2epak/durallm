@@ -41,7 +41,7 @@ class TestUpstreamBoundary(unittest.TestCase):
     def test_private_upstream_is_refused_without_a_network_call(self):
         route = RouteDefinition(id="lan", provider="ollama", model="m", pool="coding",
                                 base_url="http://192.168.1.10:11434/v1", api_format="openai", env_key=None)
-        env = {k: v for k, v in os.environ.items() if k != "LLM_BREAKER_ALLOW_LOCAL_UPSTREAM"}
+        env = {k: v for k, v in os.environ.items() if k not in ("DURALLM_ALLOW_LOCAL_UPSTREAM", "LLM_BREAKER_ALLOW_LOCAL_UPSTREAM")}
         with patch.dict(os.environ, env, clear=True), patch("urllib.request.urlopen") as urlopen:
             status, _, body = execute_upstream_request(route, {"messages": []})
         urlopen.assert_not_called()

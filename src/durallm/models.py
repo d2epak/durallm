@@ -1,4 +1,4 @@
-"""Core Domain Data Models for LLM Circuit Breaker Gateway."""
+"""Core Domain Data Models for DuraLLM Gateway."""
 
 from __future__ import annotations
 

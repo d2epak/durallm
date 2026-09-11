@@ -1,6 +1,6 @@
-# Contributing to LLM Circuit Breaker
+# Contributing to DuraLLM
 
-Thank you for your interest in contributing to **LLM Circuit Breaker**! We welcome bug fixes, performance improvements, new provider adapters, and documentation updates.
+Thank you for your interest in contributing to **DuraLLM**! We welcome bug fixes, performance improvements, new provider adapters, and documentation updates.
 
 ---
 

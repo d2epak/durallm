@@ -16,7 +16,7 @@ from durallm.providers.adapters import AnthropicAdapter, OpenAICompatibleAdapter
 from durallm.providers.base import PreparedRequest, ProviderExecutionResult
 
 PREPARED = PreparedRequest(url="https://api.example.com/v1/chat/completions", headers={}, body_bytes=b"{}")
-ENV_NO_LOCAL = {k: v for k, v in os.environ.items() if k != "LLM_BREAKER_ALLOW_LOCAL_UPSTREAM"}
+ENV_NO_LOCAL = {k: v for k, v in os.environ.items() if k not in ("DURALLM_ALLOW_LOCAL_UPSTREAM", "LLM_BREAKER_ALLOW_LOCAL_UPSTREAM")}
 
 
 def _execute_with(exc):
@@ -108,7 +108,7 @@ class TestUpstreamUrlBoundary(unittest.TestCase):
 
     def test_loopback_upstream_allowed_by_opt_in(self):
         local = PreparedRequest(url="http://localhost:11434/v1/chat/completions", headers={}, body_bytes=b"{}")
-        with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}):
+        with patch.dict(os.environ, {"DURALLM_ALLOW_LOCAL_UPSTREAM": "1"}):
             res = _execute_with(urllib.error.URLError(ConnectionRefusedError(61, "Connection refused")))
             with patch("urllib.request.urlopen", side_effect=urllib.error.URLError(socket.timeout("timed out"))):
                 res = OpenAICompatibleAdapter("openai").execute(local, timeout_seconds=1.0)

@@ -14,7 +14,7 @@ from durallm.execution.policy import ExecutionPolicy, FallbackPolicy, RetryPolic
 
 @dataclass
 class GatewayConfig:
-    """Production configuration for the LLM Circuit Breaker Gateway."""
+    """Production configuration for the DuraLLM Gateway."""
     host: str = "127.0.0.1"
     port: int = 4001
     default_pool: str = "general_agent"
@@ -57,28 +57,35 @@ class GatewayConfig:
 
     @classmethod
     def from_env(cls) -> GatewayConfig:
-        """Load configuration from LLM_BREAKER_* and GATEWAY_* environment variables."""
+        """Load configuration from DURALLM_*, LLM_BREAKER_*, and GATEWAY_* environment variables."""
+        def get_env(key: str, default: str) -> str:
+            val = os.environ.get(key)
+            if val is not None:
+                return val
+            legacy_key = key.replace("DURALLM_", "LLM_BREAKER_")
+            return os.environ.get(legacy_key, default)
+
         return cls(
-            host=os.environ.get("LLM_BREAKER_HOST", os.environ.get("HOST", "127.0.0.1")),
-            port=int(os.environ.get("LLM_BREAKER_PORT", os.environ.get("PORT", "4001"))),
-            default_pool=os.environ.get("LLM_BREAKER_DEFAULT_POOL", "general_agent"),
-            default_strategy=os.environ.get("LLM_BREAKER_STRATEGY", "balanced"),
-            deadline_ms=float(os.environ.get("LLM_BREAKER_DEADLINE_MS", "60000.0")),
-            streaming_mode=os.environ.get("LLM_BREAKER_STREAMING_MODE", "true_streaming"),
-            log_level=os.environ.get("LLM_BREAKER_LOG_LEVEL", "INFO"),
-            breaker_failure_rate_threshold=float(os.environ.get("LLM_BREAKER_FAILURE_THRESHOLD", "50.0")),
-            breaker_sliding_window_size=int(os.environ.get("LLM_BREAKER_WINDOW_SIZE", "10")),
-            breaker_wait_duration_in_open=float(os.environ.get("LLM_BREAKER_WAIT_OPEN", "30.0")),
-            breaker_half_open_calls=int(os.environ.get("LLM_BREAKER_HALF_OPEN_CALLS", "3")),
-            retry_max_same_endpoint=int(os.environ.get("LLM_BREAKER_RETRY_MAX", "2")),
-            fallback_max_hops=int(os.environ.get("LLM_BREAKER_FALLBACK_MAX", "3")),
-            max_total_attempts=int(os.environ.get("LLM_BREAKER_MAX_TOTAL_ATTEMPTS", "6")),
+            host=get_env("DURALLM_HOST", os.environ.get("HOST", "127.0.0.1")),
+            port=int(get_env("DURALLM_PORT", os.environ.get("PORT", "4001"))),
+            default_pool=get_env("DURALLM_DEFAULT_POOL", "general_agent"),
+            default_strategy=get_env("DURALLM_STRATEGY", "balanced"),
+            deadline_ms=float(get_env("DURALLM_DEADLINE_MS", "60000.0")),
+            streaming_mode=get_env("DURALLM_STREAMING_MODE", "true_streaming"),
+            log_level=get_env("DURALLM_LOG_LEVEL", "INFO"),
+            breaker_failure_rate_threshold=float(get_env("DURALLM_FAILURE_THRESHOLD", "50.0")),
+            breaker_sliding_window_size=int(get_env("DURALLM_WINDOW_SIZE", "10")),
+            breaker_wait_duration_in_open=float(get_env("DURALLM_WAIT_OPEN", "30.0")),
+            breaker_half_open_calls=int(get_env("DURALLM_HALF_OPEN_CALLS", "3")),
+            retry_max_same_endpoint=int(get_env("DURALLM_RETRY_MAX", "2")),
+            fallback_max_hops=int(get_env("DURALLM_FALLBACK_MAX", "3")),
+            max_total_attempts=int(get_env("DURALLM_MAX_TOTAL_ATTEMPTS", "6")),
         )
 
     @classmethod
     def load(cls, config_path: Optional[str] = None) -> GatewayConfig:
         """Load from file if provided/exists, overlaid with environment variables."""
-        path = config_path or os.environ.get("LLM_BREAKER_CONFIG")
+        path = config_path or os.environ.get("DURALLM_CONFIG") or os.environ.get("LLM_BREAKER_CONFIG")
         if path and Path(path).exists():
             with open(path, "r", encoding="utf-8") as f:
                 raw = f.read()

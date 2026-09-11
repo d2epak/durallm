@@ -770,7 +770,7 @@ def start_proxy_server(host: str = "127.0.0.1", port: int = 4001) -> ThreadingHT
     ``server.server_address[1]``.
     """
     server = ThreadingHTTPServer((host, port), CircuitBreakerGatewayHandler)
-    logger.info("⚡ LLM Circuit Breaker Gateway bound to http://%s:%d (call serve_forever() to start)", host, server.server_address[1])
+    logger.info("⚡ DuraLLM Gateway bound to http://%s:%d (call serve_forever() to start)", host, server.server_address[1])
     return server
 
 
@@ -783,7 +783,7 @@ def create_proxy_app():
     except ImportError:
         raise ImportError("FastAPI is optional. Install with: pip install 'durallm[proxy]'")
 
-    app = FastAPI(title="LLM Circuit Breaker Gateway", version="0.2.1")
+    app = FastAPI(title="DuraLLM Gateway", version="0.2.1")
 
     @app.get("/health")
     async def health():
@@ -973,7 +973,7 @@ def create_proxy_app():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run local LLM Circuit Breaker Gateway")
+    parser = argparse.ArgumentParser(description="Run local DuraLLM Gateway")
     parser.add_argument("--port", type=int, default=4001, help="Gateway port (default: 4001)")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     parser.add_argument("--discover", action="store_true",
@@ -988,7 +988,7 @@ def main():
     POOL_MANAGER.load_from_quirks_ledger()
 
     print("\n" + "=" * 65)
-    print("  ⚡ LLM CIRCUIT BREAKER MULTI-AGENT GATEWAY ONLINE")
+    print("  ⚡ DURALLM MULTI-AGENT GATEWAY ONLINE")
     print(f"  - Server Address: http://{args.host}:{args.port}")
     print(f"  - Claude Code (Coding Pool): http://{args.host}:{args.port}/v1/messages")
     print(f"  - Hermes / OpenClaw (Agent Pool): http://{args.host}:{args.port}/v1/chat/completions")
@@ -1012,7 +1012,7 @@ def main():
         if canary_enabled:
             from durallm.canary import DEFAULT_CANARY_SCHEDULER
             DEFAULT_CANARY_SCHEDULER.stop()
-        print("\nStopping LLM Circuit Breaker Gateway...")
+        print("\nStopping DuraLLM Gateway...")
         server.shutdown()
         server.server_close()
 

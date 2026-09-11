@@ -86,7 +86,7 @@ def extract_diagnostic_summary(raw_content: str, max_chars: int = 600) -> str:
                     extracted[k] = data[k]
             if extracted:
                 formatted = (
-                    f"[Structured Tool Output Summary (by Circuit Breaker)]:\n"
+                    f"[Structured Tool Output Summary (by DuraLLM)]:\n"
                     f"{json.dumps(extracted, ensure_ascii=False, indent=2)}\n"
                     f"... (remaining payload truncated to preserve context budget)"
                 )
@@ -101,7 +101,7 @@ def extract_diagnostic_summary(raw_content: str, max_chars: int = 600) -> str:
     if len(lines) <= 4:
         half = max(50, (max_chars - 60) // 2)
         return (
-            "[Historical Tool Output compacted by Circuit Breaker to fit target budget]\n"
+            "[Historical Tool Output compacted by DuraLLM to fit target budget]\n"
             + raw_content[:half]
             + "\n... [truncated] ...\n"
             + raw_content[-half:]
@@ -125,7 +125,7 @@ def extract_diagnostic_summary(raw_content: str, max_chars: int = 600) -> str:
     tail_lines = [ln.strip() for ln in lines[-3:] if ln.strip()]
 
     parts = [
-        "[Historical Tool Output compacted by Circuit Breaker to fit target budget]",
+        "[Historical Tool Output compacted by DuraLLM to fit target budget]",
         f"--- HEAD ({len(lines)} total lines) ---",
         "\n".join(header_lines),
     ]
@@ -237,7 +237,7 @@ class ContextManager:
             if m.content and len(m.content) > 600 and m.role == "assistant":
                 m.content = (
                     m.content[:300]
-                    + "\n... [Prior assistant reasoning compacted by Circuit Breaker] ...\n"
+                    + "\n... [Prior assistant reasoning compacted by DuraLLM] ...\n"
                     + m.content[-300:]
                 )
 

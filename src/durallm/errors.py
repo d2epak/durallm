@@ -1,4 +1,4 @@
-"""Domain Exceptions for LLM Circuit Breaker Gateway."""
+"""Domain Exceptions for DuraLLM Gateway."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 
 class CircuitBreakerGatewayError(Exception):
-    """Base exception for all LLM Circuit Breaker Gateway errors."""
+    """Base exception for all DuraLLM Gateway errors."""
 
     def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
         super().__init__(message)

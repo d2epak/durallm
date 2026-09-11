@@ -29,7 +29,7 @@ class ControlledClock:
 
 def run_demo():
     print("=" * 75)
-    print("⚡ LLM CIRCUIT BREAKER — DETERMINISTIC RESILIENCE & SEMANTIC FAILOVER DEMO")
+    print("⚡ DURALLM — DETERMINISTIC RESILIENCE & SEMANTIC FAILOVER DEMO")
     print("=" * 75)
     print("Simulating Autonomous Agent with Zero External Dependencies...\n")
 

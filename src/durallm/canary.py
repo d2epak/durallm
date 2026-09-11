@@ -243,7 +243,7 @@ class CanaryProber:
         probed_routes = [
             ("groq", "qwen/qwen3.6-27b", "https://api.groq.com/openai/v1", keys.get("GROQ_API_KEY", "")),
             ("openrouter", "openrouter/free", "https://openrouter.ai/api/v1", keys.get("OPENROUTER_API_KEY", "")),
-            ("nvidia", "google/gemma-4-31b-it", "https://integrate.api.nvidia.com/v1", keys.get("NVIDIA_API_KEY", "")),
+            ("nvidia", "meta/llama-3.2-11b-vision-instruct", "https://integrate.api.nvidia.com/v1", keys.get("NVIDIA_API_KEY", "")),
         ]
         probe_results = {}
         for prov, model, base_url, key_val in probed_routes:

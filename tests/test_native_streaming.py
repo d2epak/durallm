@@ -116,7 +116,7 @@ def _route(route_id, base_url, provider="openai", protocol="openai"):
 class TestBaseHTTPAdapterNativeStreaming(unittest.TestCase):
     def setUp(self):
         self.upstream = _UpstreamServer([b"data: one\n\n", b"data: [DONE]\n\n"])
-        self.env = patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"})
+        self.env = patch.dict(os.environ, {"DURALLM_ALLOW_LOCAL_UPSTREAM": "1"})
         self.env.start()
 
     def tearDown(self):
@@ -197,7 +197,7 @@ class TestNativeProxyNoSplice(unittest.TestCase):
         healthy = _UpstreamServer([b"data: fallback\n\n", b"data: [DONE]\n\n"])
         gateway = _gateway([_route("broken", broken.base_url), _route("healthy", healthy.base_url)])
         try:
-            with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
+            with patch.dict(os.environ, {"DURALLM_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
                 "durallm.proxy.GATEWAY", gateway
             ):
                 status, headers, raw = self._post("/v1/chat/completions", {
@@ -219,7 +219,7 @@ class TestNativeProxyNoSplice(unittest.TestCase):
         healthy = _UpstreamServer([b"data: should-not-appear\n\n", b"data: [DONE]\n\n"])
         gateway = _gateway([_route("broken", broken.base_url), _route("healthy", healthy.base_url)])
         try:
-            with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
+            with patch.dict(os.environ, {"DURALLM_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
                 "durallm.proxy.GATEWAY", gateway
             ):
                 status, _, raw = self._post("/v1/chat/completions", {
@@ -245,7 +245,7 @@ class TestNativeProxyNoSplice(unittest.TestCase):
             _route("healthy", healthy.base_url, provider="anthropic_contract", protocol="anthropic"),
         ])
         try:
-            with patch.dict(os.environ, {"LLM_BREAKER_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
+            with patch.dict(os.environ, {"DURALLM_ALLOW_LOCAL_UPSTREAM": "1"}), patch(
                 "durallm.proxy.GATEWAY", gateway
             ):
                 status, _, raw = self._post("/v1/messages", {

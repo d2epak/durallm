@@ -102,7 +102,7 @@ class TestAgentSemantics(unittest.TestCase):
         self.assertIn(planted_constraint, first_user_content)
 
         # 3. Massive tool output was compacted
-        self.assertIn("compacted by Circuit Breaker", compacted_req.messages[2].tool_results[0].content)
+        self.assertIn("compacted by DuraLLM", compacted_req.messages[2].tool_results[0].content)
 
     def test_deep_planted_critical_fact_and_tool_diagnostics_survival(self):
         # 1. Embed critical diagnostic inside large log dump (middle of log)

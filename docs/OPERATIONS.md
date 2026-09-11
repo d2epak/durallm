@@ -1,6 +1,6 @@
 # Production Operations, Deployment & Observability
 
-This guide outlines deployment topologies, configuration management, health telemetry, and persistence for **LLM Circuit Breaker (V3)**.
+This guide outlines deployment topologies, configuration management, health telemetry, and persistence for **DuraLLM (V3)**.
 
 ---
 
@@ -9,9 +9,9 @@ This guide outlines deployment topologies, configuration management, health tele
 1. **In-Process Python SDK (Zero Daemon):**
    Integrated directly into Python agent processes (`from durallm import GatewayExecutor`). Zero external dependencies, minimal latency overhead (<1ms).
 2. **Local Sidecar / Gateway Server:**
-   Runs as a lightweight HTTP microservice on `127.0.0.1:4001` (the default for `llm-proxy`, `GatewayConfig.port` and `LLM_BREAKER_PORT`) mediating requests for multi-process or multi-language agents.
+   Runs as a lightweight HTTP microservice on `127.0.0.1:4001` (the default for `llm-proxy`, `GatewayConfig.port` and `DURALLM_PORT`) mediating requests for multi-process or multi-language agents.
 3. **Optional SQLite Persistence:**
-   Set `LLM_BREAKER_STATE_DB=/absolute/path/gateway.db` before starting the
+   Set `DURALLM_STATE_DB=/absolute/path/gateway.db` before starting the
    proxy. The `SQLitePersistenceStore` enables WAL-backed ACP session state,
    write-ahead provider attempts, and durable tool-operation receipts. Read
    `DURABLE_STATE.md` before treating an external tool action as safe to

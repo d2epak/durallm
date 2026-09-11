@@ -1,4 +1,4 @@
-"""Deterministic Fault-Injection Tests for LLM Circuit Breaker Gateway."""
+"""Deterministic Fault-Injection Tests for DuraLLM Gateway."""
 
 import unittest
 

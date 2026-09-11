@@ -22,15 +22,15 @@ from durallm._env import env_flag  # noqa: F401  (re-exported for router)
 
 logger = logging.getLogger("durallm.pools")
 
-SCAN_DOTFILES_ENV = "LLM_BREAKER_SCAN_DOTFILES"
-AUTO_DISCOVER_ENV = "LLM_BREAKER_AUTO_DISCOVER"
+SCAN_DOTFILES_ENV = "DURALLM_SCAN_DOTFILES"
+AUTO_DISCOVER_ENV = "DURALLM_AUTO_DISCOVER"
 
 
 def load_all_env_keys(target_keys: Optional[List[str]] = None, scan_dotfiles: Optional[bool] = None) -> Dict[str, str]:
     """Read API keys from the process environment.
 
     Shell dotfiles (~/.zshrc, ~/.claude/.env, ~/.hermes/.env, ...) are only
-    read when ``scan_dotfiles`` is True or ``LLM_BREAKER_SCAN_DOTFILES`` is set.
+    read when ``scan_dotfiles`` is True or ``DURALLM_SCAN_DOTFILES`` is set.
     """
     if scan_dotfiles is None:
         scan_dotfiles = env_flag(SCAN_DOTFILES_ENV)

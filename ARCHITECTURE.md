@@ -1,6 +1,6 @@
-# LLM Circuit Breaker V3 — Architecture Specification
+# DuraLLM V3 — Architecture Specification
 
-This document provides a comprehensive technical reference for the architecture, subsystems, and invariants of the LLM Circuit Breaker V3 gateway.
+This document provides a comprehensive technical reference for the architecture, subsystems, and invariants of the DuraLLM V3 gateway.
 
 ---
 

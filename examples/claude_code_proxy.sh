@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Quickstart script to start LLM Circuit Breaker Proxy and launch Claude Code
+# Quickstart script to start DuraLLM Proxy and launch Claude Code
 
-echo "🚀 Starting LLM Circuit Breaker Local Proxy on http://127.0.0.1:8000..."
+echo "🚀 Starting DuraLLM Local Proxy on http://127.0.0.1:8000..."
 python3 -m durallm.proxy --port 8000 &
 PROXY_PID=$!
 
