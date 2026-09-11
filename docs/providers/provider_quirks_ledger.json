@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "last_updated_utc": "2026-09-11T10:16:22.701130+00:00",
+  "last_updated_utc": "2026-09-11T14:18:20.691529+00:00",
   "scheduler": {
     "target_time_local": "01:00",
     "timezone": "Europe/London",
@@ -27,12 +27,12 @@
           "supports_tools": true,
           "supports_streaming": true,
           "status": "active",
-          "last_verified_utc": "2026-09-11T10:16:22.701130+00:00",
+          "last_verified_utc": "2026-09-11T14:18:20.691529+00:00",
           "quirks": [
             "Clamps max_tokens to 950 to prevent HTTP 429 OTPM limit rejection",
             "Returns 'try again in X.XXs' in body on TPM exhaustion"
           ],
-          "last_probe_latency_ms": 343.9
+          "last_probe_latency_ms": 202.3
         },
         "openai/gpt-oss-120b": {
           "pool": "coding",
@@ -137,11 +137,11 @@
           "supports_tools": true,
           "supports_streaming": true,
           "status": "active",
-          "last_verified_utc": "2026-09-11T10:16:22.701130+00:00",
+          "last_verified_utc": "2026-09-11T14:18:20.691529+00:00",
           "quirks": [
             "OpenRouter's meta-router that dynamically routes to available free endpoints"
           ],
-          "last_probe_latency_ms": 929.6
+          "last_probe_latency_ms": 892.6
         },
         "nvidia/nemotron-3-ultra-550b-a55b:free": {
           "pool": "general_agent",
@@ -424,11 +424,11 @@
           "supports_tools": true,
           "supports_streaming": true,
           "status": "active",
-          "last_verified_utc": "2026-09-11T10:16:22.701130+00:00",
+          "last_verified_utc": "2026-09-11T14:18:20.691529+00:00",
           "quirks": [
             "Fast multimodal agent model"
           ],
-          "last_probe_latency_ms": 197.4
+          "last_probe_latency_ms": 180.2
         },
         "nvidia/nemotron-3-ultra-550b-a55b": {
           "pool": "coding",

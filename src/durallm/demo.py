@@ -1,6 +1,13 @@
 """Deterministic, Zero-API-Key Local Demonstration of Semantic Failover and Circuit Breaking."""
 
 
+import os
+import sys
+
+_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if _repo_root not in sys.path:
+    sys.path.insert(0, _repo_root)
+
 from durallm.breaker.circuit_breaker import CircuitBreakerConfig
 from durallm.breaker.registry import CircuitBreakerRegistry
 from durallm.capability.profile import Endpoint, ModelProfile
@@ -108,7 +115,7 @@ def run_demo():
         tools=[tool_def],
     )
     resp1, dec1, ledger1 = executor.execute(req1, pool="coding", strategy="priority")
-    breaker1 = breaker_reg.get("primary_cerebras:llama3.3-70b")
+    breaker1 = breaker_reg.get(ep_primary.resource_key)
     print(f"  ✔ Result: {resp1.content}")
     print(f"  ✔ Selected Endpoint: {dec1.selected_endpoint.id} (Attempts: {ledger1.total_attempts})")
     print(f"  ✔ Primary Breaker State: {breaker1.state.value}\n")

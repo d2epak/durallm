@@ -241,6 +241,8 @@ class CanaryProber:
 
         # 2. Ping sample routes across providers to verify live health
         probed_routes = [
+            ("cerebras", "qwen-3.8-27b", "https://api.cerebras.ai/v1", keys.get("CEREBRAS_API_KEY", "")),
+            ("gemini", "gemini-2.5-flash", "https://generativelanguage.googleapis.com/v1beta/openai", keys.get("GEMINI_API_KEY", "")),
             ("groq", "qwen/qwen3.6-27b", "https://api.groq.com/openai/v1", keys.get("GROQ_API_KEY", "")),
             ("openrouter", "openrouter/free", "https://openrouter.ai/api/v1", keys.get("OPENROUTER_API_KEY", "")),
             ("nvidia", "meta/llama-3.2-11b-vision-instruct", "https://integrate.api.nvidia.com/v1", keys.get("NVIDIA_API_KEY", "")),

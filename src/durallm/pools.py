@@ -42,6 +42,7 @@ def load_all_env_keys(target_keys: Optional[List[str]] = None, scan_dotfiles: Op
             "OPENROUTER_API_KEY",
             "SAMBANOVA_API_KEY",
             "CEREBRAS_API_KEY",
+            "GEMINI_API_KEY",
         ]
     for k in target_keys:
         if os.getenv(k):
